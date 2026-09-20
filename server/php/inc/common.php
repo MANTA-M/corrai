@@ -51,7 +51,9 @@ if ($logToStderr) {
         error_log("$logPath does not exists");
         exit(1);
     }
-    ini_set('error_log', $logPath . 'corrai_' . ($_ENV['APP_ENV'] ?? '') . '_error.log');
+    $logFile = 'corrai_' . ($_ENV['APP_ENV'] ?? '') . '_error.log';
+    ini_set('error_log', $logPath . $logFile);
+    error_log("Error log file: $logPath$logFile");
 }
 
 function request_error_handler($errno, $errstr) {
