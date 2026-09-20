@@ -1,0 +1,106 @@
+import type { I18nSchema } from '@/i18n'
+
+const ru: I18nSchema = {
+    common: {
+        back: "Назад",
+        cancel: "Отмена",
+    },
+    title: "Corrai",
+    nav: {
+        exams: "Экзамены",
+        settings: "Настройки",
+        login: "Вход",
+        logout: "Выход"
+    },
+    examList: {
+        subtitle: "Управление вашими экзаменами",
+        empty: "Экзаменов пока нет."
+    },
+    createExam: {
+        title: "Создать экзамен",
+        subtitle: "Введите название, предмет и дату экзамена",
+        editTitle: "Редактировать экзамен",
+        editSubtitle: "Обновите название, предмет и дату экзамена"
+    },
+    exam: {
+        loading: "Загрузка экзамена...",
+        error: "Ошибка",
+        back: "← Назад",
+        createNew: "Создать новый экзамен",
+        edit: "Редактировать",
+        name: "Название",
+        namePlaceholder: "Введите название экзамена",
+        subject: "Предмет",
+        subjectPlaceholder: "Введите предмет",
+        date: "Дата",
+        create: "Создать экзамен",
+        creating: "Создание...",
+        save: "Сохранить",
+        saving: "Сохранение...",
+        delete: "Удалить экзамен",
+        deleting: "Удаление...",
+        deleteConfirm: "Вы уверены, что хотите удалить этот экзамен?",
+        deleteError: "Не удалось удалить экзамен",
+        details: "Детали экзамена",
+        notFound: "Экзамен не найден",
+        notFoundMessage: "Не удалось найти экзамен с хешем \"{hash}\".",
+        saveError: "Не удалось сохранить экзамен",
+        createError: "Не удалось создать экзамен",
+        files: "Файлы",
+        filesEmpty: "К этому экзамену пока не привязаны файлы.",
+        addFiles: "Добавить файлы",
+        addFilesTitle: "Добавить файлы",
+        dropzoneHint: "Перетащите файлы сюда или нажмите, чтобы выбрать",
+        uploading: "Загрузка...",
+        uploadDone: "Загружено",
+        uploadError: "Не удалось загрузить файл"
+    },
+    language: "Язык",
+    settings: {
+        title: "Настройки",
+        subtitle: "Настройте ваши предпочтения и параметры системы",
+        general: "Общие",
+        admin_console_link: "Ссылка на консоль администратора",
+        copy_link: "Скопировать ссылку в буфер обмена",
+        admin_locale: "Язык Административного Интерфейса",
+        notifications: "Уведомления",
+        notifications_permission_denied_warning: "Уведомления браузера в настоящее время отключены. Включите уведомления, чтобы получать важные обновления.",
+        notifications_permission_denied: "Разрешение было отклонено. Пожалуйста, включите уведомления в настройках браузера.",
+        notifications_enabled: "Уведомления успешно включены!",
+        notifications_enabled_status: "Уведомления браузера включены.",
+        notifications_not_requested: "Включите уведомления браузера, чтобы получать важные обновления.",
+        enable_notifications: "Включить Уведомления",
+        create_webpush_subscription: "Создать подписку Web Push",
+        notifications_error: "Произошла ошибка при настройке уведомлений.",
+        reset_notifications: "Сбросить Уведомления",
+        reset_notifications_confirm: "Вы уверены, что хотите сбросить и отключить уведомления?",
+        notifications_reset_success: "Уведомления успешно сброшены!",
+        notifications_reset_error: "Произошла ошибка при сбросе уведомлений."
+    },
+    notFound: {
+        title: "Страница не найдена",
+        message: "Страница, которую вы ищете, не существует или была перемещена.",
+        goHome: "На главную",
+        goBack: "Назад"
+    },
+    notAuthenticated: {
+        title: "Не авторизован",
+        message: "Вы не авторизованы для доступа к этой странице. Пожалуйста, войдите, чтобы продолжить.",
+        goToLogin: "Перейти к входу"
+    },
+    initProfile: {
+        title: "Инициализация профиля",
+        subtitle: "Создайте новый профиль или восстановите существующий",
+        createProfile: "Создать новый профиль",
+        recoverProfile: "Восстановить профиль",
+        userName: "Имя пользователя",
+        optional: "необязательно",
+        userNamePlaceholder: "Введите ваше имя (необязательно)",
+        create: "Создать профиль",
+        creating: "Создание...",
+        createError: "Не удалось создать профиль. Попробуйте снова.",
+        recoverDescription: "Восстановление профиля будет доступно в ближайшее время."
+    }
+} as I18nSchema
+
+export default ru

@@ -1,0 +1,106 @@
+import type { I18nSchema } from '@/i18n'
+
+const de: I18nSchema = {
+    common: {
+        back: "Zurück",
+        cancel: "Abbrechen",
+    },
+    title: "Corrai",
+    nav: {
+        exams: "Prüfungen",
+        settings: "Einstellungen",
+        login: "Anmelden",
+        logout: "Abmelden"
+    },
+    examList: {
+        subtitle: "Verwalten Sie Ihre Prüfungen",
+        empty: "Noch keine Prüfungen."
+    },
+    createExam: {
+        title: "Prüfung erstellen",
+        subtitle: "Geben Sie Name, Fach und Datum Ihrer Prüfung ein",
+        editTitle: "Prüfung bearbeiten",
+        editSubtitle: "Aktualisieren Sie Name, Fach und Datum Ihrer Prüfung"
+    },
+    exam: {
+        loading: "Prüfung wird geladen...",
+        error: "Fehler",
+        back: "← Zurück",
+        createNew: "Neue Prüfung erstellen",
+        edit: "Bearbeiten",
+        name: "Name",
+        namePlaceholder: "Prüfungsname eingeben",
+        subject: "Fach",
+        subjectPlaceholder: "Fach eingeben",
+        date: "Datum",
+        create: "Prüfung erstellen",
+        creating: "Wird erstellt...",
+        save: "Speichern",
+        saving: "Wird gespeichert...",
+        delete: "Prüfung löschen",
+        deleting: "Wird gelöscht...",
+        deleteConfirm: "Möchten Sie diese Prüfung wirklich löschen?",
+        deleteError: "Prüfung konnte nicht gelöscht werden",
+        details: "Prüfungsdetails",
+        notFound: "Prüfung nicht gefunden",
+        notFoundMessage: "Prüfung mit Hash \"{hash}\" konnte nicht gefunden werden.",
+        saveError: "Prüfung konnte nicht gespeichert werden",
+        createError: "Prüfung konnte nicht erstellt werden",
+        files: "Dateien",
+        filesEmpty: "Noch keine Dateien mit dieser Prüfung verknüpft.",
+        addFiles: "Dateien hinzufügen",
+        addFilesTitle: "Dateien hinzufügen",
+        dropzoneHint: "Dateien hier ablegen oder klicken zum Auswählen",
+        uploading: "Wird hochgeladen...",
+        uploadDone: "Hochgeladen",
+        uploadError: "Datei konnte nicht hochgeladen werden"
+    },
+    language: "Sprache",
+    settings: {
+        title: "Einstellungen",
+        subtitle: "Konfigurieren Sie Ihre Einstellungen und Systemoptionen",
+        general: "Allgemein",
+        admin_console_link: "Admin-Konsolen-Link",
+        copy_link: "Link in die Zwischenablage kopieren",
+        admin_locale: "Sprache der Admin-Oberfläche",
+        notifications: "Benachrichtigungen",
+        notifications_permission_denied_warning: "Browser-Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie Benachrichtigungen, um wichtige Updates zu erhalten.",
+        notifications_permission_denied: "Berechtigung wurde verweigert. Bitte aktivieren Sie Benachrichtigungen in den Browser-Einstellungen.",
+        notifications_enabled: "Benachrichtigungen wurden erfolgreich aktiviert!",
+        notifications_enabled_status: "Browser-Benachrichtigungen sind aktiviert.",
+        notifications_not_requested: "Aktivieren Sie Browser-Benachrichtigungen, um wichtige Updates zu erhalten.",
+        enable_notifications: "Benachrichtigungen aktivieren",
+        create_webpush_subscription: "Web-Push-Abonnement erstellen",
+        notifications_error: "Beim Einrichten der Benachrichtigungen ist ein Fehler aufgetreten.",
+        reset_notifications: "Benachrichtigungen zurücksetzen",
+        reset_notifications_confirm: "Möchten Sie die Benachrichtigungen wirklich zurücksetzen und deaktivieren?",
+        notifications_reset_success: "Benachrichtigungen wurden erfolgreich zurückgesetzt!",
+        notifications_reset_error: "Beim Zurücksetzen der Benachrichtigungen ist ein Fehler aufgetreten."
+    },
+    notFound: {
+        title: "Seite nicht gefunden",
+        message: "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+        goHome: "Zur Startseite",
+        goBack: "Zurück"
+    },
+    notAuthenticated: {
+        title: "Nicht authentifiziert",
+        message: "Sie sind nicht authentifiziert, um auf diese Seite zuzugreifen. Bitte melden Sie sich an.",
+        goToLogin: "Zur Anmeldung"
+    },
+    initProfile: {
+        title: "Profil initialisieren",
+        subtitle: "Erstellen Sie ein neues Profil oder stellen Sie ein bestehendes wieder her",
+        createProfile: "Neues Profil erstellen",
+        recoverProfile: "Profil wiederherstellen",
+        userName: "Benutzername",
+        optional: "optional",
+        userNamePlaceholder: "Geben Sie Ihren Namen ein (optional)",
+        create: "Profil erstellen",
+        creating: "Wird erstellt...",
+        createError: "Profil konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+        recoverDescription: "Die Profilwiederherstellung wird bald verfügbar sein."
+    }
+} as I18nSchema
+
+export default de

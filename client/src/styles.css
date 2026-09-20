@@ -1,0 +1,574 @@
+/* Common Public CSS for Admin Client */
+
+/* Reset and base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  color-scheme: dark;
+}
+
+/* ============ Coral Deep-Sea Theme Tokens ============ */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 6px 24px rgba(0, 0, 0, 0.45);
+
+  /* Coral primary */
+  --accent: #ff6b4a;
+  --accent-600: #e85535;
+  --accent-700: #c9442a;
+
+  /* Semantic — distinct from coral */
+  --success: #2dd4a8;
+  --warning: #f4a62a;
+  --danger: #e63946;
+  --danger-600: #c92a36;
+  --info: #5bb8d4;
+
+  /* Dialog backgrounds */
+  --dialog-user-bg: hsl(210, 40%, 10%);
+  --dialog-bot-bg: hsl(210, 45%, 12%);
+
+  /* Typography scale */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+
+  /* Spacing */
+  --gutter: 16px;
+}
+
+/* Deep-sea surfaces & text */
+:root {
+  --bg: #04121f;
+  --surface: #0a1c32;
+  --surface-2: #0f2744;
+  --popover: #143252;
+  --border: #1e4a6e;
+  --muted: #8aa8c2;
+  --muted-2: #6b8aa6;
+  --text: #e8f2fa;
+  --link: #7ec8e8;
+  --link-hover: #a8ddf0;
+  --code-bg: #021018;
+  --code-border: #1a3d5c;
+  --selection: rgba(126, 200, 232, 0.25);
+  --scrollbar: #1a3d5c;
+  --scrollbar-hover: #255a7a;
+  --disabled: #3a5570;
+
+  /* Aliases for existing SFC var names */
+  --text-muted: var(--muted);
+  --border-color: var(--border);
+  --hover-bg: var(--surface-2);
+  --bg-hover: var(--surface-2);
+  --hover-border: var(--accent);
+  --card-bg: var(--surface);
+  --text-color: var(--text);
+}
+
+/* ============ Base ============ */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 107, 74, 0.12), transparent),
+    radial-gradient(ellipse 70% 40% at 80% 100%, rgba(91, 184, 212, 0.1), transparent),
+    radial-gradient(ellipse 50% 30% at 10% 80%, rgba(126, 200, 232, 0.06), transparent);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+::selection {
+  background: var(--selection);
+}
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+/* Page containers */
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: calc(var(--gutter) * 1.25);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ============ Header / Toolbar ============ */
+.header .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+/* ============ Cards & Surfaces ============ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+}
+.card.elevated {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-2);
+}
+
+main h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.33rem;
+}
+
+main h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.33rem;
+}
+
+/* ============ Buttons ============ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    transform 0.02s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+  user-select: none;
+}
+.button:hover {
+  background: var(--popover);
+  border-color: var(--link);
+}
+.button:active {
+  transform: translateY(1px);
+}
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.button.primary {
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.button.primary:hover {
+  background: var(--accent-600);
+}
+.button.primary:active {
+  background: var(--accent-700);
+}
+
+.button.secondary {
+  background-color: var(--surface-2);
+  color: var(--link);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.button.secondary:hover {
+  background-color: var(--popover);
+  border-color: var(--link);
+}
+
+.button.primary:disabled {
+  background-color: var(--disabled);
+  cursor: not-allowed;
+}
+
+.button.danger {
+  background-color: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.button.danger:hover {
+  background-color: var(--danger-600);
+}
+
+/* ============ Inputs ============ */
+.input,
+.textarea,
+.select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--muted-2);
+}
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ============ Messages (Notifications) ============ */
+.messages {
+  margin-bottom: 1rem;
+}
+
+.message {
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.message.error {
+  display: flex;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.message.success {
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.message.warning {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+
+.message.info {
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+  border: 1px solid var(--info);
+  color: var(--info);
+}
+
+/* ============ Chat Layout ============ */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 120px; /* room for composer */
+}
+.chat .message {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 12px;
+}
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+.chat .message.user .bubble {
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  border-color: var(--border);
+}
+.chat .message.assistant .bubble {
+  background: linear-gradient(180deg, var(--popover), var(--surface-2));
+  border-color: var(--border);
+}
+
+/* ============ Markdown content ============ */
+.bubble h1,
+.bubble h2,
+.bubble h3 {
+  line-height: 1.25;
+  margin: 14px 0 8px;
+}
+.bubble h1 {
+  font-size: 1.5rem;
+}
+.bubble h2 {
+  font-size: 1.25rem;
+}
+.bubble h3 {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.bubble p {
+  margin: 0 0 10px;
+}
+.bubble ul,
+.bubble ol {
+  margin: 8px 0 8px 20px;
+}
+.bubble li {
+  margin: 4px 0;
+}
+.bubble blockquote {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+.bubble a {
+  color: var(--link);
+}
+.bubble a:hover {
+  color: var(--link-hover);
+}
+
+/* Code & pre */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  overflow: auto;
+}
+pre > code {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* ============ Composer (input at bottom) ============ */
+.composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  padding: 12px 0;
+  background: linear-gradient(180deg, transparent, var(--bg) 28%), var(--bg);
+}
+.composer .bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px;
+}
+.composer .bar .input {
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+}
+.composer .bar .actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ============ Tables ============ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.table thead th {
+  color: var(--muted);
+  text-align: left;
+  font-weight: 600;
+  background: var(--surface-2);
+}
+
+.table tbody tr:hover {
+  background-color: var(--surface-2);
+}
+
+/* ============ Popups ============ */
+
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 18, 31, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.popup-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.popup-header {
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+}
+
+.popup-body {
+  padding: 1rem;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  color: var(--muted);
+}
+
+.popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+}
+
+/* ============ Badges & Pills ============ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ============ Toasts / Popovers ============ */
+.toast,
+.popover {
+  background: var(--popover);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-2);
+}
+
+/* ============ Focus & Accessibility ============ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.hidden-visually {
+  position: absolute !important;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+}
+
+/* ============ Scrollbars (Chromium/Edge) ============ */
+*::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+/* ============ Utility helpers ============ */
+.muted {
+  color: var(--muted);
+}
+.hr {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+  border: none;
+}

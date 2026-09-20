@@ -1,0 +1,106 @@
+import type { I18nSchema } from '@/i18n'
+
+const es: I18nSchema = {
+    common: {
+        back: "Atrás",
+        cancel: "Cancelar",
+    },
+    title: "Corrai",
+    nav: {
+        exams: "Exámenes",
+        settings: "Configuración",
+        login: "Iniciar sesión",
+        logout: "Cerrar sesión"
+    },
+    examList: {
+        subtitle: "Gestiona tus exámenes",
+        empty: "Aún no hay exámenes."
+    },
+    createExam: {
+        title: "Crear examen",
+        subtitle: "Introduce el nombre, la asignatura y la fecha de tu examen",
+        editTitle: "Editar examen",
+        editSubtitle: "Actualiza el nombre, la asignatura y la fecha de tu examen"
+    },
+    exam: {
+        loading: "Cargando examen...",
+        error: "Error",
+        back: "← Atrás",
+        createNew: "Crear nuevo examen",
+        edit: "Editar",
+        name: "Nombre",
+        namePlaceholder: "Introduce el nombre del examen",
+        subject: "Asignatura",
+        subjectPlaceholder: "Introduce la asignatura",
+        date: "Fecha",
+        create: "Crear examen",
+        creating: "Creando...",
+        save: "Guardar",
+        saving: "Guardando...",
+        delete: "Eliminar examen",
+        deleting: "Eliminando...",
+        deleteConfirm: "¿Estás seguro de que quieres eliminar este examen?",
+        deleteError: "Error al eliminar el examen",
+        details: "Detalles del examen",
+        notFound: "Examen no encontrado",
+        notFoundMessage: "No se pudo encontrar el examen con hash \"{hash}\".",
+        saveError: "Error al guardar el examen",
+        createError: "Error al crear el examen",
+        files: "Archivos",
+        filesEmpty: "Aún no hay archivos vinculados a este examen.",
+        addFiles: "Añadir archivos",
+        addFilesTitle: "Añadir archivos",
+        dropzoneHint: "Arrastra y suelta archivos aquí, o haz clic para seleccionar",
+        uploading: "Subiendo...",
+        uploadDone: "Subido",
+        uploadError: "Error al subir el archivo"
+    },
+    language: "Idioma",
+    settings: {
+        title: "Configuración",
+        subtitle: "Configure sus preferencias y opciones del sistema",
+        general: "General",
+        admin_console_link: "Enlace de la consola de administración",
+        copy_link: "Copiar enlace al portapapeles",
+        admin_locale: "Idioma de la interfaz de administración",
+        notifications: "Notificaciones",
+        notifications_permission_denied_warning: "Las notificaciones del navegador están desactivadas. Actívelas para recibir actualizaciones importantes.",
+        notifications_permission_denied: "Se denegó el permiso. Active las notificaciones en la configuración del navegador.",
+        notifications_enabled: "¡Las notificaciones se han activado correctamente!",
+        notifications_enabled_status: "Las notificaciones del navegador están activadas.",
+        notifications_not_requested: "Active las notificaciones del navegador para recibir actualizaciones importantes.",
+        enable_notifications: "Activar notificaciones",
+        create_webpush_subscription: "Crear suscripción Web Push",
+        notifications_error: "Se produjo un error al configurar las notificaciones.",
+        reset_notifications: "Restablecer notificaciones",
+        reset_notifications_confirm: "¿Está seguro de que desea restablecer y desactivar las notificaciones?",
+        notifications_reset_success: "¡Las notificaciones se han restablecido correctamente!",
+        notifications_reset_error: "Se produjo un error al restablecer las notificaciones."
+    },
+    notFound: {
+        title: "Página no encontrada",
+        message: "La página que busca no existe o se ha movido.",
+        goHome: "Ir al inicio",
+        goBack: "Volver"
+    },
+    notAuthenticated: {
+        title: "No autenticado",
+        message: "No está autenticado para acceder a esta página. Inicie sesión para continuar.",
+        goToLogin: "Ir al inicio de sesión"
+    },
+    initProfile: {
+        title: "Inicializar perfil",
+        subtitle: "Cree un nuevo perfil o recupere uno existente",
+        createProfile: "Crear nuevo perfil",
+        recoverProfile: "Recuperar perfil",
+        userName: "Nombre de usuario",
+        optional: "opcional",
+        userNamePlaceholder: "Introduzca su nombre (opcional)",
+        create: "Crear perfil",
+        creating: "Creando...",
+        createError: "Error al crear el perfil. Inténtelo de nuevo.",
+        recoverDescription: "La recuperación de perfil estará disponible pronto."
+    }
+} as I18nSchema
+
+export default es

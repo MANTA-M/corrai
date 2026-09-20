@@ -1,0 +1,121 @@
+FROM php:8.3-fpm
+LABEL maintainer=corrai
+
+RUN mkdir -p /var/corrai/php
+RUN mkdir -p /var/log/corrai
+RUN mkdir -p /var/composer
+
+# define timezone
+RUN echo "UTC" > /etc/timezone
+RUN dpkg-reconfigure -f noninteractive tzdata
+RUN /bin/echo -e "LANG=\"en_US.UTF-8\"" > /etc/default/local
+RUN chsh -s /bin/bash root
+
+# install dependencies including nginx
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
+    build-essential \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libmcrypt-dev \
+    libpng-dev \
+    libwebp-dev \
+    curl \
+    wget \
+    libcurl4 \
+    libcurl4-openssl-dev \
+    zlib1g-dev \
+    libicu-dev \
+    libmemcached-dev \
+    libmemcached11 \
+    memcached \
+    default-mysql-client \
+    libmagickwand-dev \
+    unzip \
+    libzip-dev \
+    libssl-dev \
+    zip \
+    nano \
+    nginx;
+
+# memcached (using latest version compatible with PHP 8.3)
+RUN pecl install memcached
+RUN docker-php-ext-enable memcached
+RUN docker-php-ext-install -j$(nproc) opcache
+RUN docker-php-ext-install -j$(nproc) zip
+RUN docker-php-ext-install -j$(nproc) intl
+RUN docker-php-ext-install -j$(nproc) gmp 
+
+RUN docker-php-ext-configure zip
+RUN docker-php-ext-configure intl
+
+# install xdebug
+RUN pecl install xdebug
+RUN docker-php-ext-enable xdebug
+
+RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+RUN echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+RUN echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+RUN echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+# configure opcache
+RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+RUN echo "opcache.interned_strings_buffer=8" >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+RUN echo "opcache.max_accelerated_files=4000" >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+RUN echo "opcache.revalidate_freq=2" >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+RUN echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+# configure PHP error logging to stderr for Docker logs
+RUN echo "log_errors = On" >> /usr/local/etc/php/conf.d/docker-php-error-log.ini
+RUN echo "error_log = /proc/self/fd/2" >> /usr/local/etc/php/conf.d/docker-php-error-log.ini
+RUN echo "display_errors = stderr" >> /usr/local/etc/php/conf.d/docker-php-error-log.ini
+# Ensure output buffering is off for immediate log output
+RUN echo "output_buffering = Off" >> /usr/local/etc/php/conf.d/docker-php-error-log.ini
+RUN echo "implicit_flush = On" >> /usr/local/etc/php/conf.d/docker-php-error-log.ini
+
+# install composer
+RUN cd /tmp \
+    && curl -sS https://getcomposer.org/installer | php \
+    && mv composer.phar /usr/local/bin/composer
+
+# install composer packages
+ENV COMPOSER_ALLOW_SUPERUSER=1 
+#COPY php/composer* /var/composer
+#RUN cd /var/composer && composer install
+
+# clean image
+RUN apt-get clean
+
+RUN mkdir -p /var/corrai/usr
+RUN chmod go+rwx /var/corrai/usr
+RUN chmod g+s /var/corrai/usr
+
+# Set permissions for /var/log/corrai to be writable by PHP process
+RUN chown -R www-data:www-data /var/log/corrai
+RUN chmod -R 775 /var/log/corrai
+
+RUN chsh -s /bin/bash
+
+# Configure Nginx
+RUN rm -f /etc/nginx/sites-enabled/default
+COPY nginx-default.conf /etc/nginx/sites-available/default
+RUN ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+
+# Create www/html directory if it doesn't exist
+RUN mkdir -p /var/www/html
+
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Copy and set up nginx startup script
+COPY start-nginx.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/start-nginx.sh
+
+# Pass Docker / Compose environment variables through to PHP-FPM workers
+COPY zz-clear-env.conf /usr/local/etc/php-fpm.d/zz-clear-env.conf
+
+EXPOSE 80
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["start-nginx.sh"]

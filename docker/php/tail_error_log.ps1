@@ -1,0 +1,1 @@
+Get-Content -wait -Path ../log/dev_error.log

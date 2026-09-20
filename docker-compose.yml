@@ -1,0 +1,27 @@
+services:
+  php:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile_nginx
+    env_file:
+      - ./server/php/.env
+    volumes:
+      - './server/log:/var/log/corrai'
+      - './server/php:/var/corrai/php'
+      - './docker/php/nginx-default.conf:/etc/nginx/sites-available/default'
+      - './docker/php.ini:/usr/local/etc/php/conf.d/99-custom.ini'
+      - './docker/php/zz-clear-env.conf:/usr/local/etc/php-fpm.d/zz-clear-env.conf' 
+    ports:
+      - '80:80'
+    depends_on:
+      - minio
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    env_file:
+      - ./server/php/.env
+    volumes:
+      - './docker/storage:/data'
+    ports:
+      - '9000:9000'
+      - '9001:9001'

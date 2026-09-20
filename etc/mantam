@@ -1,0 +1,69 @@
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name corrai.local;
+
+    # Root for the Vue (or other SPA) application
+    root /var/www/html;
+    index index.html index.htm;
+
+    # Logging to stdout/stderr for Docker
+    access_log /dev/stdout;
+    error_log  /dev/stderr;
+
+    # HTTP/2 is usually enabled in the main nginx.conf; this is just a server block.
+
+    # Frontend SPA: fall back to index.html when the file/directory doesn't exist
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API under /api/ mapped to /var/corrai/php/api/
+    location /api/ {
+        alias /var/corrai/php/api/;
+
+        # Mirror the Apache rewrite-based routing by dispatching on method.
+        # Nginx can't dynamically rewrite based on PHP script prefixes the
+        # same way as mod_rewrite, so we emulate the behavior:
+        #
+        #  - For each HTTP method, if the URI does not already start with
+        #    the corresponding prefix (get_, post_, put_, delete_) we rewrite
+        #    to that script name.
+
+        # Pre-flight CORS / OPTIONS → options.php
+        if ($request_method = OPTIONS) {
+            rewrite ^/api/(.*)$ /api/options.php last;
+        }
+
+        # GET: /api/foo → /api/get_foo.php (if not already /api/get_*)
+        if ($request_method = GET) {
+            rewrite ^/api/([^?]+)(.*)$ /api/get_$1.php$2 last;
+        }
+
+        # POST: /api/foo → /api/post_foo.php (if not already /api/post_*)
+        if ($request_method = POST) {
+            rewrite ^/api/([^?]+)(.*)$ /api/post_$1.php$2 last;
+        }
+
+        # PUT: /api/foo → /api/put_foo.php (if not already /api/put_*)
+        if ($request_method = PUT) {
+            rewrite ^/api/([^?]+)(.*)$ /api/put_$1.php$2 last;
+        }
+
+        # DELETE: /api/foo → /api/delete_foo.php (if not already /api/delete_*)
+        if ($request_method = DELETE) {
+            rewrite ^/api/([^?]+)(.*)$ /api/delete_$1.php$2 last;
+        }
+
+        # Pass PHP scripts to PHP 8.3 FPM (installed via php8.3-fpm)
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $request_filename;
+            fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+            fastcgi_pass unix:/run/php/php8.3-fpm.sock; # default php8.3-fpm socket on Debian/Ubuntu
+        }
+    }
+}
+
+
