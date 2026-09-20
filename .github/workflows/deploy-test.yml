@@ -3,7 +3,7 @@ name: Deploy on test server
 on:
   push:
     branches:
-      - test
+      - dev
   workflow_dispatch:
 
 jobs:
