@@ -5,8 +5,6 @@ use Corrai\Request;
 use Corrai\WSException;
 use Corrai\JsonUtils;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     $hash = Request::getStringParam("hash");
     if (!$hash) {

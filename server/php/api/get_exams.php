@@ -3,8 +3,6 @@
 use Corrai\Exam;
 use Corrai\Request;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     $authorId = Request::get_mandatory_author();
     $exams = Exam::list_for_author($authorId);

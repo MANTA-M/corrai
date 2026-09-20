@@ -3,8 +3,6 @@
 use Corrai\Exam;
 use Corrai\Request;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     // Get hash parameter
     $hash = Request::getStringParam("hash");

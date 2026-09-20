@@ -4,8 +4,6 @@ use Corrai\Exam;
 use Corrai\ObjectStore;
 use Corrai\Request;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     // Get exam ID parameter
     $examId = Request::getStringParam("id");

@@ -47,6 +47,7 @@ $apiDir = dirname(__DIR__) . '/api';
 if ($method === 'OPTIONS') {
     $targetFile = $apiDir . '/options.php';
     if (file_exists($targetFile) && is_file($targetFile)) {
+        include_once(dirname(__DIR__) . '/inc/common.php');
         include_once($targetFile);
         exit;
     } else {
@@ -81,5 +82,6 @@ if (!file_exists($targetFile) || !is_file($targetFile)) {
 }
 
 // Include the target file
+include_once(dirname(__DIR__) . '/inc/common.php');
 include_once($targetFile);
 

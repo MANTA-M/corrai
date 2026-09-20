@@ -7,8 +7,6 @@ use Corrai\User;
 use Corrai\JsonUtils;
 use Corrai\WSException;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     $post_data = Request::getPostStr();
 

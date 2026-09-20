@@ -2,8 +2,6 @@
 
 use Corrai\Request;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     /**
      * CORS OPTIONS handler

@@ -4,8 +4,6 @@ use Corrai\JsonUtils;
 use Corrai\Request;
 use Corrai\School;
 
-include_once(__DIR__ . '/../inc/common.php');
-
 try {
     $post_data = Request::getPostStr();
     $name = null;
