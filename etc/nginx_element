@@ -1,0 +1,20 @@
+    location ^~ /corrai_test/api/ {
+        rewrite ^/corrai_test/api/(.*)$ /corrai_test/api_router.php$is_args$args last;
+    }
+    location = /corrai_test/api_router.php {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME /home/maintainer/corrai_test/server/php/public/api_router.php;
+        fastcgi_param DOCUMENT_ROOT /home/maintainer/corrai_test/server/php/public;
+        fastcgi_param SCRIPT_NAME /api_router.php;
+        client_max_body_size 40M;
+    }
+
+    location ^~ /corrai_test/ {
+        alias /home/maintainer/corrai_test/client/dist/;
+        try_files $uri index.html /corrai_test/index.html -404;
+    }
+
+    location = /corrai_test {
+        return 301 /corrai_test/;
+    }
