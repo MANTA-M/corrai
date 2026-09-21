@@ -3,7 +3,12 @@
     <div class="files-header">
       <h2>{{ t('exam.files') }}</h2>
       <div class="files-header-actions">
-        <div class="view-toggle" role="tablist" aria-label="File grouping">
+        <div
+          v-if="files.length"
+          class="view-toggle"
+          role="tablist"
+          aria-label="File grouping"
+        >
           <button
             type="button"
             class="view-toggle-button"
@@ -48,7 +53,7 @@
       {{ t('exam.filesEmpty') }}
     </p>
 
-    <div v-if="viewMode === 'type'" class="type-zones" data-testid="file-type-zones">
+    <div v-if="files.length && viewMode === 'type'" class="type-zones" data-testid="file-type-zones">
       <section
         v-for="zone in typeZones"
         :key="zone"
@@ -75,7 +80,7 @@
       </section>
     </div>
 
-    <div v-else class="author-view" data-testid="file-author-view">
+    <div v-else-if="files.length" class="author-view" data-testid="file-author-view">
       <template v-if="selectedAuthor === null">
         <p v-if="!authorEntries.length" class="empty-files" data-testid="file-authors-empty">
           {{ t('exam.fileAuthorsEmpty') }}
@@ -150,6 +155,35 @@
         <p class="file-menu-title">{{ menu.file.name }}</p>
 
         <template v-if="menu.mode === 'root'">
+          <a
+            class="file-menu-item"
+            :href="fileViewUrl(menu.file)"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="file-menu-view"
+            role="menuitem"
+            @click="closeMenu"
+          >
+            {{ t('exam.fileView') }}
+          </a>
+          <button
+            type="button"
+            class="file-menu-item"
+            data-testid="file-menu-rename"
+            role="menuitem"
+            @click="startRename"
+          >
+            {{ t('exam.fileRename') }}
+          </button>
+          <button
+            type="button"
+            class="file-menu-item danger"
+            data-testid="file-menu-delete"
+            role="menuitem"
+            @click="startDelete"
+          >
+            {{ t('exam.fileDelete') }}
+          </button>
           <button
             type="button"
             class="file-menu-item"
@@ -225,10 +259,115 @@
       </div>
     </div>
   </Teleport>
+
+  <div
+    v-if="renameTarget"
+    class="popup-overlay"
+    data-testid="rename-file-popup"
+    @click.self="closeRename"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('exam.fileRenameTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="rename-file-close"
+          :aria-label="t('common.cancel')"
+          @click="closeRename"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <form @submit.prevent="submitRename">
+          <label class="file-action-label" for="rename-file-input">{{ t('exam.fileRenamePlaceholder') }}</label>
+          <input
+            id="rename-file-input"
+            ref="renameInput"
+            v-model="renameDraft"
+            type="text"
+            class="file-author-input"
+            data-testid="rename-file-input"
+            :disabled="isUpdating"
+          />
+        </form>
+        <p v-if="actionError" class="error-message" data-testid="rename-file-error">{{ actionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          data-testid="rename-file-cancel"
+          :disabled="isUpdating"
+          @click="closeRename"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button add-file-button"
+          data-testid="rename-file-save"
+          :disabled="isUpdating || !renameDraft.trim()"
+          @click="submitRename"
+        >
+          {{ isUpdating ? t('exam.fileRenaming') : t('exam.fileRenameSave') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="deleteTarget"
+    class="popup-overlay"
+    data-testid="delete-file-popup"
+    @click.self="closeDelete"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('exam.fileDeleteTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="delete-file-close"
+          :aria-label="t('common.cancel')"
+          @click="closeDelete"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <p data-testid="delete-file-confirm">
+          {{ t('exam.fileDeleteConfirm', { name: deleteTarget.name }) }}
+        </p>
+        <p v-if="actionError" class="error-message" data-testid="delete-file-error">{{ actionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          data-testid="delete-file-cancel"
+          :disabled="isUpdating"
+          @click="closeDelete"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button delete-file-button"
+          data-testid="delete-file-confirm-button"
+          :disabled="isUpdating"
+          @click="submitDelete"
+        >
+          {{ isUpdating ? t('exam.fileDeleting') : t('exam.fileDelete') }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AddFilePopup from '@/components/AddFilePopup.vue'
 import { useSessionStore } from '@/stores/session'
@@ -256,8 +395,13 @@ const viewMode = ref<'type' | 'author'>('type')
 const selectedAuthor = ref<string | null>(null)
 const showAddFilePopup = ref(false)
 const error = ref('')
+const actionError = ref('')
 const isUpdating = ref(false)
 const authorDraft = ref('')
+const renameTarget = ref<ExamFile | null>(null)
+const renameDraft = ref('')
+const renameInput = ref<HTMLInputElement | null>(null)
+const deleteTarget = ref<ExamFile | null>(null)
 
 interface FileMenu {
   file: ExamFile
@@ -339,7 +483,7 @@ const openMenu = (event: MouseEvent, file: ExamFile) => {
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
   const maxLeft = Math.max(8, window.innerWidth - 240)
-  const maxTop = Math.max(8, window.innerHeight - 280)
+  const maxTop = Math.max(8, window.innerHeight - 360)
   menu.value = {
     file,
     x: Math.min(rect.left, maxLeft),
@@ -352,6 +496,43 @@ const openMenu = (event: MouseEvent, file: ExamFile) => {
 
 const closeMenu = () => {
   menu.value = null
+}
+
+const fileViewUrl = (file: ExamFile) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: props.examId,
+    filename: file.name,
+  })
+
+const startRename = () => {
+  if (!menu.value) return
+  renameTarget.value = menu.value.file
+  renameDraft.value = menu.value.file.name
+  actionError.value = ''
+  closeMenu()
+  void nextTick(() => {
+    renameInput.value?.focus()
+    renameInput.value?.select()
+  })
+}
+
+const closeRename = () => {
+  if (isUpdating.value) return
+  renameTarget.value = null
+  actionError.value = ''
+}
+
+const startDelete = () => {
+  if (!menu.value) return
+  deleteTarget.value = menu.value.file
+  actionError.value = ''
+  closeMenu()
+}
+
+const closeDelete = () => {
+  if (isUpdating.value) return
+  deleteTarget.value = null
+  actionError.value = ''
 }
 
 const startSetAuthor = () => {
@@ -406,6 +587,61 @@ const changeType = async (zone: ExamFileTypeZone) => {
 const saveAuthor = async () => {
   if (!menu.value) return
   await updateTags(menu.value.file, { author: authorDraft.value.trim() })
+}
+
+const submitRename = async () => {
+  if (!renameTarget.value) return
+  const newName = renameDraft.value.trim()
+  if (!newName) return
+
+  actionError.value = ''
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const wsClient = sessionStore.getWsClient()
+    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+      'PUT',
+      '/file',
+      { id: props.examId, filename: renameTarget.value.name },
+      { name: newName }
+    )
+    if (response?.files) {
+      applyUpdatedFiles(response.files)
+    }
+    renameTarget.value = null
+  } catch (err) {
+    console.error('Error renaming file:', err)
+    actionError.value = t('exam.fileRenameError')
+  } finally {
+    isUpdating.value = false
+  }
+}
+
+const submitDelete = async () => {
+  if (!deleteTarget.value) return
+
+  actionError.value = ''
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const wsClient = sessionStore.getWsClient()
+    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+      'DELETE',
+      '/file',
+      { id: props.examId, filename: deleteTarget.value.name }
+    )
+    if (response?.files) {
+      applyUpdatedFiles(response.files)
+    } else {
+      applyUpdatedFiles(props.files.filter((file) => file.name !== deleteTarget.value?.name))
+    }
+    deleteTarget.value = null
+  } catch (err) {
+    console.error('Error deleting file:', err)
+    actionError.value = t('exam.fileDeleteError')
+  } finally {
+    isUpdating.value = false
+  }
 }
 
 watch(
@@ -493,6 +729,54 @@ watch(viewMode, () => {
 .add-file-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.delete-file-button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  background-color: var(--danger);
+  color: white;
+  border: none;
+}
+
+.delete-file-button:hover:not(:disabled) {
+  background-color: var(--danger-600);
+}
+
+.delete-file-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-action-popup {
+  width: min(420px, calc(100vw - 2rem));
+}
+
+.file-action-popup h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.file-action-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.file-action-popup .file-author-input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.file-action-popup .error-message {
+  margin-top: 0.75rem;
 }
 
 .empty-files,
@@ -650,6 +934,8 @@ watch(viewMode, () => {
   padding: 0.55rem 0.9rem;
   cursor: pointer;
   font-size: 0.95rem;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .file-menu-item:hover:not(:disabled) {
@@ -659,6 +945,10 @@ watch(viewMode, () => {
 .file-menu-item.active {
   color: var(--accent);
   font-weight: 600;
+}
+
+.file-menu-item.danger {
+  color: var(--danger);
 }
 
 .file-menu-item:disabled {

@@ -199,6 +199,21 @@ class ObjectStore
     }
 
     /**
+     * Copy an object to a new key, preserving metadata.
+     */
+    public function copy(string $sourceKey, string $destKey): void
+    {
+        $this->ensureBucket();
+
+        $this->client->copyObject([
+            'Bucket' => $this->bucket,
+            'CopySource' => $this->bucket . '/' . $sourceKey,
+            'Key' => $destKey,
+            'MetadataDirective' => 'COPY',
+        ]);
+    }
+
+    /**
      * Fetch an object. Returns ['Body' => stream/resource, 'ContentType' => string, 'ContentLength' => int].
      */
     public function get(string $key): array

@@ -265,6 +265,42 @@ class ExamLifecycleTest extends TestCase
         $exam->delete();
     }
 
+    public function testRenameFileMovesObjectAndTags(): void
+    {
+        $exam = new Exam();
+        $exam->school_id = $this->user->school_id;
+        $exam->user_id = $this->user->id;
+        $exam->name = 'Rename File Exam';
+        $exam->subject = 'Chemistry';
+        $exam->date = '2026-07-12';
+        $exam->id = HashId::create();
+        $exam->save();
+
+        $store = ObjectStore::getInstance();
+        $tmp = $this->createRandomTempFile('rename_', '.png');
+        $oldName = basename($tmp);
+        $newName = 'renamed-scan.png';
+        $store->put($exam->unassignedFileKey($oldName), $tmp, 'image/png');
+        $exam->setFileTags($oldName, 'submission', 'Bob');
+
+        $files = $exam->renameFile($oldName, $newName);
+        $this->assertCount(1, $files);
+        $this->assertSame($newName, $files[0]['name']);
+        $this->assertSame('submission', $files[0]['type']);
+        $this->assertSame('Bob', $files[0]['author']);
+        $this->assertFalse($store->exists($exam->unassignedFileKey($oldName)));
+        $this->assertTrue($store->exists($exam->unassignedFileKey($newName)));
+
+        try {
+            $exam->renameFile($newName, $newName . '/evil');
+            $this->fail('Expected invalid renamed path to throw');
+        } catch (WSException $e) {
+            $this->assertSame(400, $e->getCode());
+        }
+
+        $exam->delete();
+    }
+
     public function testAddIndependentUserCreatesS3DirectoryAndCanOwnExam(): void
     {
         $user = School::addIndependentUser('Profile Teacher');

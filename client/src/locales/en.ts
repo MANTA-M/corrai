@@ -69,7 +69,19 @@ const en: I18nSchema = {
         fileZoneEmpty: "No files",
         fileAuthorsEmpty: "No authors yet.",
         fileAuthorBack: "← Authors",
-        fileUpdateError: "Failed to update file"
+        fileUpdateError: "Failed to update file",
+        fileView: "View",
+        fileRename: "Rename",
+        fileDelete: "Delete",
+        fileDeleteTitle: "Delete file",
+        fileDeleteConfirm: "Are you sure you want to delete \"{name}\"?",
+        fileDeleting: "Deleting...",
+        fileDeleteError: "Failed to delete file",
+        fileRenameTitle: "Rename file",
+        fileRenamePlaceholder: "File name",
+        fileRenameSave: "Rename",
+        fileRenaming: "Renaming...",
+        fileRenameError: "Failed to rename file"
     },
     language: "Language",
     settings: {

@@ -69,7 +69,19 @@ const uk: I18nSchema = {
         fileZoneEmpty: "Немає файлів",
         fileAuthorsEmpty: "Авторів ще немає.",
         fileAuthorBack: "← Автори",
-        fileUpdateError: "Не вдалося оновити файл"
+        fileUpdateError: "Не вдалося оновити файл",
+        fileView: "Переглянути",
+        fileRename: "Перейменувати",
+        fileDelete: "Видалити",
+        fileDeleteTitle: "Видалити файл",
+        fileDeleteConfirm: "Ви впевнені, що хочете видалити «{name}»?",
+        fileDeleting: "Видалення...",
+        fileDeleteError: "Не вдалося видалити файл",
+        fileRenameTitle: "Перейменувати файл",
+        fileRenamePlaceholder: "Ім'я файлу",
+        fileRenameSave: "Перейменувати",
+        fileRenaming: "Перейменування...",
+        fileRenameError: "Не вдалося перейменувати файл"
     },
     language: "Мова",
     settings: {

@@ -207,4 +207,41 @@ class Utils
         }, $data);
         return $data;
     }
+
+    /**
+     * Resolve a MIME type for inline display (e.g. img src).
+     * Known extensions win over a generic stored type such as application/octet-stream.
+     */
+    public static function mimeTypeForFilename(string $filename, ?string $storedType = null): string
+    {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $byExtension = [
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'tif' => 'image/tiff',
+            'tiff' => 'image/tiff',
+            'pdf' => 'application/pdf',
+            'txt' => 'text/plain; charset=utf-8',
+            'csv' => 'text/csv; charset=utf-8',
+            'html' => 'text/html; charset=utf-8',
+            'htm' => 'text/html; charset=utf-8',
+            'json' => 'application/json',
+            'xml' => 'application/xml',
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'mp3' => 'audio/mpeg',
+        ];
+        if ($ext !== '' && isset($byExtension[$ext])) {
+            return $byExtension[$ext];
+        }
+        if (is_string($storedType) && $storedType !== '' && $storedType !== 'application/octet-stream') {
+            return $storedType;
+        }
+        return 'application/octet-stream';
+    }
 }

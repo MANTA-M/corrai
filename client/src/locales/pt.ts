@@ -69,7 +69,19 @@ const pt: I18nSchema = {
         fileZoneEmpty: "Sem ficheiros",
         fileAuthorsEmpty: "Ainda não há autores.",
         fileAuthorBack: "← Autores",
-        fileUpdateError: "Falha ao atualizar o ficheiro"
+        fileUpdateError: "Falha ao atualizar o ficheiro",
+        fileView: "Ver",
+        fileRename: "Mudar o nome",
+        fileDelete: "Eliminar",
+        fileDeleteTitle: "Eliminar ficheiro",
+        fileDeleteConfirm: "Tem a certeza de que pretende eliminar \"{name}\"?",
+        fileDeleting: "A eliminar...",
+        fileDeleteError: "Falha ao eliminar o ficheiro",
+        fileRenameTitle: "Mudar o nome do ficheiro",
+        fileRenamePlaceholder: "Nome do ficheiro",
+        fileRenameSave: "Mudar o nome",
+        fileRenaming: "A mudar o nome...",
+        fileRenameError: "Falha ao mudar o nome do ficheiro"
     },
     language: "Idioma",
     settings: {

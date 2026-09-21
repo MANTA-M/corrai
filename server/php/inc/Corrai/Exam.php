@@ -274,6 +274,46 @@ class Exam
     }
 
     /**
+     * Rename an unassigned file and move its tags to the new name.
+     *
+     * @return array Updated file list
+     */
+    public function renameFile(string $oldName, string $newName): array
+    {
+        $newName = trim($newName);
+        if ($newName === '' || preg_match('/[\/\\\\]/', $newName)) {
+            throw new WSException('Invalid file name', 400);
+        }
+
+        $store = ObjectStore::getInstance();
+        $oldKey = $this->unassignedFileKey($oldName);
+        if (!$store->exists($oldKey)) {
+            throw new WSException("File '$oldName' does not exist for exam {$this->id}", 404);
+        }
+
+        if ($oldName === $newName) {
+            return $this->list_files();
+        }
+
+        $newKey = $this->unassignedFileKey($newName);
+        if ($store->exists($newKey)) {
+            throw new WSException("File '$newName' already exists", 409);
+        }
+
+        $store->copy($oldKey, $newKey);
+        $store->delete($oldKey);
+
+        $tags = $this->loadFileTags();
+        if (isset($tags[$oldName])) {
+            $tags[$newName] = $tags[$oldName];
+            unset($tags[$oldName]);
+            $this->saveFileTags($tags);
+        }
+
+        return $this->list_files();
+    }
+
+    /**
      * Drop tags for a file that is being deleted.
      */
     public function removeFileTags(string $filename): void

@@ -69,7 +69,19 @@ const fr: I18nSchema = {
         fileZoneEmpty: "Aucun fichier",
         fileAuthorsEmpty: "Aucun auteur pour le moment.",
         fileAuthorBack: "← Auteurs",
-        fileUpdateError: "Échec de la mise à jour du fichier"
+        fileUpdateError: "Échec de la mise à jour du fichier",
+        fileView: "Voir",
+        fileRename: "Renommer",
+        fileDelete: "Supprimer",
+        fileDeleteTitle: "Supprimer le fichier",
+        fileDeleteConfirm: "Êtes-vous sûr de vouloir supprimer « {name} » ?",
+        fileDeleting: "Suppression...",
+        fileDeleteError: "Échec de la suppression du fichier",
+        fileRenameTitle: "Renommer le fichier",
+        fileRenamePlaceholder: "Nom du fichier",
+        fileRenameSave: "Renommer",
+        fileRenaming: "Renommage...",
+        fileRenameError: "Échec du renommage du fichier"
     },
     language: "Langue",
     settings: {

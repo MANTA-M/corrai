@@ -69,7 +69,19 @@ const ro: I18nSchema = {
         fileZoneEmpty: "Niciun fișier",
         fileAuthorsEmpty: "Niciun autor deocamdată.",
         fileAuthorBack: "← Autori",
-        fileUpdateError: "Actualizarea fișierului a eșuat"
+        fileUpdateError: "Actualizarea fișierului a eșuat",
+        fileView: "Vezi",
+        fileRename: "Redenumește",
+        fileDelete: "Șterge",
+        fileDeleteTitle: "Șterge fișierul",
+        fileDeleteConfirm: "Sigur doriți să ștergeți \"{name}\"?",
+        fileDeleting: "Se șterge...",
+        fileDeleteError: "Ștergerea fișierului a eșuat",
+        fileRenameTitle: "Redenumește fișierul",
+        fileRenamePlaceholder: "Numele fișierului",
+        fileRenameSave: "Redenumește",
+        fileRenaming: "Se redenumește...",
+        fileRenameError: "Redenumirea fișierului a eșuat"
     },
     language: "Limbă",
     settings: {

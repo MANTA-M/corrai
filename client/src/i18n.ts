@@ -99,6 +99,18 @@ export interface I18nSchema {
         fileAuthorsEmpty: string
         fileAuthorBack: string
         fileUpdateError: string
+        fileView: string
+        fileRename: string
+        fileDelete: string
+        fileDeleteTitle: string
+        fileDeleteConfirm: string
+        fileDeleting: string
+        fileDeleteError: string
+        fileRenameTitle: string
+        fileRenamePlaceholder: string
+        fileRenameSave: string
+        fileRenaming: string
+        fileRenameError: string
     }
     language: string
     settings: {

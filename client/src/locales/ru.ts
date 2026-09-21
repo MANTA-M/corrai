@@ -69,7 +69,19 @@ const ru: I18nSchema = {
         fileZoneEmpty: "Нет файлов",
         fileAuthorsEmpty: "Авторов пока нет.",
         fileAuthorBack: "← Авторы",
-        fileUpdateError: "Не удалось обновить файл"
+        fileUpdateError: "Не удалось обновить файл",
+        fileView: "Просмотр",
+        fileRename: "Переименовать",
+        fileDelete: "Удалить",
+        fileDeleteTitle: "Удалить файл",
+        fileDeleteConfirm: "Вы уверены, что хотите удалить «{name}»?",
+        fileDeleting: "Удаление...",
+        fileDeleteError: "Не удалось удалить файл",
+        fileRenameTitle: "Переименовать файл",
+        fileRenamePlaceholder: "Имя файла",
+        fileRenameSave: "Переименовать",
+        fileRenaming: "Переименование...",
+        fileRenameError: "Не удалось переименовать файл"
     },
     language: "Язык",
     settings: {

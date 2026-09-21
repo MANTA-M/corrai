@@ -69,7 +69,19 @@ const de: I18nSchema = {
         fileZoneEmpty: "Keine Dateien",
         fileAuthorsEmpty: "Noch keine Autoren.",
         fileAuthorBack: "← Autoren",
-        fileUpdateError: "Datei konnte nicht aktualisiert werden"
+        fileUpdateError: "Datei konnte nicht aktualisiert werden",
+        fileView: "Anzeigen",
+        fileRename: "Umbenennen",
+        fileDelete: "Löschen",
+        fileDeleteTitle: "Datei löschen",
+        fileDeleteConfirm: "Möchten Sie \"{name}\" wirklich löschen?",
+        fileDeleting: "Wird gelöscht...",
+        fileDeleteError: "Datei konnte nicht gelöscht werden",
+        fileRenameTitle: "Datei umbenennen",
+        fileRenamePlaceholder: "Dateiname",
+        fileRenameSave: "Umbenennen",
+        fileRenaming: "Wird umbenannt...",
+        fileRenameError: "Datei konnte nicht umbenannt werden"
     },
     language: "Sprache",
     settings: {

@@ -69,13 +69,31 @@ try {
         $author = $body['author'];
     }
 
-    if ($type === null && $author === null) {
-        throw new WSException('No type or author provided', 400);
+    $newName = null;
+    if (array_key_exists('name', $body)) {
+        if (!is_string($body['name'])) {
+            throw new WSException('name must be a string', 400);
+        }
+        $newName = $body['name'];
     }
 
-    $files = $exam->setFileTags($fileName, $type, $author);
+    if ($type === null && $author === null && $newName === null) {
+        throw new WSException('No type, author or name provided', 400);
+    }
 
-    Request::add_output("filename", $fileName);
+    $currentName = $fileName;
+    $files = null;
+
+    if ($newName !== null) {
+        $files = $exam->renameFile($currentName, $newName);
+        $currentName = trim($newName);
+    }
+
+    if ($type !== null || $author !== null) {
+        $files = $exam->setFileTags($currentName, $type, $author);
+    }
+
+    Request::add_output("filename", $currentName);
     Request::add_output("id", $examId);
     Request::add_output("files", $files);
 } catch (\Throwable $th) {

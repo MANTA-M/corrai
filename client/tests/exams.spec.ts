@@ -40,6 +40,10 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('exam-save')).toHaveCount(0)
       await expect(page.getByTestId('exam-name')).toHaveCount(0)
       await expect(page.getByTestId('exam-files-empty')).toBeVisible()
+      await expect(page.getByTestId('files-view-type')).toHaveCount(0)
+      await expect(page.getByTestId('files-view-author')).toHaveCount(0)
+      await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
+      await expect(page.getByTestId('file-author-view')).toHaveCount(0)
 
       await page.goto('/exam-list')
       await expect(page.getByTestId('exam-item')).toHaveCount(1)
@@ -106,6 +110,9 @@ test.describe('Exams CRUD', () => {
         timeout: 15000
       })
       await expect(page.getByTestId('exam-files-empty')).toHaveCount(0)
+      await expect(page.getByTestId('files-view-type')).toBeVisible()
+      await expect(page.getByTestId('files-view-author')).toBeVisible()
+      await expect(page.getByTestId('file-type-zones')).toBeVisible()
 
       await page.getByTestId('add-file-cancel').click()
       await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
@@ -150,6 +157,48 @@ test.describe('Exams CRUD', () => {
 
       await page.getByTestId('files-view-type').click()
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
+    })
+
+    await test.step('View, rename, and delete a file', async () => {
+      await page.getByTestId('exam-file-item').click()
+      const viewLink = page.getByTestId('file-menu-view')
+      await expect(viewLink).toHaveAttribute('href', /\/file\?/)
+      await expect(viewLink).toHaveAttribute('target', '_blank')
+
+      const popupPromise = page.waitForEvent('popup')
+      await viewLink.click()
+      const popup = await popupPromise
+      await popup.waitForLoadState()
+      expect(popup.url()).toMatch(/\/file\?/)
+      await expect(popup.locator('body')).toContainText('Sample exam scan content')
+      await popup.close()
+
+      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('file-menu-rename').click()
+      await expect(page.getByTestId('rename-file-popup')).toBeVisible()
+      await expect(page.getByTestId('rename-file-input')).toHaveValue('sample-scan.txt')
+      await page.getByTestId('rename-file-input').fill('renamed-scan.txt')
+      await page.getByTestId('rename-file-save').click()
+      await expect(page.getByTestId('rename-file-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('exam-file-item')).toContainText('renamed-scan.txt')
+
+      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('file-menu-delete').click()
+      await expect(page.getByTestId('delete-file-popup')).toBeVisible()
+      await expect(page.getByTestId('delete-file-confirm')).toContainText('renamed-scan.txt')
+      await page.getByTestId('delete-file-cancel').click()
+      await expect(page.getByTestId('delete-file-popup')).toHaveCount(0)
+      await expect(page.getByTestId('exam-file-item')).toContainText('renamed-scan.txt')
+
+      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('file-menu-delete').click()
+      await page.getByTestId('delete-file-confirm-button').click()
+      await expect(page.getByTestId('exam-file-item')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('exam-files-empty')).toBeVisible()
+      await expect(page.getByTestId('files-view-type')).toHaveCount(0)
+      await expect(page.getByTestId('files-view-author')).toHaveCount(0)
+      await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
+      await expect(page.getByTestId('file-author-view')).toHaveCount(0)
     })
 
     await test.step('Delete the exam', async () => {

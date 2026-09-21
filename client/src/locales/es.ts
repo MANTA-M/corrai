@@ -69,7 +69,19 @@ const es: I18nSchema = {
         fileZoneEmpty: "Sin archivos",
         fileAuthorsEmpty: "Aún no hay autores.",
         fileAuthorBack: "← Autores",
-        fileUpdateError: "Error al actualizar el archivo"
+        fileUpdateError: "Error al actualizar el archivo",
+        fileView: "Ver",
+        fileRename: "Renombrar",
+        fileDelete: "Eliminar",
+        fileDeleteTitle: "Eliminar archivo",
+        fileDeleteConfirm: "¿Estás seguro de que quieres eliminar \"{name}\"?",
+        fileDeleting: "Eliminando...",
+        fileDeleteError: "Error al eliminar el archivo",
+        fileRenameTitle: "Renombrar archivo",
+        fileRenamePlaceholder: "Nombre del archivo",
+        fileRenameSave: "Renombrar",
+        fileRenaming: "Renombrando...",
+        fileRenameError: "Error al renombrar el archivo"
     },
     language: "Idioma",
     settings: {
