@@ -6,13 +6,20 @@ use Exception;
 
 class LlmClientFactory
 {
-    public static function create(string $model): LlmClient
+    public static function create(?string $model = null): LlmClient
     {
-        if (stripos($model, 'google') !== false) {
-            return new Gemini2FlashLiteClient($model);
+        $model = $model ?: ($_ENV['OPENROUTER_MODEL'] ?? '');
+        if (stripos($model, 'anthropic') !== false || stripos($model, 'claude') !== false) {
+            return new ClaudeSonnetClient($model);
+        }
+        if (stripos($model, 'google') !== false || stripos($model, 'gemini') !== false) {
+            if (stripos($model, 'flash-lite') !== false || stripos($model, '2.5-flash') !== false) {
+                return new Gemini2FlashLiteClient();
+            }
+            return new Gemini3Client();
         }
         if (stripos($model, 'mistral') !== false) {
-            return new MistralLargeClient($model);
+            return new MistralLargeClient();
         }
         throw new Exception("Model not supported: " . $model);
     }

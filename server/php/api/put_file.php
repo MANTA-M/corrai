@@ -61,12 +61,12 @@ try {
         $type = $body['type'];
     }
 
-    $author = null;
-    if (array_key_exists('author', $body)) {
-        if (!is_string($body['author'])) {
-            throw new WSException('author must be a string', 400);
+    $student = null;
+    if (array_key_exists('student', $body)) {
+        if (!is_string($body['student'])) {
+            throw new WSException('student must be a string', 400);
         }
-        $author = $body['author'];
+        $student = $body['student'];
     }
 
     $newName = null;
@@ -77,20 +77,32 @@ try {
         $newName = $body['name'];
     }
 
-    if ($type === null && $author === null && $newName === null) {
-        throw new WSException('No type, author or name provided', 400);
+    $content = null;
+    if (array_key_exists('content', $body)) {
+        if (!is_string($body['content'])) {
+            throw new WSException('content must be a string', 400);
+        }
+        $content = $body['content'];
+    }
+
+    if ($type === null && $student === null && $newName === null && $content === null) {
+        throw new WSException('No type, student, name or content provided', 400);
     }
 
     $currentName = $fileName;
     $files = null;
+
+    if ($content !== null) {
+        $files = $exam->writeFileContents($currentName, $content);
+    }
 
     if ($newName !== null) {
         $files = $exam->renameFile($currentName, $newName);
         $currentName = trim($newName);
     }
 
-    if ($type !== null || $author !== null) {
-        $files = $exam->setFileTags($currentName, $type, $author);
+    if ($type !== null || $student !== null) {
+        $files = $exam->setFileTags($currentName, $type, $student);
     }
 
     Request::add_output("filename", $currentName);

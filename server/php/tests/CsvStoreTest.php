@@ -12,8 +12,8 @@ class CsvStoreTest extends TestCase
     public function testEncodeDecodeRowsRoundTrip(): void
     {
         $rows = [
-            ['name' => 'scan.pdf', 'type' => 'submission', 'author' => 'Doe, Alice'],
-            ['name' => 'subject.pdf', 'type' => 'subject', 'author' => ''],
+            ['name' => 'scan.pdf', 'type' => 'submission', 'student' => 'Doe, Alice'],
+            ['name' => 'subject.pdf', 'type' => 'subject', 'student' => ''],
         ];
 
         $csv = CsvStore::encodeRows($rows);

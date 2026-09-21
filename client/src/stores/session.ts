@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { WSClient, type ApiMessage } from '@/backend/WSClient'
 import type { Exam } from '@/types/types'
 
-import type { AvailableLocale } from '@/i18n'
+import { DEFAULT_LOCALE, type AvailableLocale } from '@/i18n'
 
 interface CryptoKeyPair {
   publicKey: string
@@ -36,7 +36,7 @@ const USER_ID_PATTERN = /^[0-9a-zA-Z]{7}$/
 
 const defaultState: SessionState = {
   user_name: '',
-  locale: 'en',
+  locale: DEFAULT_LOCALE,
   keyPair: null,
   user_id: null,
   own_exams: [],

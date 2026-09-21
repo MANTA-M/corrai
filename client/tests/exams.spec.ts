@@ -8,9 +8,9 @@ test.describe('Exams CRUD', () => {
   test('list, create, edit, upload file, and delete an exam', async ({ page }) => {
     await test.step('List shows empty state after profile init', async () => {
       await initProfile(page, 'Exam Tester')
-      await expect(page.getByTestId('exams-heading')).toHaveText('Exams')
+      await expect(page.getByTestId('exams-heading')).toHaveText('Examens')
       await expect(page.getByTestId('exams-empty')).toBeVisible({ timeout: 15000 })
-      await expect(page.getByTestId('exams-empty')).toHaveText('No exams yet.')
+      await expect(page.getByTestId('exams-empty')).toHaveText('Aucun examen pour le moment.')
 
       const session = await page.evaluate(() => {
         const raw = localStorage.getItem('corrai-session')
@@ -39,11 +39,12 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('exam-date-value')).toHaveText('2026-10-15')
       await expect(page.getByTestId('exam-save')).toHaveCount(0)
       await expect(page.getByTestId('exam-name')).toHaveCount(0)
-      await expect(page.getByTestId('exam-files-empty')).toBeVisible()
       await expect(page.getByTestId('files-view-type')).toHaveCount(0)
-      await expect(page.getByTestId('files-view-author')).toHaveCount(0)
-      await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
-      await expect(page.getByTestId('file-author-view')).toHaveCount(0)
+      await expect(page.getByTestId('files-view-student')).toHaveCount(0)
+      await expect(page.getByTestId('file-type-zones')).toBeVisible()
+      await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
+      await expect(page.getByTestId('add-instruction')).toBeVisible()
+      await expect(page.getByTestId('file-student-view')).toHaveCount(0)
 
       await page.goto('/exam-list')
       await expect(page.getByTestId('exam-item')).toHaveCount(1)
@@ -109,9 +110,8 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('exam-file-item')).toContainText('sample-scan.txt', {
         timeout: 15000
       })
-      await expect(page.getByTestId('exam-files-empty')).toHaveCount(0)
       await expect(page.getByTestId('files-view-type')).toBeVisible()
-      await expect(page.getByTestId('files-view-author')).toBeVisible()
+      await expect(page.getByTestId('files-view-student')).toBeVisible()
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
 
       await page.getByTestId('add-file-cancel').click()
@@ -121,7 +121,7 @@ test.describe('Exams CRUD', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
 
-    await test.step('Group files by type and author', async () => {
+    await test.step('Group files by type and student', async () => {
       await expect(page.getByTestId('file-zone-unknown').getByTestId('exam-file-item')).toContainText(
         'sample-scan.txt'
       )
@@ -129,9 +129,18 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('file-zone-solution')).toBeVisible()
       await expect(page.getByTestId('file-zone-submission')).toBeVisible()
       await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
+      await expect(page.getByTestId('file-zone-correction')).toBeVisible()
 
       await page.getByTestId('exam-file-item').click()
       await expect(page.getByTestId('file-menu')).toBeVisible()
+      await page.getByTestId('file-menu-change-type').click()
+      await page.getByTestId('file-menu-type-submission').click()
+      await expect(
+        page.getByTestId('file-zone-submission').getByTestId('exam-file-item')
+      ).toContainText('sample-scan.txt', { timeout: 15000 })
+
+      await page.getByTestId('exam-file-item').click()
+      await expect(page.getByTestId('file-menu-correct')).toBeVisible()
       await page.getByTestId('file-menu-change-type').click()
       await page.getByTestId('file-menu-type-subject').click()
 
@@ -143,17 +152,17 @@ test.describe('Exams CRUD', () => {
       ).toHaveCount(0)
 
       await page.getByTestId('exam-file-item').click()
-      await page.getByTestId('file-menu-set-author').click()
-      await page.getByTestId('file-author-input').fill('Alice')
-      await page.getByTestId('file-author-save').click()
+      await page.getByTestId('file-menu-set-student').click()
+      await page.getByTestId('file-student-input').fill('Alice')
+      await page.getByTestId('file-student-save').click()
       await expect(page.getByTestId('file-menu')).toHaveCount(0)
 
-      await page.getByTestId('files-view-author').click()
-      await expect(page.getByTestId('file-author-item')).toContainText('Alice')
-      await page.getByTestId('file-author-item').click()
+      await page.getByTestId('files-view-student').click()
+      await expect(page.getByTestId('file-student-item')).toContainText('Alice')
+      await page.getByTestId('file-student-item').click()
       await expect(page.getByTestId('exam-file-item')).toContainText('sample-scan.txt')
-      await page.getByTestId('file-author-back').click()
-      await expect(page.getByTestId('file-author-item')).toContainText('Alice')
+      await page.getByTestId('file-student-back').click()
+      await expect(page.getByTestId('file-student-item')).toContainText('Alice')
 
       await page.getByTestId('files-view-type').click()
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
@@ -194,11 +203,44 @@ test.describe('Exams CRUD', () => {
       await page.getByTestId('file-menu-delete').click()
       await page.getByTestId('delete-file-confirm-button').click()
       await expect(page.getByTestId('exam-file-item')).toHaveCount(0, { timeout: 15000 })
-      await expect(page.getByTestId('exam-files-empty')).toBeVisible()
       await expect(page.getByTestId('files-view-type')).toHaveCount(0)
-      await expect(page.getByTestId('files-view-author')).toHaveCount(0)
-      await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
-      await expect(page.getByTestId('file-author-view')).toHaveCount(0)
+      await expect(page.getByTestId('files-view-student')).toHaveCount(0)
+      await expect(page.getByTestId('file-type-zones')).toBeVisible()
+      await expect(page.getByTestId('add-instruction')).toBeVisible()
+      await expect(page.getByTestId('file-student-view')).toHaveCount(0)
+    })
+
+    await test.step('Create and edit an instruction file', async () => {
+      await page.getByTestId('add-instruction').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 1')
+      await page.getByTestId('instruction-body').fill('Bring a calculator.')
+      await page.getByTestId('instruction-editor-save').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(
+        page.getByTestId('file-zone-instructions').getByTestId('exam-file-item')
+      ).toContainText('Instruction 1.txt')
+
+      await page.getByTestId('file-zone-instructions').getByTestId('exam-file-item').click()
+      await expect(page.getByTestId('file-menu-edit')).toBeVisible()
+      await page.getByTestId('file-menu-edit').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 1')
+      await expect(page.getByTestId('instruction-body')).toHaveValue('Bring a calculator.')
+      await page.getByTestId('instruction-title').fill('Instruction 2')
+      await page.getByTestId('instruction-body').fill('No phones during the exam.')
+      await page.getByTestId('instruction-editor-save').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(
+        page.getByTestId('file-zone-instructions').getByTestId('exam-file-item')
+      ).toContainText('Instruction 2.txt')
+      await expect(
+        page.getByTestId('file-zone-instructions').getByTestId('exam-file-item')
+      ).not.toContainText('Instruction 1.txt')
+
+      await page.getByTestId('add-instruction').click()
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 3')
+      await page.getByTestId('instruction-editor-cancel').click()
     })
 
     await test.step('Delete the exam', async () => {

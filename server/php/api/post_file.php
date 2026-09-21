@@ -64,11 +64,21 @@ try {
         exit();
     }
 
+    $type = Request::getStringParam("type");
+    if ($type !== null && $type !== '' && $type !== 'unknown' && !in_array($type, Exam::FILE_TYPES, true)) {
+        Request::add_error_message("error", "Invalid file type");
+        Request::output_all();
+        exit();
+    }
+
     $contentType = $uploadedFile['type'] ?? null;
     $key = $exam->unassignedFileKey($fileName);
 
     try {
         ObjectStore::getInstance()->put($key, $tmpPath, $contentType);
+        if ($type !== null && $type !== '') {
+            $exam->setFileTags($fileName, $type, null);
+        }
     } catch (\Throwable $e) {
         Request::add_error_message("error", "Failed to save uploaded file");
         Request::output_all();

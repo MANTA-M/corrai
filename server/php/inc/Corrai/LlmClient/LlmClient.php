@@ -16,8 +16,10 @@ abstract class LlmClient extends Restclient
 
     protected function __construct(string $model)
     {
-        parent::__construct('', $_ENV['OPENROUTER_API_KEY']);
+        parent::__construct('', $_ENV['OPENROUTER_API_KEY'] ?? '');
         $this->send_length = true;
+        $this->verbose = false;
+        $this->timeout = 180;
         $this->payload["model"] = $model;
     }
 
@@ -42,7 +44,7 @@ abstract class LlmClient extends Restclient
     {
         foreach ($this->payload['messages'] as &$message) {
             if ($message['role'] === "system") {
-                $message['role']['content'] = $content;
+                $message['content'] = $content;
                 return;
             }
         }
@@ -66,6 +68,93 @@ abstract class LlmClient extends Restclient
      * @return void
      */
     public abstract function add_file(string $file_path, string $file_name): void;
+
+    public function enable_image_output(): void
+    {
+        $this->payload['modalities'] = ['image', 'text'];
+    }
+
+    /**
+     * Call OpenRouter and return assistant text plus generated/annotated images.
+     *
+     * @return array{text: string, images: list<array{mime: string, body: string}>}
+     */
+    public function call_annotation(): array
+    {
+        $response = $this->QueryArray(self::OPENROUTER_API_URL, 'POST', $this->common_headers, $this->payload);
+        if ($response === null) {
+            throw new \Exception('Empty response from model');
+        }
+
+        $message = $response['choices'][0]['message'] ?? null;
+        if (!is_array($message)) {
+            throw new \Exception('Invalid model response');
+        }
+
+        $text = self::extract_message_text($message['content'] ?? '');
+        $images = [];
+        foreach ($message['images'] ?? [] as $image) {
+            $url = '';
+            if (is_array($image)) {
+                $url = $image['image_url']['url'] ?? (is_string($image['image_url'] ?? null) ? $image['image_url'] : '');
+            }
+            $decoded = self::decode_data_url((string) $url);
+            if ($decoded !== null) {
+                $images[] = $decoded;
+            }
+        }
+
+        if ($images === []) {
+            foreach (is_array($message['content'] ?? null) ? $message['content'] : [] as $part) {
+                if (!is_array($part)) {
+                    continue;
+                }
+                $url = $part['image_url']['url'] ?? '';
+                $decoded = self::decode_data_url((string) $url);
+                if ($decoded !== null) {
+                    $images[] = $decoded;
+                }
+            }
+        }
+
+        return ['text' => $text, 'images' => $images];
+    }
+
+    private static function extract_message_text(mixed $content): string
+    {
+        if (is_string($content)) {
+            return $content;
+        }
+        if (!is_array($content)) {
+            return '';
+        }
+        $parts = [];
+        foreach ($content as $part) {
+            if (is_string($part)) {
+                $parts[] = $part;
+                continue;
+            }
+            if (is_array($part) && isset($part['text']) && is_string($part['text'])) {
+                $parts[] = $part['text'];
+            }
+        }
+        return implode("\n", $parts);
+    }
+
+    /**
+     * @return array{mime: string, body: string}|null
+     */
+    private static function decode_data_url(string $url): ?array
+    {
+        if ($url === '' || !preg_match('#^data:([^;]+);base64,(.+)$#s', $url, $matches)) {
+            return null;
+        }
+        $body = base64_decode($matches[2], true);
+        if ($body === false) {
+            return null;
+        }
+        return ['mime' => $matches[1], 'body' => $body];
+    }
 
     public function call(): array
     {

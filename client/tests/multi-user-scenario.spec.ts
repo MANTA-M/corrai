@@ -37,17 +37,17 @@ test.describe('Multi-User Exam Scenario', () => {
       await page1.goto('/');
       
       // Wait for the init profile page to load
-      await page1.waitForSelector('text=Create New Profile', { timeout: 10000 });
+      await page1.waitForSelector('text=Créer un nouveau profil', { timeout: 10000 });
       
       // Click "Create New Profile" button
-      await page1.click('button:has-text("Create New Profile")');
+      await page1.click('button:has-text("Créer un nouveau profil")');
       
       // Fill in user name (optional, but we'll add one for testing)
       const userNameInput = page1.locator('input[id="userName"]');
       await userNameInput.fill('User 1');
       
       // Click the create button
-      const createButton = page1.locator('button[type="submit"]:has-text("Create Profile")');
+      const createButton = page1.locator('button[type="submit"]:has-text("Créer le profil")');
       await createButton.click();
       
       // Wait for navigation to sending list (profile initialized)
@@ -113,17 +113,17 @@ test.describe('Multi-User Exam Scenario', () => {
       await page2.goto('/');
       
       // Wait for the init profile page to load
-      await page2.waitForSelector('text=Create New Profile', { timeout: 10000 });
+      await page2.waitForSelector('text=Créer un nouveau profil', { timeout: 10000 });
       
       // Click "Create New Profile" button
-      await page2.click('button:has-text("Create New Profile")');
+      await page2.click('button:has-text("Créer un nouveau profil")');
       
       // Fill in user name for user 2
       const userNameInput2 = page2.locator('input[id="userName"]');
       await userNameInput2.fill('User 2');
       
       // Click the create button
-      const createButton2 = page2.locator('button[type="submit"]:has-text("Create Profile")');
+      const createButton2 = page2.locator('button[type="submit"]:has-text("Créer le profil")');
       await createButton2.click();
       
       // Wait for navigation to sending list (profile initialized)

@@ -14,7 +14,7 @@ use Exception;
  *   {schoolId}/{userId}/user.csv
  *   {schoolId}/{userId}/{examId}/exam.csv
  *   {schoolId}/{userId}/{examId}/unassigned/{filename}
- *   {schoolId}/{userId}/{examId}/files.csv  (type + author tags per file)
+ *   {schoolId}/{userId}/{examId}/files.csv  (type + student tags per file)
  *   _id/{hash}  — pointer to node prefix for O(1) from_hash
  */
 class ObjectStore

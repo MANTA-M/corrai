@@ -219,7 +219,7 @@ class ExamLifecycleTest extends TestCase
         $exam->delete();
     }
 
-    public function testFileTagsTypeAndAuthor(): void
+    public function testFileTagsTypeAndStudent(): void
     {
         $exam = new Exam();
         $exam->school_id = $this->user->school_id;
@@ -238,22 +238,22 @@ class ExamLifecycleTest extends TestCase
         $files = $exam->list_files();
         $this->assertCount(1, $files);
         $this->assertSame('', $files[0]['type']);
-        $this->assertSame('', $files[0]['author']);
+        $this->assertSame('', $files[0]['student']);
 
         $exam->setFileTags($filename, 'submission', 'Alice');
         $tagged = $exam->list_files();
         $this->assertSame('submission', $tagged[0]['type']);
-        $this->assertSame('Alice', $tagged[0]['author']);
+        $this->assertSame('Alice', $tagged[0]['student']);
 
         $exam->setFileTags($filename, 'subject', null);
         $retyped = $exam->list_files();
         $this->assertSame('subject', $retyped[0]['type']);
-        $this->assertSame('Alice', $retyped[0]['author']);
+        $this->assertSame('Alice', $retyped[0]['student']);
 
         $exam->setFileTags($filename, 'unknown', '');
         $cleared = $exam->list_files();
         $this->assertSame('', $cleared[0]['type']);
-        $this->assertSame('', $cleared[0]['author']);
+        $this->assertSame('', $cleared[0]['student']);
 
         try {
             $exam->setFileTags($filename, 'not-a-type', null);
@@ -287,7 +287,7 @@ class ExamLifecycleTest extends TestCase
         $this->assertCount(1, $files);
         $this->assertSame($newName, $files[0]['name']);
         $this->assertSame('submission', $files[0]['type']);
-        $this->assertSame('Bob', $files[0]['author']);
+        $this->assertSame('Bob', $files[0]['student']);
         $this->assertFalse($store->exists($exam->unassignedFileKey($oldName)));
         $this->assertTrue($store->exists($exam->unassignedFileKey($newName)));
 
@@ -297,6 +297,85 @@ class ExamLifecycleTest extends TestCase
         } catch (WSException $e) {
             $this->assertSame(400, $e->getCode());
         }
+
+        $exam->delete();
+    }
+
+    public function testWriteFileContentsOverwritesExistingFile(): void
+    {
+        $exam = new Exam();
+        $exam->school_id = $this->user->school_id;
+        $exam->user_id = $this->user->id;
+        $exam->name = 'Instruction File Exam';
+        $exam->subject = 'Physics';
+        $exam->date = '2026-08-20';
+        $exam->id = HashId::create();
+        $exam->save();
+
+        $store = ObjectStore::getInstance();
+        $tmp = $this->createRandomTempFile('consigne_', '.txt');
+        $filename = basename($tmp);
+        $store->put($exam->unassignedFileKey($filename), $tmp, 'text/plain');
+        $exam->setFileTags($filename, 'instructions', null);
+
+        $files = $exam->writeFileContents($filename, "Bring a calculator.\n");
+        $this->assertCount(1, $files);
+        $this->assertSame($filename, $files[0]['name']);
+        $this->assertSame('instructions', $files[0]['type']);
+        $this->assertSame(
+            "Bring a calculator.\n",
+            $store->getContents($exam->unassignedFileKey($filename))
+        );
+
+        try {
+            $exam->writeFileContents('missing-instruction.txt', 'nope');
+            $this->fail('Expected missing file to throw');
+        } catch (WSException $e) {
+            $this->assertSame(404, $e->getCode());
+        }
+
+        $exam->delete();
+    }
+
+    public function testCreateCorrectionFilesWithStudentTagAndUniqueNames(): void
+    {
+        $exam = new Exam();
+        $exam->school_id = $this->user->school_id;
+        $exam->user_id = $this->user->id;
+        $exam->name = 'Correction Files Exam';
+        $exam->subject = 'History';
+        $exam->date = '2026-09-21';
+        $exam->id = HashId::create();
+        $exam->save();
+
+        $store = ObjectStore::getInstance();
+        $tmp = $this->createRandomTempFile('copy_', '.png');
+        $filename = basename($tmp);
+        $store->put($exam->unassignedFileKey($filename), $tmp, 'image/png');
+        $exam->setFileTags($filename, 'submission', 'Carol');
+
+        $files = $exam->createFile(
+            'copy_correction.txt',
+            "Mark: 14/20\nGood work.",
+            'text/plain; charset=utf-8',
+            'correction',
+            'Carol'
+        );
+        $this->assertCount(2, $files);
+        $text = array_values(array_filter($files, fn($f) => $f['name'] === 'copy_correction.txt'))[0];
+        $this->assertSame('correction', $text['type']);
+        $this->assertSame('Carol', $text['student']);
+
+        $again = $exam->createFile(
+            'copy_correction.txt',
+            "Mark: 15/20",
+            'text/plain; charset=utf-8',
+            'correction',
+            'Carol'
+        );
+        $names = array_column($again, 'name');
+        $this->assertContains('copy_correction.txt', $names);
+        $this->assertContains('copy_correction_1.txt', $names);
 
         $exam->delete();
     }

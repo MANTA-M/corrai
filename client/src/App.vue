@@ -2,7 +2,7 @@
 import MainNavigation from './components/MainNavigation.vue'
 import InitProfile from './components/InitProfile.vue'
 import { useI18n } from 'vue-i18n'
-import { loadLanguage } from './i18n'
+import { DEFAULT_LOCALE, loadLanguage } from './i18n'
 import { useSessionStore } from '@/stores/session'
 import { onMounted, ref, watch } from 'vue'
 import { useNotificationService } from './services/notifications'
@@ -12,7 +12,7 @@ const sessionStore = useSessionStore()
 const notificationService = useNotificationService()
 const provisioning = ref(false)
 
-loadLanguage('en')
+loadLanguage(sessionStore.locale || DEFAULT_LOCALE)
 
 const handleUrlFragment = async () => {
   // Token-based authentication removed - authentication is now based on keypair

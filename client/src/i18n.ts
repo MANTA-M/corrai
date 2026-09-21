@@ -1,6 +1,6 @@
 import { createI18n } from 'vue-i18n'
 
-export const DEFAULT_LOCALE = 'en'
+export const DEFAULT_LOCALE = 'fr'
 export const AVAILABLE_LOCALES = ['en', 'fr', 'ru', 'uk', 'es', 'pt', 'ro', 'de'] as const
 
 export type AvailableLocale = typeof AVAILABLE_LOCALES[number]
@@ -24,7 +24,7 @@ export function getBrowserLocale(): AvailableLocale {
 
 export const i18n = createI18n({
     legacy: false,
-    locale: getBrowserLocale(),
+    locale: DEFAULT_LOCALE,
     fallbackLocale: DEFAULT_LOCALE,
     messages: {}
 })
@@ -84,22 +84,37 @@ export interface I18nSchema {
         uploadDone: string
         uploadError: string
         viewByType: string
-        viewByAuthor: string
+        viewByStudent: string
         fileTypeSubject: string
         fileTypeSolution: string
         fileTypeSubmission: string
         fileTypeInstructions: string
+        fileTypeCorrection: string
         fileTypeUnknown: string
         fileChangeType: string
-        fileSetAuthor: string
-        fileAuthorPlaceholder: string
-        fileAuthorSave: string
-        fileAuthorUnknown: string
+        fileSetStudent: string
+        fileStudentPlaceholder: string
+        fileStudentSave: string
+        fileStudentUnknown: string
         fileZoneEmpty: string
-        fileAuthorsEmpty: string
-        fileAuthorBack: string
+        fileStudentsEmpty: string
+        fileStudentBack: string
         fileUpdateError: string
         fileView: string
+        fileEdit: string
+        fileCorrect: string
+        fileCorrecting: string
+        fileCorrectError: string
+        addInstruction: string
+        instructionCreateTitle: string
+        instructionEditTitle: string
+        instructionTitle: string
+        instructionBody: string
+        instructionSave: string
+        instructionSaving: string
+        instructionTitlePrefix: string
+        instructionSaveError: string
+        instructionLoadError: string
         fileRename: string
         fileDelete: string
         fileDeleteTitle: string
@@ -165,6 +180,7 @@ const loadedLanguages = new Set<string>()
 export async function loadLanguage(lang: string) {
     if (loadedLanguages.has(lang)) {
         i18n.global.locale.value = lang
+        document.documentElement.lang = lang
         return
     }
 
@@ -173,4 +189,5 @@ export async function loadLanguage(lang: string) {
     i18n.global.setLocaleMessage(lang, messages.default)
     loadedLanguages.add(lang)
     i18n.global.locale.value = lang
+    document.documentElement.lang = lang
 }

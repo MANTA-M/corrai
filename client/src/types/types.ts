@@ -9,7 +9,7 @@ export interface CryptoAddress {
   public_key: string,
 }
 
-export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions'] as const
+export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'] as const
 export type ExamFileType = (typeof EXAM_FILE_TYPES)[number]
 
 export const EXAM_FILE_TYPE_ZONES = [...EXAM_FILE_TYPES, 'unknown'] as const
@@ -20,7 +20,7 @@ export interface ExamFile {
   size: number
   created: number
   type?: string
-  author?: string
+  student?: string
 }
 
 export interface ExamQuestion {

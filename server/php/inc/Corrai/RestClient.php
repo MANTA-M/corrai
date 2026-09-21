@@ -15,6 +15,7 @@ class Restclient
     public array $common_headers = [];
     public bool $send_length = false;
     public bool $verbose = true;
+    public int $timeout = 0;
 
     public function __construct(protected string $baseUrl, protected string $token = '') {}
 
@@ -64,6 +65,9 @@ class Restclient
             CURLOPT_CONNECTTIMEOUT => 2,
             CURLOPT_CUSTOMREQUEST => $method,
         ];
+        if ($this->timeout > 0) {
+            $opts[CURLOPT_TIMEOUT] = $this->timeout;
+        }
 
         $restDebug = $_ENV['REST_TRACE_LEVEL'] ?? 'none';
         if ($restDebug !== 'none') {

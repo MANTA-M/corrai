@@ -23,13 +23,13 @@
           <button
             type="button"
             class="view-toggle-button"
-            :class="{ active: viewMode === 'author' }"
-            data-testid="files-view-author"
+            :class="{ active: viewMode === 'student' }"
+            data-testid="files-view-student"
             role="tab"
-            :aria-selected="viewMode === 'author'"
-            @click="viewMode = 'author'"
+            :aria-selected="viewMode === 'student'"
+            @click="viewMode = 'student'"
           >
-            {{ t('exam.viewByAuthor') }}
+            {{ t('exam.viewByStudent') }}
           </button>
         </div>
         <button
@@ -45,22 +45,26 @@
 
     <p v-if="error" class="error-message">{{ error }}</p>
 
-    <p
-      v-if="!files.length"
-      class="empty-files"
-      data-testid="exam-files-empty"
-    >
-      {{ t('exam.filesEmpty') }}
-    </p>
-
-    <div v-if="files.length && viewMode === 'type'" class="type-zones" data-testid="file-type-zones">
+    <div v-if="viewMode === 'type'" class="type-zones" data-testid="file-type-zones">
       <section
         v-for="zone in typeZones"
         :key="zone"
         class="file-zone"
         :data-testid="`file-zone-${zone}`"
       >
-        <h3>{{ typeZoneLabel(zone) }}</h3>
+        <div class="file-zone-header">
+          <h3>{{ typeZoneLabel(zone) }}</h3>
+          <button
+            v-if="zone === 'instructions'"
+            type="button"
+            class="add-instruction-button"
+            data-testid="add-instruction"
+            :aria-label="t('exam.addInstruction')"
+            @click="openCreateInstruction"
+          >
+            +
+          </button>
+        </div>
         <p v-if="!filesInZone(zone).length" class="zone-empty">
           {{ t('exam.fileZoneEmpty') }}
         </p>
@@ -80,18 +84,18 @@
       </section>
     </div>
 
-    <div v-else-if="files.length" class="author-view" data-testid="file-author-view">
-      <template v-if="selectedAuthor === null">
-        <p v-if="!authorEntries.length" class="empty-files" data-testid="file-authors-empty">
-          {{ t('exam.fileAuthorsEmpty') }}
+    <div v-else-if="files.length" class="student-view" data-testid="file-student-view">
+      <template v-if="selectedStudent === null">
+        <p v-if="!studentEntries.length" class="empty-files" data-testid="file-students-empty">
+          {{ t('exam.fileStudentsEmpty') }}
         </p>
-        <ul v-else class="author-list" data-testid="file-author-list">
-          <li v-for="entry in authorEntries" :key="entry.id">
+        <ul v-else class="student-list" data-testid="file-student-list">
+          <li v-for="entry in studentEntries" :key="entry.id">
             <button
               type="button"
-              class="author-item"
-              data-testid="file-author-item"
-              @click="selectedAuthor = entry.id"
+              class="student-item"
+              data-testid="file-student-item"
+              @click="selectedStudent = entry.id"
             >
               <span>{{ entry.label }}</span>
               <span class="file-meta">{{ entry.count }}</span>
@@ -100,22 +104,22 @@
         </ul>
       </template>
       <template v-else>
-        <div class="author-detail-header">
+        <div class="student-detail-header">
           <button
             type="button"
             class="back-button"
-            data-testid="file-author-back"
-            @click="selectedAuthor = null"
+            data-testid="file-student-back"
+            @click="selectedStudent = null"
           >
-            {{ t('exam.fileAuthorBack') }}
+            {{ t('exam.fileStudentBack') }}
           </button>
-          <h3>{{ selectedAuthorLabel }}</h3>
+          <h3>{{ selectedStudentLabel }}</h3>
         </div>
-        <p v-if="!filesForSelectedAuthor.length" class="zone-empty">
+        <p v-if="!filesForSelectedStudent.length" class="zone-empty">
           {{ t('exam.fileZoneEmpty') }}
         </p>
         <ul v-else class="file-list">
-          <li v-for="file in filesForSelectedAuthor" :key="file.name">
+          <li v-for="file in filesForSelectedStudent" :key="file.name">
             <button
               type="button"
               class="file-item"
@@ -136,6 +140,15 @@
     :exam-id="examId"
     @close="showAddFilePopup = false"
     @uploaded="onFilesUploaded"
+  />
+
+  <InstructionEditorPopup
+    v-if="showInstructionEditor && examId"
+    :exam-id="examId"
+    :files="files"
+    :existing-file="instructionEditorFile"
+    @close="closeInstructionEditor"
+    @saved="onFilesUploaded"
   />
 
   <Teleport to="body">
@@ -167,6 +180,27 @@
             {{ t('exam.fileView') }}
           </a>
           <button
+            v-if="fileZone(menu.file) === 'instructions'"
+            type="button"
+            class="file-menu-item"
+            data-testid="file-menu-edit"
+            role="menuitem"
+            @click="startEditInstruction"
+          >
+            {{ t('exam.fileEdit') }}
+          </button>
+          <button
+            v-if="fileZone(menu.file) === 'submission'"
+            type="button"
+            class="file-menu-item"
+            data-testid="file-menu-correct"
+            role="menuitem"
+            :disabled="isUpdating"
+            @click="correctSubmission"
+          >
+            {{ isUpdating ? t('exam.fileCorrecting') : t('exam.fileCorrect') }}
+          </button>
+          <button
             type="button"
             class="file-menu-item"
             data-testid="file-menu-rename"
@@ -196,11 +230,11 @@
           <button
             type="button"
             class="file-menu-item"
-            data-testid="file-menu-set-author"
+            data-testid="file-menu-set-student"
             role="menuitem"
-            @click="startSetAuthor"
+            @click="startSetStudent"
           >
-            {{ t('exam.fileSetAuthor') }}
+            {{ t('exam.fileSetStudent') }}
           </button>
         </template>
 
@@ -232,27 +266,27 @@
           <button
             type="button"
             class="file-menu-item"
-            data-testid="file-menu-author-back"
+            data-testid="file-menu-student-back"
             @click="menu.mode = 'root'"
           >
             {{ t('common.back') }}
           </button>
-          <form class="file-author-form" @submit.prevent="saveAuthor">
+          <form class="file-student-form" @submit.prevent="saveStudent">
             <input
-              v-model="authorDraft"
+              v-model="studentDraft"
               type="text"
-              class="file-author-input"
-              data-testid="file-author-input"
-              :placeholder="t('exam.fileAuthorPlaceholder')"
+              class="file-student-input"
+              data-testid="file-student-input"
+              :placeholder="t('exam.fileStudentPlaceholder')"
               :disabled="isUpdating"
             />
             <button
               type="submit"
               class="button add-file-button"
-              data-testid="file-author-save"
+              data-testid="file-student-save"
               :disabled="isUpdating"
             >
-              {{ t('exam.fileAuthorSave') }}
+              {{ t('exam.fileStudentSave') }}
             </button>
           </form>
         </template>
@@ -287,7 +321,7 @@
             ref="renameInput"
             v-model="renameDraft"
             type="text"
-            class="file-author-input"
+            class="file-student-input"
             data-testid="rename-file-input"
             :disabled="isUpdating"
           />
@@ -370,6 +404,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AddFilePopup from '@/components/AddFilePopup.vue'
+import InstructionEditorPopup from '@/components/InstructionEditorPopup.vue'
 import { useSessionStore } from '@/stores/session'
 import {
   EXAM_FILE_TYPES,
@@ -387,17 +422,19 @@ const emit = defineEmits<{
   updated: [files: ExamFile[]]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 
 const typeZones = EXAM_FILE_TYPE_ZONES
-const viewMode = ref<'type' | 'author'>('type')
-const selectedAuthor = ref<string | null>(null)
+const viewMode = ref<'type' | 'student'>('type')
+const selectedStudent = ref<string | null>(null)
 const showAddFilePopup = ref(false)
+const showInstructionEditor = ref(false)
+const instructionEditorFile = ref<ExamFile | null>(null)
 const error = ref('')
 const actionError = ref('')
 const isUpdating = ref(false)
-const authorDraft = ref('')
+const studentDraft = ref('')
 const renameTarget = ref<ExamFile | null>(null)
 const renameDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
@@ -407,7 +444,7 @@ interface FileMenu {
   file: ExamFile
   x: number
   y: number
-  mode: 'root' | 'type' | 'author'
+  mode: 'root' | 'type' | 'student'
 }
 
 const menu = ref<FileMenu | null>(null)
@@ -425,6 +462,7 @@ const typeZoneLabel = (zone: ExamFileTypeZone) => {
     solution: 'exam.fileTypeSolution',
     submission: 'exam.fileTypeSubmission',
     instructions: 'exam.fileTypeInstructions',
+    correction: 'exam.fileTypeCorrection',
     unknown: 'exam.fileTypeUnknown',
   }
   return t(keys[zone])
@@ -433,12 +471,12 @@ const typeZoneLabel = (zone: ExamFileTypeZone) => {
 const filesInZone = (zone: ExamFileTypeZone) =>
   props.files.filter((file) => fileZone(file) === zone)
 
-const authorKey = (file: ExamFile) => (file.author ?? '').trim()
+const studentKey = (file: ExamFile) => (file.student ?? '').trim()
 
-const authorEntries = computed(() => {
+const studentEntries = computed(() => {
   const counts = new Map<string, number>()
   for (const file of props.files) {
-    const key = authorKey(file)
+    const key = studentKey(file)
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
   return [...counts.entries()]
@@ -450,19 +488,19 @@ const authorEntries = computed(() => {
     .map(([id, count]) => ({
       id,
       count,
-      label: id === '' ? t('exam.fileAuthorUnknown') : id,
+      label: id === '' ? t('exam.fileStudentUnknown') : id,
     }))
 })
 
-const filesForSelectedAuthor = computed(() => {
-  if (selectedAuthor.value === null) return []
-  return props.files.filter((file) => authorKey(file) === selectedAuthor.value)
+const filesForSelectedStudent = computed(() => {
+  if (selectedStudent.value === null) return []
+  return props.files.filter((file) => studentKey(file) === selectedStudent.value)
 })
 
-const selectedAuthorLabel = computed(() => {
-  if (selectedAuthor.value === null) return ''
-  if (selectedAuthor.value === '') return t('exam.fileAuthorUnknown')
-  return selectedAuthor.value
+const selectedStudentLabel = computed(() => {
+  if (selectedStudent.value === null) return ''
+  if (selectedStudent.value === '') return t('exam.fileStudentUnknown')
+  return selectedStudent.value
 })
 
 const menuStyle = computed(() => {
@@ -483,14 +521,14 @@ const openMenu = (event: MouseEvent, file: ExamFile) => {
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
   const maxLeft = Math.max(8, window.innerWidth - 240)
-  const maxTop = Math.max(8, window.innerHeight - 360)
+  const maxTop = Math.max(8, window.innerHeight - 400)
   menu.value = {
     file,
     x: Math.min(rect.left, maxLeft),
     y: Math.min(rect.bottom + 4, maxTop),
     mode: 'root',
   }
-  authorDraft.value = (file.author ?? '').trim()
+  studentDraft.value = (file.student ?? '').trim()
   error.value = ''
 }
 
@@ -535,10 +573,69 @@ const closeDelete = () => {
   actionError.value = ''
 }
 
-const startSetAuthor = () => {
+const startSetStudent = () => {
   if (!menu.value) return
-  authorDraft.value = (menu.value.file.author ?? '').trim()
-  menu.value.mode = 'author'
+  studentDraft.value = (menu.value.file.student ?? '').trim()
+  menu.value.mode = 'student'
+}
+
+const openCreateInstruction = () => {
+  instructionEditorFile.value = null
+  showInstructionEditor.value = true
+  closeMenu()
+}
+
+const startEditInstruction = () => {
+  if (!menu.value) return
+  instructionEditorFile.value = menu.value.file
+  showInstructionEditor.value = true
+  closeMenu()
+}
+
+const closeInstructionEditor = () => {
+  showInstructionEditor.value = false
+  instructionEditorFile.value = null
+}
+
+const uiLanguageName = () => {
+  const names: Record<string, string> = {
+    en: 'English',
+    fr: 'French',
+    es: 'Spanish',
+    de: 'German',
+    pt: 'Portuguese',
+    ro: 'Romanian',
+    ru: 'Russian',
+    uk: 'Ukrainian',
+  }
+  const code = String(locale.value || 'fr').split('-')[0]
+  return names[code] ?? code
+}
+
+const correctSubmission = async () => {
+  if (!menu.value) return
+  const file = menu.value.file
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const wsClient = sessionStore.getWsClient()
+    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+      'POST',
+      '/correction',
+      { id: props.examId, filename: file.name },
+      { language: uiLanguageName() }
+    )
+    if (response?.files) {
+      applyUpdatedFiles(response.files)
+    }
+    closeMenu()
+  } catch (err) {
+    console.error('Error correcting submission:', err)
+    error.value = t('exam.fileCorrectError')
+    closeMenu()
+  } finally {
+    isUpdating.value = false
+  }
 }
 
 const applyUpdatedFiles = (files: ExamFile[]) => {
@@ -556,7 +653,7 @@ const onFilesUploaded = (updatedFiles: ExamFile[]) => {
   applyUpdatedFiles(updatedFiles)
 }
 
-const updateTags = async (file: ExamFile, patch: { type?: string; author?: string }) => {
+const updateTags = async (file: ExamFile, patch: { type?: string; student?: string }) => {
   error.value = ''
   isUpdating.value = true
   try {
@@ -584,9 +681,9 @@ const changeType = async (zone: ExamFileTypeZone) => {
   await updateTags(menu.value.file, { type: zone === 'unknown' ? '' : zone })
 }
 
-const saveAuthor = async () => {
+const saveStudent = async () => {
   if (!menu.value) return
-  await updateTags(menu.value.file, { author: authorDraft.value.trim() })
+  await updateTags(menu.value.file, { student: studentDraft.value.trim() })
 }
 
 const submitRename = async () => {
@@ -647,16 +744,21 @@ const submitDelete = async () => {
 watch(
   () => props.files,
   () => {
-    if (selectedAuthor.value === null) return
-    const remaining = props.files.some((file) => authorKey(file) === selectedAuthor.value)
+    if (props.files.length === 0) {
+      viewMode.value = 'type'
+      selectedStudent.value = null
+      return
+    }
+    if (selectedStudent.value === null) return
+    const remaining = props.files.some((file) => studentKey(file) === selectedStudent.value)
     if (!remaining) {
-      selectedAuthor.value = null
+      selectedStudent.value = null
     }
   }
 )
 
 watch(viewMode, () => {
-  selectedAuthor.value = null
+  selectedStudent.value = null
   closeMenu()
 })
 </script>
@@ -766,7 +868,7 @@ watch(viewMode, () => {
   font-size: 0.9rem;
 }
 
-.file-action-popup .file-author-input {
+.file-action-popup .file-student-input {
   width: 100%;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
@@ -804,21 +906,50 @@ watch(viewMode, () => {
   min-height: 6rem;
 }
 
-.file-zone h3,
-.author-detail-header h3 {
-  margin: 0 0 0.75rem;
+.file-zone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.file-zone-header h3,
+.student-detail-header h3 {
+  margin: 0;
   font-size: 1rem;
 }
 
+.add-instruction-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--accent);
+  color: white;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.add-instruction-button:hover {
+  background-color: var(--accent-600);
+}
+
 .file-list,
-.author-list {
+.student-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
 .file-item,
-.author-item {
+.student-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -835,12 +966,12 @@ watch(viewMode, () => {
 }
 
 .file-list li:last-child .file-item,
-.author-list li:last-child .author-item {
+.student-list li:last-child .student-item {
   border-bottom: none;
 }
 
 .file-item:hover,
-.author-item:hover {
+.student-item:hover {
   background: var(--hover-bg);
 }
 
@@ -856,7 +987,7 @@ watch(viewMode, () => {
   flex-shrink: 0;
 }
 
-.author-detail-header {
+.student-detail-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -864,7 +995,7 @@ watch(viewMode, () => {
   flex-wrap: wrap;
 }
 
-.author-detail-header h3 {
+.student-detail-header h3 {
   margin: 0;
 }
 
@@ -882,7 +1013,7 @@ watch(viewMode, () => {
   background: var(--hover-bg);
 }
 
-.author-list {
+.student-list {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
@@ -956,14 +1087,14 @@ watch(viewMode, () => {
   cursor: not-allowed;
 }
 
-.file-author-form {
+.file-student-form {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.65rem 0.9rem 0.75rem;
 }
 
-.file-author-input {
+.file-student-input {
   width: 100%;
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--border);

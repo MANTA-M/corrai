@@ -3,7 +3,7 @@
 namespace Corrai;
 
 use Exception;
-use Corrai\LlmClient\Gemini3Client;
+use Corrai\LlmClient\LlmClientFactory;
 
 class Exam
 {
@@ -45,7 +45,7 @@ class Exam
     /**
      * Allowed file type tags. Empty / unknown is stored as an empty string.
      */
-    public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions'];
+    public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'];
 
     public static function from_array(array $data): Exam
     {
@@ -209,9 +209,9 @@ class Exam
     }
 
     /**
-     * List all files in this exam's unassigned/ folder, merged with type/author tags.
+     * List all files in this exam's unassigned/ folder, merged with type/student tags.
      *
-     * @return array Array of file information with name, size, created, type, and author
+     * @return array Array of file information with name, size, created, type, and student
      */
     public function list_files(): array
     {
@@ -231,7 +231,7 @@ class Exam
                 $type = '';
             }
             $file['type'] = $type;
-            $file['author'] = $tags[$name]['author'] ?? '';
+            $file['student'] = $tags[$name]['student'] ?? '';
         }
         unset($file);
 
@@ -239,11 +239,11 @@ class Exam
     }
 
     /**
-     * Persist type and/or author tags for a file that already exists on this exam.
+     * Persist type and/or student tags for a file that already exists on this exam.
      *
      * @return array Updated file list
      */
-    public function setFileTags(string $filename, ?string $type, ?string $author): array
+    public function setFileTags(string $filename, ?string $type, ?string $student): array
     {
         $store = ObjectStore::getInstance();
         $key = $this->unassignedFileKey($filename);
@@ -252,7 +252,7 @@ class Exam
         }
 
         $tags = $this->loadFileTags();
-        $current = $tags[$filename] ?? ['type' => '', 'author' => ''];
+        $current = $tags[$filename] ?? ['type' => '', 'student' => ''];
 
         if ($type !== null) {
             if ($type === 'unknown') {
@@ -263,13 +263,79 @@ class Exam
             }
             $current['type'] = $type;
         }
-        if ($author !== null) {
-            $current['author'] = trim($author);
+        if ($student !== null) {
+            $current['student'] = trim($student);
         }
 
         $tags[$filename] = $current;
         $this->saveFileTags($tags);
 
+        return $this->list_files();
+    }
+
+    /**
+     * Create a new unassigned file with optional type and student tags.
+     *
+     * @return array Updated file list
+     */
+    public function createFile(
+        string $filename,
+        string $content,
+        string $contentType,
+        ?string $type,
+        ?string $student
+    ): array {
+        $filename = $this->uniqueUnassignedName($filename);
+        $store = ObjectStore::getInstance();
+        $store->putContents($this->unassignedFileKey($filename), $content, $contentType);
+        if ($type !== null || $student !== null) {
+            $this->setFileTags($filename, $type, $student);
+        }
+        return $this->list_files();
+    }
+
+    public function uniqueUnassignedName(string $filename): string
+    {
+        if ($filename === '' || preg_match('/[\/\\\\]/', $filename)) {
+            throw new WSException('Invalid file name', 400);
+        }
+
+        $store = ObjectStore::getInstance();
+        if (!$store->exists($this->unassignedFileKey($filename))) {
+            return $filename;
+        }
+
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $index = 1;
+        do {
+            $candidate = $extension === ''
+                ? $base . '_' . $index
+                : $base . '_' . $index . '.' . $extension;
+            $index++;
+        } while ($store->exists($this->unassignedFileKey($candidate)));
+
+        return $candidate;
+    }
+
+    /**
+     * Overwrite the body of an existing unassigned file.
+     *
+     * @return array Updated file list
+     */
+    public function writeFileContents(string $filename, string $content): array
+    {
+        if ($filename === '' || preg_match('/[\/\\\\]/', $filename)) {
+            throw new WSException('Invalid file name', 400);
+        }
+
+        $store = ObjectStore::getInstance();
+        $key = $this->unassignedFileKey($filename);
+        if (!$store->exists($key)) {
+            throw new WSException("File '$filename' does not exist for exam {$this->id}", 404);
+        }
+
+        $store->putContents($key, $content, 'text/plain; charset=utf-8');
         return $this->list_files();
     }
 
@@ -327,7 +393,7 @@ class Exam
     }
 
     /**
-     * @return array<string, array{type: string, author: string}>
+     * @return array<string, array{type: string, student: string}>
      */
     public function loadFileTags(): array
     {
@@ -350,14 +416,14 @@ class Exam
             }
             $tags[$name] = [
                 'type' => $row['type'] ?? '',
-                'author' => $row['author'] ?? '',
+                'student' => $row['student'] ?? $row['author'] ?? '',
             ];
         }
         return $tags;
     }
 
     /**
-     * @param array<string, array{type?: string, author?: string}> $tags
+     * @param array<string, array{type?: string, student?: string}> $tags
      */
     public function saveFileTags(array $tags): void
     {
@@ -368,14 +434,14 @@ class Exam
         $rows = [];
         foreach ($tags as $name => $tag) {
             $type = $tag['type'] ?? '';
-            $author = $tag['author'] ?? '';
-            if ($type === '' && $author === '') {
+            $student = $tag['student'] ?? '';
+            if ($type === '' && $student === '') {
                 continue;
             }
             $rows[] = [
                 'name' => (string) $name,
                 'type' => $type,
-                'author' => $author,
+                'student' => $student,
             ];
         }
 
@@ -399,7 +465,7 @@ class Exam
      */
     public function verify(array $questions = []): array
     {
-        $request = new Gemini3Client();
+        $request = LlmClientFactory::create($_ENV['OPENROUTER_MODEL'] ?? null);
         $system = <<<EOT
             # SYSTEM:
             You are a file data analyser.
@@ -443,5 +509,101 @@ class Exam
                 @unlink($tmpPath);
             }
         }
+    }
+
+    /**
+     * Grade a submission via OpenRouter: annotated image + textual mark/appreciation.
+     *
+     * @return array Updated file list
+     */
+    public function correctSubmission(string $filename, string $language): array
+    {
+        $tags = $this->loadFileTags();
+        $type = $tags[$filename]['type'] ?? '';
+        if ($type !== 'submission') {
+            throw new WSException('File is not a submission', 400);
+        }
+
+        $store = ObjectStore::getInstance();
+        $key = $this->unassignedFileKey($filename);
+        if (!$store->exists($key)) {
+            throw new WSException("File '$filename' does not exist for exam {$this->id}", 404);
+        }
+
+        $student = $tags[$filename]['student'] ?? '';
+        $instructionText = $this->instructionFilesText();
+        $languageName = trim($language) !== '' ? trim($language) : 'French';
+
+        $prompt = 'SYSTEM: You are a professor in ' . $this->subject
+            . ' and you have to correct the following submission. '
+            . 'Respond by annotating the image plus a textual response with the mark and the appreciation. '
+            . 'Use the language ' . $languageName
+            . ' with the following instructions bellow. '
+            . $instructionText;
+
+        $request = LlmClientFactory::create($_ENV['OPENROUTER_MODEL'] ?? null);
+        $request->set_system_content($prompt);
+        $request->add_text($prompt);
+        $request->enable_image_output();
+
+        $tmpPath = $store->downloadToTemp($key);
+        try {
+            $request->add_file($tmpPath, $filename);
+            $result = $request->call_annotation();
+        } catch (\Throwable $th) {
+            throw new WSException($th->getMessage(), 400);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        if ($result['images'] === []) {
+            throw new WSException('The model did not return an annotated image', 400);
+        }
+
+        $image = $result['images'][0];
+        $imageExt = self::extensionForMime($image['mime']);
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $this->createFile(
+            $base . '_correction.' . $imageExt,
+            $image['body'],
+            $image['mime'],
+            'correction',
+            $student
+        );
+        $this->createFile(
+            $base . '_correction.txt',
+            $result['text'] !== '' ? $result['text'] : "\n",
+            'text/plain; charset=utf-8',
+            'correction',
+            $student
+        );
+
+        return $this->list_files();
+    }
+
+    private function instructionFilesText(): string
+    {
+        $store = ObjectStore::getInstance();
+        $parts = [];
+        foreach ($this->list_files() as $file) {
+            if (($file['type'] ?? '') !== 'instructions') {
+                continue;
+            }
+            $parts[] = $file['name'] . ":\n" . $store->getContents($this->unassignedFileKey($file['name']));
+        }
+        return implode("\n\n", $parts);
+    }
+
+    private static function extensionForMime(string $mime): string
+    {
+        $map = [
+            'image/png' => 'png',
+            'image/jpeg' => 'jpg',
+            'image/jpg' => 'jpg',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+        $baseMime = strtolower(trim(explode(';', $mime)[0]));
+        return $map[$baseMime] ?? 'png';
     }
 }
