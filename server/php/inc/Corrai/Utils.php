@@ -40,16 +40,59 @@ class Utils
 
         while (!feof($fn)) {
             $line = fgets($fn);
-            $commentsElements = explode("#", $line);
-            if (count($commentsElements) == 2) {
-                $line = $commentsElements[0];
+            if ($line === false) {
+                break;
             }
-            $lineElements = explode("=", $line);
-            if (count($lineElements) == 2) {
-                $destination[trim($lineElements[0])] = trim($lineElements[1]);
+
+            $parsed = self::parseEnvLine($line);
+            if ($parsed !== null) {
+                $destination[$parsed[0]] = $parsed[1];
             }
         }
         fclose($fn);
+    }
+
+    /**
+     * Parse a KEY=VALUE env line. Surrounding quotes are stripped so
+     * values like S3_SECRET_KEY="a|b^c" match the unquoted secret.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private static function parseEnvLine(string $line): ?array
+    {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') {
+            return null;
+        }
+
+        $eq = strpos($line, '=');
+        if ($eq === false) {
+            return null;
+        }
+
+        $key = trim(substr($line, 0, $eq));
+        $value = trim(substr($line, $eq + 1));
+        if ($key === '') {
+            return null;
+        }
+
+        $len = strlen($value);
+        $quoted = $len >= 2
+            && (
+                ($value[0] === '"' && $value[$len - 1] === '"')
+                || ($value[0] === "'" && $value[$len - 1] === "'")
+            );
+
+        if ($quoted) {
+            $value = substr($value, 1, $len - 2);
+        } else {
+            $hashPos = strpos($value, '#');
+            if ($hashPos !== false) {
+                $value = rtrim(substr($value, 0, $hashPos));
+            }
+        }
+
+        return [$key, $value];
     }
 
     /**

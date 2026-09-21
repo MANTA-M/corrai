@@ -1,7 +1,4 @@
     location ^~ /corrai_test/api/ {
-        rewrite ^/corrai_test/api/(.*)$ /corrai_test/api_router.php$is_args$args last;
-    }
-    location = /corrai_test/api_router.php {
         include fastcgi_params;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
         fastcgi_param SCRIPT_FILENAME /home/maintainer/corrai_test/server/php/public/api_router.php;
