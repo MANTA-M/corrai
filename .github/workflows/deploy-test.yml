@@ -3,7 +3,8 @@ name: Deploy on test server
 on:
   push:
     branches:
-      - dev
+      - 'dev'
+      - 'cursor/**'
   workflow_dispatch:
 
 jobs:
