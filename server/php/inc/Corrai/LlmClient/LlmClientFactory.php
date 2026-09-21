@@ -13,10 +13,10 @@ class LlmClientFactory
             return new ClaudeSonnetClient($model);
         }
         if (stripos($model, 'google') !== false || stripos($model, 'gemini') !== false) {
-            if (stripos($model, 'flash-lite') !== false || stripos($model, '2.5-flash') !== false) {
+            if (stripos($model, 'flash-lite') !== false) {
                 return new Gemini2FlashLiteClient();
             }
-            return new Gemini3Client();
+            return new Gemini3Client($model);
         }
         if (stripos($model, 'mistral') !== false) {
             return new MistralLargeClient();

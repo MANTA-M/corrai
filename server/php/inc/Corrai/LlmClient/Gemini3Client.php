@@ -4,9 +4,9 @@ namespace Corrai\LlmClient;
 
 class Gemini3Client extends LlmClient
 {
-    public function __construct()
+    public function __construct(?string $model = null)
     {
-        parent::__construct("google/gemini-3.1-pro-preview");
+        parent::__construct($model ?: ($_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image'));
     }
 
     /**     

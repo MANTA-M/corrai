@@ -541,7 +541,8 @@ class Exam
             . ' with the following instructions bellow. '
             . $instructionText;
 
-        $request = LlmClientFactory::create($_ENV['OPENROUTER_MODEL'] ?? null);
+        $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
+        $request = LlmClientFactory::create($imageModel);
         $request->set_system_content($prompt);
         $request->add_text($prompt);
         $request->enable_image_output();
