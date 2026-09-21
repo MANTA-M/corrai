@@ -34,6 +34,7 @@ jobs:
             --exclude 'server/php/vendor/' \
             --exclude 'server/php/.env' \
             --exclude 'client/.env.local' \
+            --exclude 'client/vite.config.ts' \
             --exclude 'docker/storage/' \
             ./ maintainer@mantam.eu:/home/maintainer/corrai_test/
 
@@ -42,6 +43,9 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes maintainer@mantam.eu '
             set -e
             cd /home/maintainer/corrai_test/client
+            if [ ! -f vite.config.ts ]; then
+              cp vite.config_remote.ts vite.config.ts
+            fi
             npm ci
             npm run build
           '

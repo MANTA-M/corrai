@@ -3,9 +3,9 @@
 namespace Corrai\LlmClient;
 
 use Corrai\JsonUtils;
-use Corrai\Restclient;
+use Corrai\RestClient;
 
-abstract class LlmClient extends Restclient
+abstract class LlmClient extends RestClient
 {
     const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 

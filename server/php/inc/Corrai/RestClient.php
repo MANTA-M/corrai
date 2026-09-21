@@ -7,7 +7,7 @@ use Exception;
 /**
  * Base class for REST API calls
  */
-class Restclient
+class RestClient
 {
     public static int $timer = 0;
     protected bool $disableSslVerif = true;
