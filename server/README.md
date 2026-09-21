@@ -8,7 +8,7 @@ PHP backend for the corrai application.
 
 - PHP >= 7.4 (Docker uses PHP 8.3)
 - Composer for dependency management
-- MinIO (S3-compatible object store) for schools, users, exams, and files. Logs go to `/var/log/corrai`.
+- SeaweedFS (S3-compatible object store) for schools, users, exams, and files. Logs go to `/var/log/corrai`.
 
 ### Installing dependencies
 

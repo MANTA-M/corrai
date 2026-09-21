@@ -47,17 +47,17 @@ The PHP backend will be available at `http://localhost:80`
     - `./server/log` → `/var/log/corrai`
     - `./server/php` → `/var/corrai/php`
     - Nginx config mounted from `docker/php/nginx-default.conf`
-- **minio**: S3-compatible object store for schools, users, exams, and files
-  - Ports: 9000 (API), 9001 (console)
+- **seaweedfs**: S3-compatible object store for schools, users, exams, and files
+  - Ports: 8333 (S3 API), 8888 (filer UI)
   - Volume: `./docker/storage` → `/data`
+  - Existing MinIO data in that volume is not compatible; clear `docker/storage` before the first SeaweedFS start
 
 ### Environment variables
 
 Configure environment variables in `server/php/.env`:
 - `APP_ENV`: Application environment (dev/prod)
 - `LOG_DIR`: Local directory for application logs (`/var/log/corrai`)
-- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`: MinIO credentials (must match `S3_ACCESS_KEY` / `S3_SECRET_KEY`)
-- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`: object store
+- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`: SeaweedFS S3 gateway (`S3_ENDPOINT` should be `http://seaweedfs:8333` in Compose)
 
 ## Client (Vue Frontend)
 

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * PHPUnit bootstrap: autoload + S3/MinIO env for integration tests.
+ * PHPUnit bootstrap: autoload + S3/SeaweedFS env for integration tests.
  */
 
 $root = dirname(__DIR__);

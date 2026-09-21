@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * Integration tests for exam CRUD and unassigned file attach/detach.
  *
  * Uses the fixed "IND" (Independent) school and a disposable teacher user.
- * Requires MinIO reachable via S3_* env (docker compose php + minio).
+ * Requires SeaweedFS reachable via S3_* env (docker compose php + seaweedfs).
  */
 class ExamLifecycleTest extends TestCase
 {

@@ -22,7 +22,7 @@ School
 
 # Storage System
 
-The system is based on MinIO (S3-compatible object storage).
+The system is based on SeaweedFS (S3-compatible object storage).
 
 Every school, user (teacher), and exam is identified by a short 7-character alphanumeric hash. These hashes form a tree in the bucket:
 

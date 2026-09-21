@@ -7,7 +7,7 @@ use Aws\S3\S3Client;
 use Exception;
 
 /**
- * Thin S3 wrapper pointed at MinIO (or any S3-compatible endpoint).
+ * Thin S3 wrapper pointed at SeaweedFS (or any S3-compatible endpoint).
  *
  * Tree layout:
  *   {schoolId}/school.csv
@@ -26,7 +26,7 @@ class ObjectStore
 
     private function __construct()
     {
-        $endpoint = self::envValue('S3_ENDPOINT');
+        $endpoint = self::envValue('S3_ENDPOINT', 'http://seaweedfs:8333');
         $region = self::envValue('S3_REGION', 'us-east-1');
         $accessKey = self::envValue('S3_ACCESS_KEY');
         $secretKey = self::envValue('S3_SECRET_KEY');
@@ -41,6 +41,8 @@ class ObjectStore
             'region' => $region,
             'endpoint' => $endpoint,
             'use_path_style_endpoint' => true,
+            'request_checksum_calculation' => 'when_required',
+            'response_checksum_validation' => 'when_required',
             'credentials' => [
                 'key' => $accessKey,
                 'secret' => $secretKey,
