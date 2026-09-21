@@ -57,3 +57,4 @@ doc/test_files/
 # Local env files with secrets (commit template.env instead)
 .env
 .env.local
+client/vite.config.ts
