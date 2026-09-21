@@ -133,6 +133,7 @@ class ExamLifecycleTest extends TestCase
 
         // --- Remove one file ---
         $store->delete($updated->unassignedFileKey($name1));
+        $updated->removeFileTags($name1);
         $filesAfterDelete = $updated->list_files();
         $this->assertCount(1, $filesAfterDelete);
         $this->assertSame($name2, $filesAfterDelete[0]['name']);
@@ -214,6 +215,52 @@ class ExamLifecycleTest extends TestCase
         $store->delete($key);
         $this->assertSame([], $exam->list_files());
         $this->assertFalse($store->exists($key));
+
+        $exam->delete();
+    }
+
+    public function testFileTagsTypeAndAuthor(): void
+    {
+        $exam = new Exam();
+        $exam->school_id = $this->user->school_id;
+        $exam->user_id = $this->user->id;
+        $exam->name = 'Tagged Files Exam';
+        $exam->subject = 'Biology';
+        $exam->date = '2026-04-10';
+        $exam->id = HashId::create();
+        $exam->save();
+
+        $store = ObjectStore::getInstance();
+        $tmp = $this->createRandomTempFile('tagged_', '.pdf');
+        $filename = basename($tmp);
+        $store->put($exam->unassignedFileKey($filename), $tmp, 'application/pdf');
+
+        $files = $exam->list_files();
+        $this->assertCount(1, $files);
+        $this->assertSame('', $files[0]['type']);
+        $this->assertSame('', $files[0]['author']);
+
+        $exam->setFileTags($filename, 'submission', 'Alice');
+        $tagged = $exam->list_files();
+        $this->assertSame('submission', $tagged[0]['type']);
+        $this->assertSame('Alice', $tagged[0]['author']);
+
+        $exam->setFileTags($filename, 'subject', null);
+        $retyped = $exam->list_files();
+        $this->assertSame('subject', $retyped[0]['type']);
+        $this->assertSame('Alice', $retyped[0]['author']);
+
+        $exam->setFileTags($filename, 'unknown', '');
+        $cleared = $exam->list_files();
+        $this->assertSame('', $cleared[0]['type']);
+        $this->assertSame('', $cleared[0]['author']);
+
+        try {
+            $exam->setFileTags($filename, 'not-a-type', null);
+            $this->fail('Expected invalid file type to throw');
+        } catch (WSException $e) {
+            $this->assertSame(400, $e->getCode());
+        }
 
         $exam->delete();
     }

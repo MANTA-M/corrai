@@ -54,38 +54,12 @@
 
           <p v-if="error" class="error-message">{{ error }}</p>
 
-          <section class="files-section" data-testid="exam-files-section">
-            <div class="files-header">
-              <h2>{{ t('exam.files') }}</h2>
-              <button
-                type="button"
-                class="button add-file-button"
-                data-testid="exam-add-file"
-                @click="showAddFilePopup = true"
-              >
-                {{ t('exam.addFiles') }}
-              </button>
-            </div>
-
-            <p
-              v-if="!files.length"
-              class="empty-files"
-              data-testid="exam-files-empty"
-            >
-              {{ t('exam.filesEmpty') }}
-            </p>
-            <ul v-else class="file-list" data-testid="exam-file-list">
-              <li
-                v-for="file in files"
-                :key="file.name"
-                class="file-item"
-                data-testid="exam-file-item"
-              >
-                <span class="file-name">{{ file.name }}</span>
-                <span class="file-meta">{{ formatFileSize(file.size) }}</span>
-              </li>
-            </ul>
-          </section>
+          <ExamFilesSection
+            v-if="exam.id"
+            :exam-id="exam.id"
+            :files="files"
+            @updated="onFilesUploaded"
+          />
         </div>
       </div>
 
@@ -95,13 +69,6 @@
         <button class="back-button" @click="goBack">{{ t('exam.back') }}</button>
       </div>
     </div>
-
-    <AddFilePopup
-      v-if="showAddFilePopup && exam?.id"
-      :exam-id="exam.id"
-      @close="showAddFilePopup = false"
-      @uploaded="onFilesUploaded"
-    />
   </div>
 </template>
 
@@ -110,7 +77,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import AddFilePopup from '@/components/AddFilePopup.vue'
+import ExamFilesSection from '@/components/ExamFilesSection.vue'
 import type { Exam, ExamFile } from '@/types/types'
 
 const route = useRoute()
@@ -122,7 +89,6 @@ const exam = ref<Exam | null>(null)
 const isLoading = ref(true)
 const isDeleting = ref(false)
 const error = ref('')
-const showAddFilePopup = ref(false)
 
 const examId = computed(() => route.params.id as string)
 const files = computed(() => exam.value?.files ?? [])
@@ -134,12 +100,6 @@ const goBack = () => {
 const goEdit = () => {
   if (!exam.value?.id) return
   router.push(`/exam/${exam.value.id}/edit`)
-}
-
-const formatFileSize = (size: number) => {
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 const onFilesUploaded = (updatedFiles: ExamFile[]) => {
@@ -246,15 +206,13 @@ watch(examId, (newId) => {
   background: var(--hover-bg);
 }
 
-.edit-button,
-.add-file-button {
+.edit-button {
   background-color: var(--accent);
   color: white;
   border: none;
 }
 
-.edit-button:hover,
-.add-file-button:hover {
+.edit-button:hover {
   background-color: var(--accent-600);
 }
 
@@ -296,62 +254,6 @@ watch(examId, (newId) => {
 .detail-row dd {
   margin: 0;
   color: var(--text);
-}
-
-.files-section {
-  margin-top: 0.5rem;
-}
-
-.files-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.files-header h2 {
-  margin: 0;
-  font-size: 1.15rem;
-}
-
-.empty-files {
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.file-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.file-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.file-item:last-child {
-  border-bottom: none;
-}
-
-.file-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-meta {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  flex-shrink: 0;
 }
 
 .error-message {

@@ -83,6 +83,22 @@ export interface I18nSchema {
         uploading: string
         uploadDone: string
         uploadError: string
+        viewByType: string
+        viewByAuthor: string
+        fileTypeSubject: string
+        fileTypeSolution: string
+        fileTypeSubmission: string
+        fileTypeInstructions: string
+        fileTypeUnknown: string
+        fileChangeType: string
+        fileSetAuthor: string
+        fileAuthorPlaceholder: string
+        fileAuthorSave: string
+        fileAuthorUnknown: string
+        fileZoneEmpty: string
+        fileAuthorsEmpty: string
+        fileAuthorBack: string
+        fileUpdateError: string
     }
     language: string
     settings: {

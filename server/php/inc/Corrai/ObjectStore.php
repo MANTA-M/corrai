@@ -14,6 +14,7 @@ use Exception;
  *   {schoolId}/{userId}/user.csv
  *   {schoolId}/{userId}/{examId}/exam.csv
  *   {schoolId}/{userId}/{examId}/unassigned/{filename}
+ *   {schoolId}/{userId}/{examId}/files.csv  (type + author tags per file)
  *   _id/{hash}  — pointer to node prefix for O(1) from_hash
  */
 class ObjectStore
@@ -109,6 +110,11 @@ class ObjectStore
     public static function examCsvKey(string $schoolId, string $userId, string $examId): string
     {
         return $schoolId . '/' . $userId . '/' . $examId . '/exam.csv';
+    }
+
+    public static function examFilesCsvKey(string $schoolId, string $userId, string $examId): string
+    {
+        return self::examPrefix($schoolId, $userId, $examId) . 'files.csv';
     }
 
     public static function examUnassignedPrefix(string $schoolId, string $userId, string $examId): string
