@@ -114,6 +114,44 @@ test.describe('Exams CRUD', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
 
+    await test.step('Group files by type and author', async () => {
+      await expect(page.getByTestId('file-zone-unknown').getByTestId('exam-file-item')).toContainText(
+        'sample-scan.txt'
+      )
+      await expect(page.getByTestId('file-zone-subject')).toBeVisible()
+      await expect(page.getByTestId('file-zone-solution')).toBeVisible()
+      await expect(page.getByTestId('file-zone-submission')).toBeVisible()
+      await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
+
+      await page.getByTestId('exam-file-item').click()
+      await expect(page.getByTestId('file-menu')).toBeVisible()
+      await page.getByTestId('file-menu-change-type').click()
+      await page.getByTestId('file-menu-type-subject').click()
+
+      await expect(
+        page.getByTestId('file-zone-subject').getByTestId('exam-file-item')
+      ).toContainText('sample-scan.txt', { timeout: 15000 })
+      await expect(
+        page.getByTestId('file-zone-unknown').getByTestId('exam-file-item')
+      ).toHaveCount(0)
+
+      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('file-menu-set-author').click()
+      await page.getByTestId('file-author-input').fill('Alice')
+      await page.getByTestId('file-author-save').click()
+      await expect(page.getByTestId('file-menu')).toHaveCount(0)
+
+      await page.getByTestId('files-view-author').click()
+      await expect(page.getByTestId('file-author-item')).toContainText('Alice')
+      await page.getByTestId('file-author-item').click()
+      await expect(page.getByTestId('exam-file-item')).toContainText('sample-scan.txt')
+      await page.getByTestId('file-author-back').click()
+      await expect(page.getByTestId('file-author-item')).toContainText('Alice')
+
+      await page.getByTestId('files-view-type').click()
+      await expect(page.getByTestId('file-type-zones')).toBeVisible()
+    })
+
     await test.step('Delete the exam', async () => {
       page.once('dialog', async (dialog) => {
         expect(dialog.message()).toContain('Are you sure')

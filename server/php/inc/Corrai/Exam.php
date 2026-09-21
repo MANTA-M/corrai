@@ -42,6 +42,11 @@ class Exam
      */
     public string $created_at = '';
 
+    /**
+     * Allowed file type tags. Empty / unknown is stored as an empty string.
+     */
+    public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions'];
+
     public static function from_array(array $data): Exam
     {
         $exam = new Exam();
@@ -204,9 +209,9 @@ class Exam
     }
 
     /**
-     * List all files in this exam's unassigned/ folder.
+     * List all files in this exam's unassigned/ folder, merged with type/author tags.
      *
-     * @return array Array of file information, each containing 'name', 'size', and 'created' keys
+     * @return array Array of file information with name, size, created, type, and author
      */
     public function list_files(): array
     {
@@ -214,9 +219,136 @@ class Exam
             return [];
         }
 
-        return ObjectStore::getInstance()->list(
+        $files = ObjectStore::getInstance()->list(
             ObjectStore::examUnassignedPrefix($this->school_id, $this->user_id, $this->id)
         );
+        $tags = $this->loadFileTags();
+
+        foreach ($files as &$file) {
+            $name = $file['name'];
+            $type = $tags[$name]['type'] ?? '';
+            if (!in_array($type, self::FILE_TYPES, true)) {
+                $type = '';
+            }
+            $file['type'] = $type;
+            $file['author'] = $tags[$name]['author'] ?? '';
+        }
+        unset($file);
+
+        return $files;
+    }
+
+    /**
+     * Persist type and/or author tags for a file that already exists on this exam.
+     *
+     * @return array Updated file list
+     */
+    public function setFileTags(string $filename, ?string $type, ?string $author): array
+    {
+        $store = ObjectStore::getInstance();
+        $key = $this->unassignedFileKey($filename);
+        if (!$store->exists($key)) {
+            throw new WSException("File '$filename' does not exist for exam {$this->id}", 404);
+        }
+
+        $tags = $this->loadFileTags();
+        $current = $tags[$filename] ?? ['type' => '', 'author' => ''];
+
+        if ($type !== null) {
+            if ($type === 'unknown') {
+                $type = '';
+            }
+            if ($type !== '' && !in_array($type, self::FILE_TYPES, true)) {
+                throw new WSException('Invalid file type', 400);
+            }
+            $current['type'] = $type;
+        }
+        if ($author !== null) {
+            $current['author'] = trim($author);
+        }
+
+        $tags[$filename] = $current;
+        $this->saveFileTags($tags);
+
+        return $this->list_files();
+    }
+
+    /**
+     * Drop tags for a file that is being deleted.
+     */
+    public function removeFileTags(string $filename): void
+    {
+        $tags = $this->loadFileTags();
+        if (!isset($tags[$filename])) {
+            return;
+        }
+        unset($tags[$filename]);
+        $this->saveFileTags($tags);
+    }
+
+    /**
+     * @return array<string, array{type: string, author: string}>
+     */
+    public function loadFileTags(): array
+    {
+        if (empty($this->id) || $this->school_id === '' || $this->user_id === '') {
+            return [];
+        }
+
+        $store = ObjectStore::getInstance();
+        $key = ObjectStore::examFilesCsvKey($this->school_id, $this->user_id, $this->id);
+        if (!$store->exists($key)) {
+            return [];
+        }
+
+        $rows = CsvStore::decodeRows($store->getContents($key));
+        $tags = [];
+        foreach ($rows as $row) {
+            $name = $row['name'] ?? '';
+            if ($name === '') {
+                continue;
+            }
+            $tags[$name] = [
+                'type' => $row['type'] ?? '',
+                'author' => $row['author'] ?? '',
+            ];
+        }
+        return $tags;
+    }
+
+    /**
+     * @param array<string, array{type?: string, author?: string}> $tags
+     */
+    public function saveFileTags(array $tags): void
+    {
+        if (empty($this->id) || $this->school_id === '' || $this->user_id === '') {
+            throw new Exception('Cannot save file tags without id, school_id and user_id');
+        }
+
+        $rows = [];
+        foreach ($tags as $name => $tag) {
+            $type = $tag['type'] ?? '';
+            $author = $tag['author'] ?? '';
+            if ($type === '' && $author === '') {
+                continue;
+            }
+            $rows[] = [
+                'name' => (string) $name,
+                'type' => $type,
+                'author' => $author,
+            ];
+        }
+
+        $store = ObjectStore::getInstance();
+        $key = ObjectStore::examFilesCsvKey($this->school_id, $this->user_id, $this->id);
+        if ($rows === []) {
+            if ($store->exists($key)) {
+                $store->delete($key);
+            }
+            return;
+        }
+
+        $store->putContents($key, CsvStore::encodeRows($rows), 'text/csv');
     }
 
     /**
