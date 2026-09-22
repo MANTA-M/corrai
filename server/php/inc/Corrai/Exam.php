@@ -512,7 +512,7 @@ class Exam
     }
 
     /**
-     * Grade a submission via OpenRouter: annotated image + textual mark/appreciation.
+     * Grade a submission via MathPipeline: transcription, text correction, annotated image.
      *
      * @return array Updated file list
      */
@@ -530,59 +530,10 @@ class Exam
             throw new WSException("File '$filename' does not exist for exam {$this->id}", 404);
         }
 
-        $student = $tags[$filename]['student'] ?? '';
-        $instructionText = $this->instructionFilesText();
-        $languageName = trim($language) !== '' ? trim($language) : 'French';
-
-        $prompt = 'SYSTEM: You are a professor in ' . $this->subject
-            . ' and you have to correct the following submission. '
-            . 'Respond by annotating the image plus a textual response with the mark and the appreciation. '
-            . 'Use the language ' . $languageName
-            . ' with the following instructions bellow. '
-            . $instructionText;
-
-        $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
-        $request = LlmClientFactory::create($imageModel);
-        $request->set_system_content($prompt);
-        $request->add_text($prompt);
-        $request->enable_image_output();
-
-        $tmpPath = $store->downloadToTemp($key);
-        try {
-            $request->add_file($tmpPath, $filename);
-            $result = $request->call_annotation();
-        } catch (\Throwable $th) {
-            throw new WSException($th->getMessage(), 400);
-        } finally {
-            @unlink($tmpPath);
-        }
-
-        if ($result['images'] === []) {
-            throw new WSException('The model did not return an annotated image', 400);
-        }
-
-        $image = $result['images'][0];
-        $imageExt = self::extensionForMime($image['mime']);
-        $base = pathinfo($filename, PATHINFO_FILENAME);
-        $this->createFile(
-            $base . '_correction.' . $imageExt,
-            $image['body'],
-            $image['mime'],
-            'correction',
-            $student
-        );
-        $this->createFile(
-            $base . '_correction.txt',
-            $result['text'] !== '' ? $result['text'] : "\n",
-            'text/plain; charset=utf-8',
-            'correction',
-            $student
-        );
-
-        return $this->list_files();
+        return (new MathPipeline())->run($this, $filename, $language);
     }
 
-    private function instructionFilesText(): string
+    public function instructionFilesText(): string
     {
         $store = ObjectStore::getInstance();
         $parts = [];
@@ -593,18 +544,5 @@ class Exam
             $parts[] = $file['name'] . ":\n" . $store->getContents($this->unassignedFileKey($file['name']));
         }
         return implode("\n\n", $parts);
-    }
-
-    private static function extensionForMime(string $mime): string
-    {
-        $map = [
-            'image/png' => 'png',
-            'image/jpeg' => 'jpg',
-            'image/jpg' => 'jpg',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif',
-        ];
-        $baseMime = strtolower(trim(explode(';', $mime)[0]));
-        return $map[$baseMime] ?? 'png';
     }
 }

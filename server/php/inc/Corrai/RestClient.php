@@ -138,8 +138,11 @@ class RestClient
         return $response !== false ? $response : null;
     }
 
+    private const BASE64_REDACT_MIN_LEN = 200;
+
     /**
      * Log POST payload using error_log, formatting JSON if applicable.
+     * Binary/base64 bodies are replaced with short placeholders.
      */
     private function logPayload(string $payload, string $contentType, string $method): void
     {
@@ -147,22 +150,22 @@ class RestClient
         $logMessage = sprintf('[RestClient] %s Payload (%s):', $method, $contentType);
         
         if ($isJson) {
-            // Try to format JSON nicely
             $decoded = json_decode($payload, true);
             if (json_last_error() === JSON_ERROR_NONE) {
-                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $redacted = $this->redactBinaryForLog($decoded);
+                $formatted = json_encode($redacted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 error_log($logMessage . "\n" . $formatted);
             } else {
-                // Not valid JSON despite content-type, log as-is
-                error_log($logMessage . "\n" . $payload);
+                error_log($logMessage . "\n" . $this->redactBinaryString($payload));
             }
         } else {
-            error_log($logMessage . "\n" . $payload);
+            error_log($logMessage . "\n" . $this->redactBinaryString($payload));
         }
     }
 
     /**
      * Log received response using error_log, formatting JSON if applicable.
+     * Binary/base64 bodies are replaced with short placeholders.
      */
     private function logResponse($response, int $responseCode, bool $isJson): void
     {
@@ -174,18 +177,51 @@ class RestClient
         $logMessage = sprintf('[RestClient] Response (HTTP %d):', $responseCode);
         
         if ($isJson) {
-            // Try to format JSON nicely
             $decoded = json_decode($response, true);
             if (json_last_error() === JSON_ERROR_NONE) {
-                $formatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $redacted = $this->redactBinaryForLog($decoded);
+                $formatted = json_encode($redacted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 error_log($logMessage . "\n" . $formatted);
             } else {
-                // Not valid JSON despite content-type, log as-is
-                error_log($logMessage . "\n" . $response);
+                error_log($logMessage . "\n" . $this->redactBinaryString($response));
             }
         } else {
-            error_log($logMessage . "\n" . $response);
+            error_log($logMessage . "\n" . $this->redactBinaryString($response));
         }
+    }
+
+    /**
+     * Recursively redact data-URL and long base64 strings in a decoded JSON value.
+     */
+    private function redactBinaryForLog(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            return $this->redactBinaryString($value);
+        }
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $key => $item) {
+                $out[$key] = $this->redactBinaryForLog($item);
+            }
+            return $out;
+        }
+        return $value;
+    }
+
+    /**
+     * Replace data-URL / long base64 bodies with a short placeholder.
+     */
+    private function redactBinaryString(string $value): string
+    {
+        if (preg_match('#^(data:[^;]+;base64,)(.+)$#s', $value, $matches)) {
+            return $matches[1] . '[omitted ' . strlen($matches[2]) . ' chars]';
+        }
+        if (strlen($value) >= self::BASE64_REDACT_MIN_LEN
+            && preg_match('#^[A-Za-z0-9+/=\s]+$#', $value)
+        ) {
+            return '[base64 omitted, ' . strlen($value) . ' chars]';
+        }
+        return $value;
     }
 
     /**

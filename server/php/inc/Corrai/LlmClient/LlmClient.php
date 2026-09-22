@@ -18,7 +18,7 @@ abstract class LlmClient extends RestClient
     {
         parent::__construct('', $_ENV['OPENROUTER_API_KEY'] ?? '');
         $this->send_length = true;
-        $this->verbose = false;
+        $this->verbose = true;
         $this->timeout = 180;
         $this->payload["model"] = $model;
     }
@@ -72,6 +72,28 @@ abstract class LlmClient extends RestClient
     public function enable_image_output(): void
     {
         $this->payload['modalities'] = ['image', 'text'];
+    }
+
+    /**
+     * Call OpenRouter and return the assistant text (no JSON parsing).
+     */
+    public function call_text(): string
+    {
+        $response = $this->QueryArray(self::OPENROUTER_API_URL, 'POST', $this->common_headers, $this->payload);
+        if ($response === null) {
+            throw new \Exception('Empty response from model');
+        }
+
+        $message = $response['choices'][0]['message'] ?? null;
+        if (!is_array($message)) {
+            throw new \Exception('Invalid model response');
+        }
+
+        $text = self::extract_message_text($message['content'] ?? '');
+        if (trim($text) === '') {
+            throw new \Exception('Empty text response from model');
+        }
+        return $text;
     }
 
     /**

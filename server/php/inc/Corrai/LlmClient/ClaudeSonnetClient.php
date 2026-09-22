@@ -2,6 +2,8 @@
 
 namespace Corrai\LlmClient;
 
+use Corrai\Utils;
+
 class ClaudeSonnetClient extends LlmClient
 {
     public function __construct(?string $model = null)
@@ -10,17 +12,34 @@ class ClaudeSonnetClient extends LlmClient
     }
 
     /**
-     * Add a file to the payload
-     * If the file is a PDF add a plugin to the payload
-     * @param string $file_path - the path to the file
-     * @return void
+     * Add a file to the payload.
+     * Images are sent as image_url data URLs. PDFs stay as file attachments.
      */
     public function add_file(string $file_path, string $file_name): void
     {
-        $file_data = base64_encode(file_get_contents($file_path));
-        $urldata = "data:application/pdf;base64," . $file_data;
+        $bytes = file_get_contents($file_path);
+        if ($bytes === false) {
+            throw new \Exception("Cannot read file: $file_name");
+        }
+
+        $mime = strtolower(trim(explode(';', Utils::mimeTypeForFilename($file_name))[0]));
+        $dataUrl = 'data:' . $mime . ';base64,' . base64_encode($bytes);
         $user_content = &$this->get_user_content();
-        $data_content = ["type" => "file", "file" => ["filename" => $file_name, "file_data" => $urldata]];
-        $user_content[] = $data_content;
+
+        if (str_starts_with($mime, 'image/')) {
+            $user_content[] = ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]];
+            return;
+        }
+
+        if ($mime !== 'application/pdf') {
+            $dataUrl = 'data:application/pdf;base64,' . base64_encode($bytes);
+        }
+        $user_content[] = [
+            'type' => 'file',
+            'file' => [
+                'filename' => $file_name,
+                'file_data' => $dataUrl,
+            ],
+        ];
     }
 }
