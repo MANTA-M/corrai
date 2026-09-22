@@ -58,3 +58,4 @@ doc/test_files/
 .env
 .env.local
 client/vite.config.ts
+logs/*
