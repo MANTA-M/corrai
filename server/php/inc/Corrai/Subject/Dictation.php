@@ -109,11 +109,12 @@ class Dictation
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You decipher a student dictation copy by reading it against the official corrigé. '
+            'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
-            . 'Do not get missing space errors. '
-            . 'Do not rewrite the full dictation. List only the errors. '
+            . 'Second step, filter the errors: Do not get missing space errors. '
+            . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
+            . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
             . 'Write in ' . $languageName . '. '
             . "Follow these exam-specific instructions:\n"
