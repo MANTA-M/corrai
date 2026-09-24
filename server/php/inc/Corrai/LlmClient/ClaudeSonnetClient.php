@@ -2,7 +2,7 @@
 
 namespace Corrai\LlmClient;
 
-use Corrai\Utils;
+use Corrai\Utils\Utils;
 
 class ClaudeSonnetClient extends LlmClient
 {

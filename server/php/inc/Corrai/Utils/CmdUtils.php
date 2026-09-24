@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai;
+namespace Corrai\Utils;
 
 use BeBat\ConsoleColor\Style;
 use BeBat\ConsoleColor\Style\Color;

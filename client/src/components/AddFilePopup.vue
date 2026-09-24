@@ -217,8 +217,8 @@ const uploadFiles = async (files: File[]) => {
 }
 
 .dropzone {
-  border: 2px dashed var(--border);
-  border-radius: 8px;
+  border: 2px dashed #c5d4f4;
+  border-radius: 15px;
   padding: 2rem 1.5rem;
   text-align: center;
   cursor: pointer;
@@ -281,7 +281,7 @@ const uploadFiles = async (files: File[]) => {
 }
 
 .upload-item.done .upload-status {
-  color: var(--accent);
+  color: var(--success);
 }
 
 .upload-item.error .upload-status {
@@ -302,7 +302,7 @@ const uploadFiles = async (files: File[]) => {
   padding: 0.5rem 1rem;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   color: var(--text);
   cursor: pointer;
 }

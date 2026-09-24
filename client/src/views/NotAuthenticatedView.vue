@@ -44,7 +44,7 @@ const goToLogin = () => {
 
 h1 {
   margin-bottom: 1rem;
-  color: var(--danger);
+  color: var(--navy);
   font-size: 2rem;
 }
 
@@ -55,15 +55,16 @@ p {
 }
 
 .login-button {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
   background-color: var(--accent);
   color: white;
   text-decoration: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .login-button:hover {

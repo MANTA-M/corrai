@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils;
+use Corrai\Utils\Utils;
 use PHPUnit\Framework\TestCase;
 
 class UtilsMimeTypeTest extends TestCase

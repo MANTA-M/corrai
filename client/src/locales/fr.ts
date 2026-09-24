@@ -31,7 +31,7 @@ const fr: I18nSchema = {
         name: "Nom",
         namePlaceholder: "Entrez le nom de l'examen",
         subject: "Matière",
-        subjectPlaceholder: "Entrez la matière",
+        subjectPlaceholder: "Choisir une matière",
         date: "Date",
         create: "Créer l'examen",
         creating: "Création...",

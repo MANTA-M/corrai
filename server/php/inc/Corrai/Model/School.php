@@ -1,8 +1,12 @@
 <?php
 
-namespace Corrai;
+namespace Corrai\Model;
 
 use Exception;
+use Corrai\Utils\CsvStore;
+use Corrai\Utils\HashId;
+use Corrai\Utils\ObjectStore;
+use Corrai\Utils\WSException;
 
 class School
 {

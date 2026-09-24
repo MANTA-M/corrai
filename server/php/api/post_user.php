@@ -1,8 +1,8 @@
 <?php
 
-use Corrai\JsonUtils;
-use Corrai\Request;
-use Corrai\School;
+use Corrai\Utils\JsonUtils;
+use Corrai\Utils\Request;
+use Corrai\Model\School;
 
 try {
     $post_data = Request::getPostStr();

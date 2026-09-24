@@ -38,7 +38,7 @@
                   </svg>
                 </button>
               </div>
-              <div style="display: flex; flex-direction: row; gap: 8px">
+              <div style="display: flex; flex-flow: row wrap; gap: 8px; align-items: center">
                 <label for="admin_locale" style="display: block; margin-bottom: 8px">{{
                   $t('settings.admin_locale')
                 }}</label>
@@ -296,8 +296,8 @@ onMounted(async () => {
 
 <style scoped>
 .select {
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -324,7 +324,7 @@ onMounted(async () => {
   background: none;
   color: var(--muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: all 0.2s;
 }
 
@@ -338,14 +338,13 @@ onMounted(async () => {
 }
 
 .test-button {
-  padding: 8px 16px;
+  padding: 12px 18px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background-color: var(--accent);
   color: white;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--type-label);
   transition: all 0.2s;
   min-width: 120px;
 }
@@ -367,7 +366,8 @@ onMounted(async () => {
 
 .test-button--warning {
   background-color: var(--warning);
-  color: #04121f;
+  color: white;
+  box-shadow: none;
 }
 
 .test-button--warning:hover:not(:disabled) {
@@ -384,7 +384,8 @@ onMounted(async () => {
 
 .test-button--info {
   background-color: var(--info);
-  color: #04121f;
+  color: white;
+  box-shadow: none;
 }
 
 .test-button--info:hover:not(:disabled) {
@@ -392,8 +393,8 @@ onMounted(async () => {
 }
 
 .status-banner {
-  padding: 12px;
-  border-radius: 4px;
+  padding: 14px;
+  border-radius: var(--radius-md);
 }
 
 .status-banner__text {
@@ -432,10 +433,10 @@ onMounted(async () => {
 }
 
 .notification-message {
-  padding: 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--type-label);
+  font-weight: 600;
 }
 
 .notification-message.success {

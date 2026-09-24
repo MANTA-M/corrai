@@ -1,0 +1,114 @@
+:root {
+  --type-label: 0.875rem;
+  --type-body: 1rem;
+  --type-section: clamp(2.125rem, 4vw, 3rem);
+  --type-hero: clamp(2.875rem, 5vw, 4.375rem);
+}
+
+body,
+.step-grid p,
+.benefit-copy > p:not(.section-kicker),
+.problem > p:last-child {
+  font-size: var(--type-body);
+}
+
+.hero h1 {
+  font-size: var(--type-hero);
+}
+
+.problem h2,
+.section-heading h2,
+.benefit-copy h2,
+.pilot h2 {
+  font-size: var(--type-section);
+}
+
+.eyebrow,
+.section-kicker,
+.nav nav,
+.button-small,
+.hero-actions p,
+.trust-row,
+.step-number,
+.paper-top,
+.correction p,
+.time-card b,
+.time-card small,
+.dash-head small,
+.dash-head b,
+.dash-head > span,
+.dashboard h4,
+.bar,
+.tip p,
+.pilot label,
+.pilot small,
+footer {
+  font-size: var(--type-label);
+}
+
+.lead {
+  font-size: 1.125rem;
+}
+
+.scope-line {
+  color: var(--navy);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  margin: -0.25rem 0 0.65rem;
+}
+
+.subject-line {
+  background: var(--pale);
+  border: 1px solid #dbe6ff;
+  border-radius: 0.7rem;
+  color: #41506f;
+  font-size: var(--type-label);
+  line-height: 1.55;
+  margin: 0 0 1.25rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.paper-sample-title {
+  color: var(--navy);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1.35rem 0 0.8rem;
+}
+
+.formats {
+  border-left: 3px solid var(--coral);
+  color: #42506d;
+  font-size: var(--type-body);
+  line-height: 1.6;
+  margin-top: 1.25rem;
+  padding-left: 1rem;
+}
+
+.step-grid h3 {
+  font-size: 1.25rem;
+}
+
+.score-row strong {
+  font-size: 1.375rem;
+}
+
+@media (max-width: 600px) {
+  .hero h1 {
+    font-size: var(--type-hero);
+  }
+
+  .problem h2,
+  .section-heading h2,
+  .benefit-copy h2,
+  .pilot h2 {
+    font-size: var(--type-section);
+  }
+
+  .lead {
+    font-size: 1.125rem;
+  }
+
+  .button-small {
+    font-size: var(--type-label);
+  }
+}

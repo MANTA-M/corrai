@@ -27,13 +27,15 @@ const toggleMenu = () => {
   <header class="header">
     <div class="row">
       <div class="header-left" v-if="sessionStore.isAuthenticated">
-        <div class="site-title">{{ $t('title') }}</div>
+        <router-link to="/exam-list" class="brand" @click="isMenuOpen = false">
+          <span class="brand-mark" aria-hidden="true">C<span>✓</span></span>corrai
+        </router-link>
         <HamburgerMenu :is-open="isMenuOpen" @toggle="toggleMenu" />
         <nav :class="{ 'is-open': isMenuOpen }">
-          <router-link to="/exam-list" class="button" @click="isMenuOpen = false">{{
+          <router-link to="/exam-list" class="nav-link" @click="isMenuOpen = false">{{
             $t('nav.exams')
           }}</router-link>
-          <router-link to="/settings_page" class="button" @click="isMenuOpen = false">{{
+          <router-link to="/settings_page" class="nav-link" @click="isMenuOpen = false">{{
             $t('nav.settings')
           }}</router-link>
           <!-- Mobile menu items -->
@@ -42,7 +44,7 @@ const toggleMenu = () => {
             <button
               v-if="sessionStore.isAuthenticated"
               @click="handleLogout"
-              class="button mobile-logout"
+              class="button primary mobile-logout"
             >
               {{ $t('nav.logout') }}
             </button>
@@ -54,11 +56,11 @@ const toggleMenu = () => {
         <router-link
           v-if="!sessionStore.isAuthenticated && route.name !== 'login'"
           to="/login"
-          class="button"
+          class="button primary"
         >
           {{ $t('nav.login') }}
         </router-link>
-        <button v-else-if="sessionStore.isAuthenticated" @click="handleLogout" class="button">
+        <button v-else-if="sessionStore.isAuthenticated" @click="handleLogout" class="button primary">
           {{ $t('nav.logout') }}
         </button>
       </div>
@@ -67,17 +69,18 @@ const toggleMenu = () => {
 </template>
 
 <style scoped>
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+}
+
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.site-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--accent);
+  gap: 28px;
 }
 
 .header-right {
@@ -89,13 +92,25 @@ const toggleMenu = () => {
 
 nav {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 28px;
+}
+
+.nav-link {
+  color: #4c5670;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link.router-link-active {
+  color: var(--blue);
 }
 
 @media (max-width: 768px) {
   .header .row {
     flex-wrap: wrap;
-    margin: 0 1em;
   }
 
   .header-left {
@@ -106,18 +121,26 @@ nav {
 
   nav {
     position: fixed;
-    top: 60px;
+    top: 72px;
     left: 0;
     right: 0;
+    align-items: stretch;
     flex-direction: column;
-    background: var(--surface);
-    padding: 1rem;
-    border-bottom: 1px solid var(--border);
-    transform: translateY(-100%);
+    gap: 4px;
+    background: var(--white);
+    padding: 12px 18px 16px;
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow-1);
+    transform: translateY(-120%);
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease-in-out;
     z-index: 40;
+  }
+
+  .nav-link {
+    padding: 12px 4px;
+    font-size: var(--type-body);
   }
 
   nav.is-open {

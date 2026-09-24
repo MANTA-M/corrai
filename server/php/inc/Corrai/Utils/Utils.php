@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai;
+namespace Corrai\Utils;
 
 use \Exception;
 

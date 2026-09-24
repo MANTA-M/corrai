@@ -2,7 +2,7 @@
   <div class="app">
     <div class="card" style="text-align: center; max-width: 500px; margin: 4rem auto">
       <div>
-        <h1 style="font-size: 3.75rem; margin-bottom: 16px; color: var(--muted);">404</h1>
+        <h1 style="font-size: 3.75rem; margin-bottom: 16px; color: var(--blue);">404</h1>
         <h2>{{ $t('notFound.title') }}</h2>
         <p class="muted" style="margin-bottom: 24px;">{{ $t('notFound.message') }}</p>
 

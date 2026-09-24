@@ -190,10 +190,10 @@ watch(examId, (newId) => {
 
 .back-button,
 .button {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: var(--type-label);
 }
 
 .back-button {

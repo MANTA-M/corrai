@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Request;
+use Corrai\Utils\Request;
 
 try {
     /**

@@ -1,7 +1,7 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\Request;
+use Corrai\Model\Exam;
+use Corrai\Utils\Request;
 
 try {
     // Get hash parameter

@@ -2,7 +2,7 @@
 
 namespace Corrai\LlmClient;
 
-use Corrai\Utils;
+use Corrai\Utils\Utils;
 
 class Gpt4oMiniClient extends LlmClient
 {

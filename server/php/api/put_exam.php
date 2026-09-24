@@ -1,9 +1,9 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\Request;
-use Corrai\WSException;
-use Corrai\JsonUtils;
+use Corrai\Model\Exam;
+use Corrai\Utils\Request;
+use Corrai\Utils\WSException;
+use Corrai\Utils\JsonUtils;
 
 try {
     $hash = Request::getStringParam("hash");

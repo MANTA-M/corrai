@@ -1,8 +1,8 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\ObjectStore;
-use Corrai\Request;
+use Corrai\Model\Exam;
+use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Request;
 
 try {
     // Get exam ID parameter

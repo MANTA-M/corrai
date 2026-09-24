@@ -31,7 +31,7 @@ const uk: I18nSchema = {
         name: "Назва",
         namePlaceholder: "Введіть назву іспиту",
         subject: "Предмет",
-        subjectPlaceholder: "Введіть предмет",
+        subjectPlaceholder: "Оберіть предмет",
         date: "Дата",
         create: "Створити іспит",
         creating: "Створення...",

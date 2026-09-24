@@ -9,6 +9,15 @@ export interface CryptoAddress {
   public_key: string,
 }
 
+export const EXAM_SUBJECTS = [
+  { name: 'Math', pipeline: 'MathPipeline' },
+  { name: 'Physique', pipeline: 'Physics' },
+  { name: 'Dictée', pipeline: 'Dictation' },
+  { name: 'Droit', pipeline: 'Law' },
+  { name: 'Autre', pipeline: 'Other' },
+] as const
+export type ExamSubject = (typeof EXAM_SUBJECTS)[number]['name']
+
 export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'] as const
 export type ExamFileType = (typeof EXAM_FILE_TYPES)[number]
 

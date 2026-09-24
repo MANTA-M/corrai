@@ -31,7 +31,7 @@ const de: I18nSchema = {
         name: "Name",
         namePlaceholder: "Prüfungsname eingeben",
         subject: "Fach",
-        subjectPlaceholder: "Fach eingeben",
+        subjectPlaceholder: "Fach auswählen",
         date: "Datum",
         create: "Prüfung erstellen",
         creating: "Wird erstellt...",

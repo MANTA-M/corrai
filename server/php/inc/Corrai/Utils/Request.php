@@ -1,10 +1,10 @@
 <?php
 
-namespace Corrai;
+namespace Corrai\Utils;
 
 use Generator;
 use Throwable;
-use Corrai\WSException;
+use Corrai\Utils\WSException;
 
 
 /**

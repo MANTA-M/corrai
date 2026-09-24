@@ -25,7 +25,8 @@ defineProps<{
   gap: 1rem;
   padding: 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 15px;
+  background: var(--white);
   margin-bottom: 0.75rem;
   align-items: center;
   cursor: pointer;
@@ -35,12 +36,16 @@ defineProps<{
 }
 
 .exam-item:hover {
-  background-color: var(--hover-bg);
+  background-color: var(--white);
   border-color: var(--hover-border);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 .exam-name {
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--navy);
 }
 
 .exam-subject,

@@ -1,11 +1,11 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\HashId;
-use Corrai\Request;
-use Corrai\User;
-use Corrai\JsonUtils;
-use Corrai\WSException;
+use Corrai\Model\Exam;
+use Corrai\Utils\HashId;
+use Corrai\Utils\Request;
+use Corrai\Model\User;
+use Corrai\Utils\JsonUtils;
+use Corrai\Utils\WSException;
 
 try {
     $post_data = Request::getPostStr();

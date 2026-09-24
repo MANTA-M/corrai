@@ -1,9 +1,9 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\JsonUtils;
-use Corrai\Request;
-use Corrai\WSException;
+use Corrai\Model\Exam;
+use Corrai\Utils\JsonUtils;
+use Corrai\Utils\Request;
+use Corrai\Utils\WSException;
 
 try {
     $examId = Request::getStringParam("id");

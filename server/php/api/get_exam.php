@@ -1,8 +1,8 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\Request;
-use Corrai\WSException;
+use Corrai\Model\Exam;
+use Corrai\Utils\Request;
+use Corrai\Utils\WSException;
 
 try {
     $hash = Request::getStringParam("hash");

@@ -31,7 +31,7 @@ const ro: I18nSchema = {
         name: "Nume",
         namePlaceholder: "Introduceți numele examenului",
         subject: "Materie",
-        subjectPlaceholder: "Introduceți materia",
+        subjectPlaceholder: "Selectați materia",
         date: "Dată",
         create: "Creează examen",
         creating: "Se creează...",

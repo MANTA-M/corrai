@@ -49,7 +49,8 @@ const handleLocaleChange = async (event: Event) => {
 
 label {
   font-weight: 600;
-  color: var(--text);
+  font-size: var(--type-label);
+  color: #4c5670;
   white-space: nowrap;
 }
 

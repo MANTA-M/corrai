@@ -2,8 +2,8 @@
 
 namespace Corrai\LlmClient;
 
-use Corrai\JsonUtils;
-use Corrai\RestClient;
+use Corrai\Utils\JsonUtils;
+use Corrai\Utils\RestClient;
 
 abstract class LlmClient extends RestClient
 {

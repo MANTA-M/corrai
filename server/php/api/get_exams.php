@@ -1,7 +1,7 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\Request;
+use Corrai\Model\Exam;
+use Corrai\Utils\Request;
 
 try {
     $authorId = Request::get_mandatory_author();

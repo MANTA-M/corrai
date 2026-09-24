@@ -1,14 +1,17 @@
 <?php
 
-namespace Corrai;
+namespace Corrai\Subject;
 
+use Corrai\Model\Exam;
+use Corrai\Utils\ObjectStore;
+use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
 use Corrai\LlmClient\LlmClientFactory;
 
-class MathPipeline
+class Physics
 {
     /**
-     * Transcribe, correct, then annotate a submission.
+     * Transcribe into LaTeX, correct, then annotate a physics submission.
      *
      * @return array Updated exam file list
      */
@@ -33,11 +36,7 @@ class MathPipeline
                 $student
             );
 
-            $correction = $this->correct(
-                $exam,
-                $transcription,
-                $languageName
-            );
+            $correction = $this->correct($exam, $transcription, $languageName);
             $exam->createFile(
                 $base . ' correction.txt',
                 $correction,
@@ -70,12 +69,12 @@ class MathPipeline
     {
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a careful transcription assistant. '
-            . 'Transcribe the submitted exam paper into LaTeX. '
+            'You are a careful transcription assistant for a physics exam. '
+            . 'Transcribe the submitted paper into LaTeX, including formulas, units, and diagrams described in text. '
             . 'Return only the LaTeX transcription with no extra commentary.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text('Transcribe this submission into LaTeX.');
+        $request->add_text('Transcribe this physics submission into LaTeX.');
         return $request->call_text();
     }
 
@@ -84,8 +83,8 @@ class MathPipeline
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a professor in ' . $exam->subject
-            . ' and you have to correct the following submission. '
+            'You are a physics professor and you have to correct the following submission. '
+            . 'Check formulas, units, reasoning, and numerical results. '
             . 'Respond with a textual correction including the mark and the appreciation. '
             . 'Use the language ' . $languageName
             . ' with the following instructions bellow. '
@@ -103,7 +102,7 @@ class MathPipeline
         $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
         $request = LlmClientFactory::create($imageModel);
         $request->set_system_content(
-            'You annotate student exam papers. '
+            'You annotate student physics papers. '
             . 'Using the correction text provided, annotate the source image accordingly. '
             . 'Return an annotated image.'
         );

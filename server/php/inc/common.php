@@ -1,6 +1,6 @@
 <?php
-use Corrai\Utils;
-use Corrai\Request;
+use Corrai\Utils\Utils;
+use Corrai\Utils\Request;
 
 error_reporting(E_ALL);
 session_start();
@@ -58,7 +58,7 @@ if ($logToStderr) {
 function request_error_handler($errno, $errstr) {
     $msg = "Error: [$errno] $errstr";
     error_log($msg);
-    Corrai\Request::add_error_message("error", $msg);
+    Corrai\Utils\Request::add_error_message("error", $msg);
     // Don't call output_all() here - let the application code handle output
 }
 set_error_handler("request_error_handler");

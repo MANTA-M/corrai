@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Exam;
-use Corrai\HashId;
-use Corrai\ObjectStore;
-use Corrai\School;
-use Corrai\User;
-use Corrai\WSException;
+use Corrai\Model\Exam;
+use Corrai\Utils\HashId;
+use Corrai\Utils\ObjectStore;
+use Corrai\Model\School;
+use Corrai\Model\User;
+use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;
 
 /**

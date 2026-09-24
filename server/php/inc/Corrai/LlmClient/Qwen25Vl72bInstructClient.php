@@ -2,7 +2,7 @@
 
 namespace Corrai\LlmClient;
 
-use Corrai\Utils;
+use Corrai\Utils\Utils;
 
 class Qwen25Vl72bInstructClient extends LlmClient
 {

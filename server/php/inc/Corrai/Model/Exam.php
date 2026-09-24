@@ -1,9 +1,18 @@
 <?php
 
-namespace Corrai;
+namespace Corrai\Model;
 
 use Exception;
 use Corrai\LlmClient\LlmClientFactory;
+use Corrai\Utils\CsvStore;
+use Corrai\Utils\HashId;
+use Corrai\Utils\ObjectStore;
+use Corrai\Utils\WSException;
+use Corrai\Subject\Dictation;
+use Corrai\Subject\Law;
+use Corrai\Subject\MathPipeline;
+use Corrai\Subject\Other;
+use Corrai\Subject\Physics;
 
 class Exam
 {
@@ -46,6 +55,19 @@ class Exam
      * Allowed file type tags. Empty / unknown is stored as an empty string.
      */
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'];
+
+    /**
+     * Subject label => pipeline class name. Unknown subjects use Other.
+     *
+     * @var array<string, class-string>
+     */
+    public const SUBJECT_PIPELINES = [
+        'Math' => MathPipeline::class,
+        'Physique' => Physics::class,
+        'Dictée' => Dictation::class,
+        'Droit' => Law::class,
+        'Autre' => Other::class,
+    ];
 
     public static function from_array(array $data): Exam
     {
@@ -512,7 +534,17 @@ class Exam
     }
 
     /**
-     * Grade a submission via MathPipeline: transcription, text correction, annotated image.
+     * Pipeline class for this exam's subject. Unknown subjects use Other.
+     *
+     * @return class-string
+     */
+    public function pipelineClass(): string
+    {
+        return self::SUBJECT_PIPELINES[$this->subject] ?? Other::class;
+    }
+
+    /**
+     * Grade a submission with the pipeline stored for the exam subject.
      *
      * @return array Updated file list
      */
@@ -530,7 +562,8 @@ class Exam
             throw new WSException("File '$filename' does not exist for exam {$this->id}", 404);
         }
 
-        return (new MathPipeline())->run($this, $filename, $language);
+        $class = $this->pipelineClass();
+        return (new $class())->run($this, $filename, $language);
     }
 
     public function instructionFilesText(): string

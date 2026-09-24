@@ -64,16 +64,16 @@ onMounted(async () => {
 }
 
 .create-button {
-  padding: 0.5rem 1rem;
+  padding: 12px 18px;
   background-color: var(--accent);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: var(--type-label);
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
 }
 
 .create-button:hover {
@@ -99,7 +99,6 @@ onMounted(async () => {
 
 .empty-message {
   color: var(--text-muted);
-  font-style: italic;
   margin: 0.5rem 0;
 }
 

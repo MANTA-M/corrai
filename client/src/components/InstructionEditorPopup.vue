@@ -259,7 +259,7 @@ const save = async () => {
   width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -284,7 +284,7 @@ const save = async () => {
 
 .add-file-button {
   padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.95rem;
   background-color: var(--accent);

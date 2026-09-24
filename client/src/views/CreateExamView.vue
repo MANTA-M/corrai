@@ -32,14 +32,21 @@
             </div>
             <div class="form-group">
               <label for="exam-subject">{{ t('exam.subject') }}</label>
-              <input
+              <select
                 id="exam-subject"
                 v-model="form.subject"
-                type="text"
                 data-testid="exam-subject"
-                :placeholder="t('exam.subjectPlaceholder')"
                 required
-              />
+              >
+                <option value="" disabled>{{ t('exam.subjectPlaceholder') }}</option>
+                <option
+                  v-for="subject in subjectOptions"
+                  :key="subject"
+                  :value="subject"
+                >
+                  {{ subject }}
+                </option>
+              </select>
             </div>
             <div class="form-group">
               <label for="exam-date">{{ t('exam.date') }}</label>
@@ -72,7 +79,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import type { Exam } from '@/types/types'
+import { EXAM_SUBJECTS, type Exam } from '@/types/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -88,6 +95,14 @@ const form = reactive({
   name: '',
   subject: '',
   date: ''
+})
+
+const subjectOptions = computed(() => {
+  const options = EXAM_SUBJECTS.map((subject) => subject.name)
+  if (form.subject && !options.includes(form.subject)) {
+    options.push(form.subject)
+  }
+  return options
 })
 
 const examId = computed(() => (route.params.id as string | undefined) ?? '')
@@ -273,12 +288,12 @@ watch(
 }
 
 .back-button {
-  padding: 0.5rem 1rem;
-  background: transparent;
+  padding: 12px 18px;
+  background: var(--white);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: var(--type-label);
   color: var(--text);
 }
 
@@ -298,29 +313,38 @@ watch(
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  font-weight: 500;
+  font-size: var(--type-label);
+  font-weight: 700;
+  color: var(--navy);
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
   width: 100%;
-  padding: 0.5rem;
+  padding: 12px 14px;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   font-size: 1rem;
   box-sizing: border-box;
   background: var(--surface);
   color: var(--text);
 }
 
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(26, 85, 232, 0.18);
+}
+
 .submit-button {
-  padding: 0.6rem 1.25rem;
+  padding: 12px 18px;
   background-color: var(--accent);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: var(--type-label);
 }
 
 .submit-button:hover:not(:disabled) {

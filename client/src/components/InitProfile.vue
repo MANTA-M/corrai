@@ -1,6 +1,8 @@
 <template>
   <div class="init-profile">
-    <div class="card" style="max-width: 500px; margin: 2rem auto">
+    <div class="init-panel">
+    <p class="brand init-brand"><span class="brand-mark" aria-hidden="true">C<span>✓</span></span>corrai</p>
+    <div class="card">
       <div style="margin-bottom: 24px">
         <h1 style="text-align: center">{{ $t('initProfile.title') }}</h1>
         <p class="muted" style="text-align: center">{{ $t('initProfile.subtitle') }}</p>
@@ -77,6 +79,7 @@
           </button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -193,7 +196,16 @@ const handleCreateProfile = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 1.5rem;
+}
+
+.init-panel {
+  width: min(500px, 100%);
+}
+
+.init-brand {
+  justify-content: center;
+  margin-bottom: 22px;
 }
 
 .options {

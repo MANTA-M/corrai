@@ -61,7 +61,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="app">
+  <div class="shell">
     <InitProfile v-if="!sessionStore.keyPair" />
 
     <div v-else-if="provisioning || !sessionStore.isInitialized" class="provisioning">
@@ -69,11 +69,9 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <!-- Header -->
       <MainNavigation />
 
-      <!-- Main Content -->
-      <main>
+      <main class="page">
         <router-view />
       </main>
     </template>
@@ -81,15 +79,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.shell {
+  min-height: 100%;
+}
+
+.page {
+  min-height: calc(100vh - 72px);
+}
+
 .provisioning {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
   padding: 2rem;
   text-align: center;
   color: var(--text-muted);
-}
-
-@media (max-width: 768px) {
-  .app {
-    padding: 0;
-  }
 }
 </style>

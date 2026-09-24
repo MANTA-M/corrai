@@ -14,7 +14,7 @@ require_once $root . '/inc/autoload.php';
 $envFile = $root . '/.env';
 if (is_readable($envFile)) {
     $loaded = [];
-    \Corrai\Utils::loadKeyValueFile($envFile, $loaded);
+    \Corrai\Utils\Utils::loadKeyValueFile($envFile, $loaded);
     foreach ($loaded as $key => $value) {
         // Do not override env already set by Docker Compose / the shell.
         if (getenv($key) === false) {

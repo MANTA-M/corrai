@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\CsvStore;
+use Corrai\Utils\CsvStore;
 use PHPUnit\Framework\TestCase;
 
 class CsvStoreTest extends TestCase

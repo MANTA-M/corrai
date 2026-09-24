@@ -1,9 +1,9 @@
 <?php
 
-use Corrai\Exam;
-use Corrai\ObjectStore;
-use Corrai\Request;
-use Corrai\Utils;
+use Corrai\Model\Exam;
+use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Request;
+use Corrai\Utils\Utils;
 
 try {
     $examId = Request::getStringParam("id");

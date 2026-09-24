@@ -28,14 +28,14 @@ test.describe('Exams CRUD', () => {
       await page.waitForURL('**/create_exam', { timeout: 10000 })
 
       await page.getByTestId('exam-name').fill('Math Midterm')
-      await page.getByTestId('exam-subject').fill('Mathematics')
+      await page.getByTestId('exam-subject').selectOption('Math')
       await page.getByTestId('exam-date').fill('2026-10-15')
       await page.getByTestId('exam-submit').click()
 
       await page.waitForURL(/\/exam\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('exam-details-heading')).toContainText('Math Midterm')
       await expect(page.getByTestId('exam-name-value')).toHaveText('Math Midterm')
-      await expect(page.getByTestId('exam-subject-value')).toHaveText('Mathematics')
+      await expect(page.getByTestId('exam-subject-value')).toHaveText('Math')
       await expect(page.getByTestId('exam-date-value')).toHaveText('2026-10-15')
       await expect(page.getByTestId('exam-save')).toHaveCount(0)
       await expect(page.getByTestId('exam-name')).toHaveCount(0)
@@ -49,7 +49,7 @@ test.describe('Exams CRUD', () => {
       await page.goto('/exam-list')
       await expect(page.getByTestId('exam-item')).toHaveCount(1)
       await expect(page.getByTestId('exam-item')).toContainText('Math Midterm')
-      await expect(page.getByTestId('exam-item')).toContainText('Mathematics')
+      await expect(page.getByTestId('exam-item')).toContainText('Math')
       await expect(page.getByTestId('exam-item')).toContainText('2026-10-15')
 
       // After create, localStorage still must not hold exam records
@@ -74,24 +74,24 @@ test.describe('Exams CRUD', () => {
       await page.waitForURL(/\/exam\/[^/]+\/edit$/, { timeout: 10000 })
 
       await page.getByTestId('exam-name').fill('Math Final')
-      await page.getByTestId('exam-subject').fill('Algebra')
+      await page.getByTestId('exam-subject').selectOption('Physique')
       await page.getByTestId('exam-date').fill('2026-12-01')
       await page.getByTestId('exam-save').click()
 
       await page.waitForURL(/\/exam\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('exam-details-heading')).toContainText('Math Final')
       await expect(page.getByTestId('exam-name-value')).toHaveText('Math Final')
-      await expect(page.getByTestId('exam-subject-value')).toHaveText('Algebra')
+      await expect(page.getByTestId('exam-subject-value')).toHaveText('Physique')
       await expect(page.getByTestId('exam-date-value')).toHaveText('2026-12-01')
 
       await page.reload()
       await expect(page.getByTestId('exam-name-value')).toHaveText('Math Final')
-      await expect(page.getByTestId('exam-subject-value')).toHaveText('Algebra')
+      await expect(page.getByTestId('exam-subject-value')).toHaveText('Physique')
       await expect(page.getByTestId('exam-date-value')).toHaveText('2026-12-01')
 
       await page.goto('/exam-list')
       await expect(page.getByTestId('exam-item')).toContainText('Math Final')
-      await expect(page.getByTestId('exam-item')).toContainText('Algebra')
+      await expect(page.getByTestId('exam-item')).toContainText('Physique')
       await expect(page.getByTestId('exam-item')).toContainText('2026-12-01')
     })
 

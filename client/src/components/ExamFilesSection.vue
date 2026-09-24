@@ -792,7 +792,7 @@ watch(viewMode, () => {
 .view-toggle {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -816,7 +816,7 @@ watch(viewMode, () => {
 
 .add-file-button {
   padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.95rem;
   background-color: var(--accent);
@@ -835,7 +835,7 @@ watch(viewMode, () => {
 
 .delete-file-button {
   padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.95rem;
   background-color: var(--danger);
@@ -872,7 +872,7 @@ watch(viewMode, () => {
   width: 100%;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
 }
@@ -900,7 +900,7 @@ watch(viewMode, () => {
 
 .file-zone {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 15px;
   padding: 0.75rem 1rem 1rem;
   background: var(--surface-2);
   min-height: 6rem;
@@ -929,7 +929,7 @@ watch(viewMode, () => {
   justify-content: center;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background-color: var(--accent);
   color: white;
   font-size: 1.15rem;
@@ -1001,7 +1001,7 @@ watch(viewMode, () => {
 
 .back-button {
   padding: 0.4rem 0.75rem;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.9rem;
   background: transparent;
@@ -1015,7 +1015,7 @@ watch(viewMode, () => {
 
 .student-list {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 15px;
   overflow: hidden;
 }
 
@@ -1039,7 +1039,7 @@ watch(viewMode, () => {
   max-width: min(320px, calc(100vw - 1.5rem));
   background: var(--popover);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 15px;
   box-shadow: var(--shadow-2);
   padding: 0.4rem 0;
 }
@@ -1098,7 +1098,7 @@ watch(viewMode, () => {
   width: 100%;
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
 }
