@@ -23,17 +23,20 @@ class ClaudeSonnetClient extends LlmClient
         }
 
         $mime = strtolower(trim(explode(';', Utils::mimeTypeForFilename($file_name))[0]));
-        $dataUrl = 'data:' . $mime . ';base64,' . base64_encode($bytes);
         $user_content = &$this->get_user_content();
 
         if (str_starts_with($mime, 'image/')) {
+            $dataUrl = 'data:' . $mime . ';base64,' . base64_encode($bytes);
             $user_content[] = ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]];
             return;
         }
 
         if ($mime !== 'application/pdf') {
-            $dataUrl = 'data:application/pdf;base64,' . base64_encode($bytes);
+            $user_content[] = ['type' => 'text', 'text' => $file_name . ":\n" . $bytes];
+            return;
         }
+
+        $dataUrl = 'data:' . $mime . ';base64,' . base64_encode($bytes);
         $user_content[] = [
             'type' => 'file',
             'file' => [
