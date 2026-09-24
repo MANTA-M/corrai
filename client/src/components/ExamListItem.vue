@@ -5,17 +5,25 @@
     data-testid="exam-item"
   >
     <div class="exam-name">{{ exam.name || '—' }}</div>
-    <div class="exam-subject">{{ exam.subject || '—' }}</div>
+    <div class="exam-subject">{{ subjectLabel(exam.subject) }}</div>
     <div class="exam-date">{{ exam.date || '—' }}</div>
   </router-link>
 </template>
 
 <script setup lang="ts">
-import type { Exam } from '@/types/types'
+import { useI18n } from 'vue-i18n'
+import { isExamSubject, type Exam } from '@/types/types'
 
 defineProps<{
   exam: Exam
 }>()
+
+const { t } = useI18n()
+
+const subjectLabel = (subject: string) => {
+  if (isExamSubject(subject)) return t(`exam.subjects.${subject}`)
+  return subject || '—'
+}
 </script>
 
 <style scoped>

@@ -40,11 +40,11 @@
               >
                 <option value="" disabled>{{ t('exam.subjectPlaceholder') }}</option>
                 <option
-                  v-for="subject in subjectOptions"
-                  :key="subject"
-                  :value="subject"
+                  v-for="pipeline in EXAM_SUBJECTS"
+                  :key="pipeline"
+                  :value="pipeline"
                 >
-                  {{ subject }}
+                  {{ t(`exam.subjects.${pipeline}`) }}
                 </option>
               </select>
             </div>
@@ -95,14 +95,6 @@ const form = reactive({
   name: '',
   subject: '',
   date: ''
-})
-
-const subjectOptions = computed(() => {
-  const options = EXAM_SUBJECTS.map((subject) => subject.name)
-  if (form.subject && !options.includes(form.subject)) {
-    options.push(form.subject)
-  }
-  return options
 })
 
 const examId = computed(() => (route.params.id as string | undefined) ?? '')

@@ -37,7 +37,7 @@ class Exam
     public string $name = '';
 
     /**
-     * The subject of the exam.
+     * Pipeline name for this exam (MathPipeline, Physics, Dictation, Law, Other).
      */
     public string $subject = '';
 
@@ -57,16 +57,16 @@ class Exam
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'];
 
     /**
-     * Subject label => pipeline class name. Unknown subjects use Other.
+     * Pipeline name => pipeline class. Unknown subjects use Other.
      *
      * @var array<string, class-string>
      */
     public const SUBJECT_PIPELINES = [
-        'Math' => MathPipeline::class,
-        'Physique' => Physics::class,
-        'Dictée' => Dictation::class,
-        'Droit' => Law::class,
-        'Autre' => Other::class,
+        'MathPipeline' => MathPipeline::class,
+        'Physics' => Physics::class,
+        'Dictation' => Dictation::class,
+        'Law' => Law::class,
+        'Other' => Other::class,
     ];
 
     public static function from_array(array $data): Exam

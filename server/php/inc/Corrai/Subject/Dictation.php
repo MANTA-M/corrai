@@ -92,7 +92,7 @@ class Dictation
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a professor correcting a dictation in ' . $exam->subject
+            'You are a professor correcting a dictation'
             . '. The transcription is literal: do not assume spelling was already fixed. '
             . 'Grade spelling, grammar, unreadable passages, and the calligraphy score already given. '
             . 'Respond with a textual correction including the mark and the appreciation. '

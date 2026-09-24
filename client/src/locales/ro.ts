@@ -32,6 +32,13 @@ const ro: I18nSchema = {
         namePlaceholder: "Introduceți numele examenului",
         subject: "Materie",
         subjectPlaceholder: "Selectați materia",
+        subjects: {
+            MathPipeline: "Matematică",
+            Physics: "Fizică",
+            Dictation: "Dictare",
+            Law: "Drept",
+            Other: "Altul"
+        },
         date: "Dată",
         create: "Creează examen",
         creating: "Se creează...",

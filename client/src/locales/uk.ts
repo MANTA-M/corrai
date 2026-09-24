@@ -32,6 +32,13 @@ const uk: I18nSchema = {
         namePlaceholder: "Введіть назву іспиту",
         subject: "Предмет",
         subjectPlaceholder: "Оберіть предмет",
+        subjects: {
+            MathPipeline: "Математика",
+            Physics: "Фізика",
+            Dictation: "Диктант",
+            Law: "Право",
+            Other: "Інше"
+        },
         date: "Дата",
         create: "Створити іспит",
         creating: "Створення...",

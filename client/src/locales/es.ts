@@ -32,6 +32,13 @@ const es: I18nSchema = {
         namePlaceholder: "Introduce el nombre del examen",
         subject: "Asignatura",
         subjectPlaceholder: "Seleccione la asignatura",
+        subjects: {
+            MathPipeline: "Matemáticas",
+            Physics: "Física",
+            Dictation: "Dictado",
+            Law: "Derecho",
+            Other: "Otro"
+        },
         date: "Fecha",
         create: "Crear examen",
         creating: "Creando...",

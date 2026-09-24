@@ -87,7 +87,7 @@ class MathPipeline
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a professor in ' . $exam->subject
+            'You are a professor in mathematics'
             . ' and you have to correct the following submission. '
             . 'Respond with a textual correction including the mark and the appreciation. '
             . 'Use the language ' . $languageName

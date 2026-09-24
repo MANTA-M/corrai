@@ -44,7 +44,7 @@
             </div>
             <div class="detail-row">
               <dt>{{ t('exam.subject') }}</dt>
-              <dd data-testid="exam-subject-value">{{ exam.subject || '—' }}</dd>
+              <dd data-testid="exam-subject-value">{{ subjectLabel(exam.subject) }}</dd>
             </div>
             <div class="detail-row">
               <dt>{{ t('exam.date') }}</dt>
@@ -78,7 +78,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import ExamFilesSection from '@/components/ExamFilesSection.vue'
-import type { Exam, ExamFile } from '@/types/types'
+import { isExamSubject, type Exam, type ExamFile } from '@/types/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -89,6 +89,11 @@ const exam = ref<Exam | null>(null)
 const isLoading = ref(true)
 const isDeleting = ref(false)
 const error = ref('')
+
+const subjectLabel = (subject: string) => {
+  if (isExamSubject(subject)) return t(`exam.subjects.${subject}`)
+  return subject || '—'
+}
 
 const examId = computed(() => route.params.id as string)
 const files = computed(() => exam.value?.files ?? [])

@@ -9,14 +9,19 @@ export interface CryptoAddress {
   public_key: string,
 }
 
+/** Stored exam subject values. These are pipeline names, not display labels. */
 export const EXAM_SUBJECTS = [
-  { name: 'Math', pipeline: 'MathPipeline' },
-  { name: 'Physique', pipeline: 'Physics' },
-  { name: 'Dictée', pipeline: 'Dictation' },
-  { name: 'Droit', pipeline: 'Law' },
-  { name: 'Autre', pipeline: 'Other' },
+  'MathPipeline',
+  'Physics',
+  'Dictation',
+  'Law',
+  'Other',
 ] as const
-export type ExamSubject = (typeof EXAM_SUBJECTS)[number]['name']
+export type ExamSubject = (typeof EXAM_SUBJECTS)[number]
+
+export function isExamSubject(value: string): value is ExamSubject {
+  return (EXAM_SUBJECTS as readonly string[]).includes(value)
+}
 
 export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'] as const
 export type ExamFileType = (typeof EXAM_FILE_TYPES)[number]

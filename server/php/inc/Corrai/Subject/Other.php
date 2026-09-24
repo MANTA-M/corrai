@@ -83,7 +83,7 @@ class Other
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a professor in ' . $exam->subject
+            'You are a professor'
             . ' and you have to correct the following submission. '
             . 'The transcription is literal: do not assume wording was already fixed. '
             . 'Grade the answer, unreadable passages, and the calligraphy score already given. '
