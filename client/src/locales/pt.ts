@@ -32,6 +32,10 @@ const pt: I18nSchema = {
         namePlaceholder: "Introduza o nome do exame",
         subject: "Disciplina",
         subjectPlaceholder: "Selecione a disciplina",
+        country: "País",
+        countryPlaceholder: "Selecione o país",
+        level: "Nível",
+        levelPlaceholder: "Selecione o nível",
         subjects: {
             MathPipeline: "Matemática",
             Physics: "Física",

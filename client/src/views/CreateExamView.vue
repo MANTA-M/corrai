@@ -40,11 +40,47 @@
               >
                 <option value="" disabled>{{ t('exam.subjectPlaceholder') }}</option>
                 <option
-                  v-for="pipeline in EXAM_SUBJECTS"
-                  :key="pipeline"
-                  :value="pipeline"
+                  v-for="node in subjects"
+                  :key="node.subject"
+                  :value="node.subject"
                 >
-                  {{ t(`exam.subjects.${pipeline}`) }}
+                  {{ node.name }}
+                </option>
+              </select>
+            </div>
+            <div v-if="countryOptions.length" class="form-group">
+              <label for="exam-country">{{ t('exam.country') }}</label>
+              <select
+                id="exam-country"
+                v-model="form.country"
+                data-testid="exam-country"
+                required
+              >
+                <option value="" disabled>{{ t('exam.countryPlaceholder') }}</option>
+                <option
+                  v-for="country in countryOptions"
+                  :key="country.country"
+                  :value="country.country"
+                >
+                  {{ country.name }}
+                </option>
+              </select>
+            </div>
+            <div v-if="levelOptions.length" class="form-group">
+              <label for="exam-level">{{ t('exam.level') }}</label>
+              <select
+                id="exam-level"
+                v-model="form.level"
+                data-testid="exam-level"
+                required
+              >
+                <option value="" disabled>{{ t('exam.levelPlaceholder') }}</option>
+                <option
+                  v-for="level in levelOptions"
+                  :key="level.level"
+                  :value="level.level"
+                >
+                  {{ level.name }}
                 </option>
               </select>
             </div>
@@ -79,11 +115,11 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import { EXAM_SUBJECTS, type Exam } from '@/types/types'
+import type { Exam, SubjectCountryNode, SubjectLevelNode, SubjectNode } from '@/types/types'
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 
 const error = ref('')
@@ -91,10 +127,25 @@ const isSubmitting = ref(false)
 const isLoading = ref(false)
 const formLoaded = ref(false)
 
+const subjects = ref<SubjectNode[]>([])
+
 const form = reactive({
   name: '',
   subject: '',
+  country: '',
+  level: '',
   date: ''
+})
+
+const selectedSubject = computed(() =>
+  subjects.value.find(node => node.subject === form.subject) ?? null
+)
+const countryOptions = computed<SubjectCountryNode[]>(() => selectedSubject.value?.countries ?? [])
+const levelOptions = computed<SubjectLevelNode[]>(() => {
+  if (form.country) {
+    return countryOptions.value.find(country => country.country === form.country)?.levels ?? []
+  }
+  return selectedSubject.value?.levels ?? []
 })
 
 const examId = computed(() => (route.params.id as string | undefined) ?? '')
@@ -124,7 +175,24 @@ const goBack = () => {
 const syncForm = (value: Exam) => {
   form.name = value.name || ''
   form.subject = value.subject || ''
+  form.country = value.country || ''
+  form.level = value.level || ''
   form.date = value.date || ''
+}
+
+const loadSubjects = async () => {
+  try {
+    const wsClient = sessionStore.getWsClient()
+    const response = await wsClient.queryWs<{ subjects?: SubjectNode[] }>(
+      'GET',
+      '/subject',
+      { locale: locale.value }
+    )
+    subjects.value = response?.subjects ?? []
+  } catch (err) {
+    console.error('Error loading subjects:', err)
+    subjects.value = []
+  }
 }
 
 const loadExamForEdit = async (hash: string) => {
@@ -177,6 +245,8 @@ const createExam = async () => {
     const payload = {
       name: form.name.trim(),
       subject: form.subject.trim(),
+      country: form.country.trim(),
+      level: form.level.trim(),
       date: form.date
     }
     const response = await wsClient.queryWs<{ hash?: string }>(
@@ -197,6 +267,8 @@ const createExam = async () => {
       author: userId,
       name: payload.name,
       subject: payload.subject,
+      country: payload.country,
+      level: payload.level,
       date: payload.date,
       files: []
     }
@@ -219,6 +291,8 @@ const saveExam = async () => {
     const payload = {
       name: form.name.trim(),
       subject: form.subject.trim(),
+      country: form.country.trim(),
+      level: form.level.trim(),
       date: form.date
     }
     await wsClient.queryWs('PUT', '/exam', { hash: examId.value }, payload)
@@ -243,13 +317,42 @@ const saveExam = async () => {
 const resetCreateForm = () => {
   form.name = ''
   form.subject = ''
+  form.country = ''
+  form.level = ''
   form.date = ''
   error.value = ''
   formLoaded.value = false
   isLoading.value = false
 }
 
+watch(
+  () => form.subject,
+  () => {
+    if (!subjects.value.length) return
+    if (form.country && !countryOptions.value.some(country => country.country === form.country)) {
+      form.country = ''
+    }
+    if (form.level && !levelOptions.value.some(level => level.level === form.level)) {
+      form.level = ''
+    }
+  }
+)
+
+watch(
+  () => form.country,
+  () => {
+    if (form.level && !levelOptions.value.some(level => level.level === form.level)) {
+      form.level = ''
+    }
+  }
+)
+
+watch(locale, () => {
+  loadSubjects()
+})
+
 onMounted(() => {
+  loadSubjects()
   if (isEditMode.value && examId.value) {
     loadExamForEdit(examId.value)
   }

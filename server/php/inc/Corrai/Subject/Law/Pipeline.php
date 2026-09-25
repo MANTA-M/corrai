@@ -1,17 +1,32 @@
 <?php
 
-namespace Corrai\Subject;
+namespace Corrai\Subject\Law;
 
 use Corrai\Model\Exam;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
 use Corrai\LlmClient\LlmClientFactory;
+use Corrai\Subject\Dictation\Pipeline as DictationPipeline;
 
-class MathPipeline
+class Pipeline
 {
+    public const SUBJECT = 'Law';
+    public const LEVEL = '';
+    public const COUNTRY = '';
+    public const NAMES = [
+        'en' => 'Law',
+        'fr' => 'Droit',
+        'ru' => 'Право',
+        'uk' => 'Право',
+        'es' => 'Derecho',
+        'pt' => 'Direito',
+        'ro' => 'Drept',
+        'de' => 'Recht',
+    ];
+
     /**
-     * Transcribe, correct, then annotate a submission.
+     * Transcribe literally, correct, then annotate a law submission.
      *
      * @return array Updated exam file list
      */
@@ -36,11 +51,7 @@ class MathPipeline
                 $student
             );
 
-            $correction = $this->correct(
-                $exam,
-                $transcription,
-                $languageName
-            );
+            $correction = $this->correct($exam, $transcription, $languageName);
             $exam->createFile(
                 $base . ' correction.txt',
                 $correction,
@@ -73,12 +84,12 @@ class MathPipeline
     {
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a careful transcription assistant. '
-            . 'Transcribe the submitted exam paper into LaTeX. '
-            . 'Return only the LaTeX transcription with no extra commentary.'
+            'You are a careful transcription assistant for a law exam. '
+            . 'Follow the user instruction exactly. '
+            . 'Return only the transcription, the unreadable marks, and the calligraphy score.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text('Transcribe this submission into LaTeX.');
+        $request->add_text(DictationPipeline::TRANSCRIPTION_INSTRUCTION);
         return $request->call_text();
     }
 
@@ -87,14 +98,15 @@ class MathPipeline
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a professor in mathematics'
-            . ' and you have to correct the following submission. '
+            'You are a law professor correcting the following submission. '
+            . 'The transcription is literal: do not assume wording was already fixed. '
+            . 'Grade legal reasoning, citations, unreadable passages, and the calligraphy score already given. '
             . 'Respond with a textual correction including the mark and the appreciation. '
             . 'Use the language ' . $languageName
             . ' with the following instructions bellow. '
             . $instructionText
         );
-        $request->add_text("Submission transcription (LaTeX):\n" . $transcription);
+        $request->add_text("Law transcription:\n" . $transcription);
         return $request->call_text();
     }
 
@@ -106,7 +118,7 @@ class MathPipeline
         $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
         $request = LlmClientFactory::create($imageModel);
         $request->set_system_content(
-            'You annotate student exam papers. '
+            'You annotate student law papers. '
             . 'Using the correction text provided, annotate the source image accordingly. '
             . 'Return an annotated image.'
         );

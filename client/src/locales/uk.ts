@@ -32,6 +32,10 @@ const uk: I18nSchema = {
         namePlaceholder: "Введіть назву іспиту",
         subject: "Предмет",
         subjectPlaceholder: "Оберіть предмет",
+        country: "Країна",
+        countryPlaceholder: "Оберіть країну",
+        level: "Рівень",
+        levelPlaceholder: "Оберіть рівень",
         subjects: {
             MathPipeline: "Математика",
             Physics: "Фізика",

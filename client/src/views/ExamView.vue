@@ -46,6 +46,14 @@
               <dt>{{ t('exam.subject') }}</dt>
               <dd data-testid="exam-subject-value">{{ subjectLabel(exam.subject) }}</dd>
             </div>
+            <div v-if="exam.country" class="detail-row">
+              <dt>{{ t('exam.country') }}</dt>
+              <dd data-testid="exam-country-value">{{ exam.country }}</dd>
+            </div>
+            <div v-if="exam.level" class="detail-row">
+              <dt>{{ t('exam.level') }}</dt>
+              <dd data-testid="exam-level-value">{{ exam.level }}</dd>
+            </div>
             <div class="detail-row">
               <dt>{{ t('exam.date') }}</dt>
               <dd data-testid="exam-date-value">{{ exam.date || '—' }}</dd>

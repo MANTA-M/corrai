@@ -43,11 +43,31 @@ export interface ExamQuestion {
   explanation: string | null
 }
 
+export interface SubjectLevelNode {
+  level: string
+  name: string
+}
+
+export interface SubjectCountryNode {
+  country: string
+  name: string
+  levels: SubjectLevelNode[]
+}
+
+export interface SubjectNode {
+  subject: string
+  name: string
+  countries: SubjectCountryNode[]
+  levels: SubjectLevelNode[]
+}
+
 export interface Exam {
   id: string | null
   author: string
   name: string
   subject: string
+  country?: string
+  level?: string
   date: string
   verified?: string
   verifier?: string

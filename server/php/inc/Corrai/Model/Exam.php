@@ -8,11 +8,12 @@ use Corrai\Utils\CsvStore;
 use Corrai\Utils\HashId;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
-use Corrai\Subject\Dictation;
-use Corrai\Subject\Law;
-use Corrai\Subject\MathPipeline;
-use Corrai\Subject\Other;
-use Corrai\Subject\Physics;
+use Corrai\Subject\Catalog;
+use Corrai\Subject\Dictation\Pipeline as Dictation;
+use Corrai\Subject\Law\Pipeline as Law;
+use Corrai\Subject\Math\Pipeline as MathPipeline;
+use Corrai\Subject\Other\Pipeline as Other;
+use Corrai\Subject\Physics\Pipeline as Physics;
 
 class Exam
 {
@@ -40,6 +41,16 @@ class Exam
      * Pipeline name for this exam (MathPipeline, Physics, Dictation, Law, Other).
      */
     public string $subject = '';
+
+    /**
+     * Optional country for this exam's subject. Empty when the subject has none.
+     */
+    public string $country = '';
+
+    /**
+     * Optional level for this exam's subject. Empty when the subject has none.
+     */
+    public string $level = '';
 
     /**
      * The date of the exam (YYYY-MM-DD).
@@ -77,6 +88,8 @@ class Exam
         $exam->user_id = $data['user_id'] ?? ($data['author'] ?? '');
         $exam->name = $data['name'] ?? '';
         $exam->subject = $data['subject'] ?? '';
+        $exam->country = $data['country'] ?? '';
+        $exam->level = $data['level'] ?? '';
         $exam->date = $data['date'] ?? '';
         $exam->created_at = $data['created_at'] ?? '';
         return $exam;
@@ -163,6 +176,8 @@ class Exam
             'user_id' => $this->user_id,
             'name' => $this->name,
             'subject' => $this->subject,
+            'country' => $this->country,
+            'level' => $this->level,
             'date' => $this->date,
             'created_at' => $this->created_at,
         ];
@@ -189,6 +204,8 @@ class Exam
             'user_id' => $this->user_id,
             'name' => $this->name,
             'subject' => $this->subject,
+            'country' => $this->country,
+            'level' => $this->level,
             'date' => $this->date,
             'created_at' => $this->created_at,
         ];
@@ -540,7 +557,7 @@ class Exam
      */
     public function pipelineClass(): string
     {
-        return self::SUBJECT_PIPELINES[$this->subject] ?? Other::class;
+        return Catalog::pipelineClass($this->subject, $this->country, $this->level);
     }
 
     /**

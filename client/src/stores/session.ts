@@ -26,6 +26,8 @@ interface ServerExam {
   author?: string
   name: string
   subject: string
+  country?: string
+  level?: string
   date: string
   created_at?: string
   files?: Exam['files']
@@ -52,6 +54,8 @@ function normalizeExam(raw: ServerExam): Exam {
     author: raw.user_id ?? raw.author ?? '',
     name: raw.name,
     subject: raw.subject,
+    country: raw.country ?? '',
+    level: raw.level ?? '',
     date: raw.date,
     files: raw.files ?? [],
   }

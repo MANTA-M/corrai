@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject;
+namespace Corrai\Subject\Math;
 
 use Corrai\Model\Exam;
 use Corrai\Utils\ObjectStore;
@@ -8,10 +8,24 @@ use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
 use Corrai\LlmClient\LlmClientFactory;
 
-class Physics
+class Pipeline
 {
+    public const SUBJECT = 'Math';
+    public const LEVEL = '';
+    public const COUNTRY = '';
+    public const NAMES = [
+        'en' => 'Mathematics',
+        'fr' => 'Math',
+        'ru' => 'Математика',
+        'uk' => 'Математика',
+        'es' => 'Matemáticas',
+        'pt' => 'Matemática',
+        'ro' => 'Matematică',
+        'de' => 'Mathematik',
+    ];
+
     /**
-     * Transcribe into LaTeX, correct, then annotate a physics submission.
+     * Transcribe, correct, then annotate a submission.
      *
      * @return array Updated exam file list
      */
@@ -36,7 +50,11 @@ class Physics
                 $student
             );
 
-            $correction = $this->correct($exam, $transcription, $languageName);
+            $correction = $this->correct(
+                $exam,
+                $transcription,
+                $languageName
+            );
             $exam->createFile(
                 $base . ' correction.txt',
                 $correction,
@@ -69,12 +87,12 @@ class Physics
     {
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a careful transcription assistant for a physics exam. '
-            . 'Transcribe the submitted paper into LaTeX, including formulas, units, and diagrams described in text. '
+            'You are a careful transcription assistant. '
+            . 'Transcribe the submitted exam paper into LaTeX. '
             . 'Return only the LaTeX transcription with no extra commentary.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text('Transcribe this physics submission into LaTeX.');
+        $request->add_text('Transcribe this submission into LaTeX.');
         return $request->call_text();
     }
 
@@ -83,8 +101,8 @@ class Physics
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a physics professor and you have to correct the following submission. '
-            . 'Check formulas, units, reasoning, and numerical results. '
+            'You are a professor in mathematics'
+            . ' and you have to correct the following submission. '
             . 'Respond with a textual correction including the mark and the appreciation. '
             . 'Use the language ' . $languageName
             . ' with the following instructions bellow. '
@@ -102,7 +120,7 @@ class Physics
         $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
         $request = LlmClientFactory::create($imageModel);
         $request->set_system_content(
-            'You annotate student physics papers. '
+            'You annotate student exam papers. '
             . 'Using the correction text provided, annotate the source image accordingly. '
             . 'Return an annotated image.'
         );

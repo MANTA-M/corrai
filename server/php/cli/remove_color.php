@@ -3,15 +3,45 @@
 /**
  * Usage: php remove_color.php <image>
  *
- * Crée <nom>_retouche.<ext> à côté de l'image source :
- *  - les pixels rouges (rouge dominant) sont blanchis ;
- *  - pour les autres pixels foncés (luminance < 50 %), la composante rouge
- *    est supprimée ;
- *  - les pixels clairs sont conservés.
+ * Crée <nom>_retouche.<ext> à côté de l'image source. Chaque pixel est
+ * converti en HSL et passé en blanc s'il est rouge (teinte rouge et
+ * saturation > 50 %) ou clair (luminosité > 80 %). Les autres pixels sont
+ * conservés.
  */
 
-// Écart minimal entre le rouge et max(vert, bleu) pour qu'un pixel soit considéré rouge.
-const RED_DOMINANCE = 50;
+// Écart maximal, en degrés, entre la teinte d'un pixel et 0° (rouge pur).
+const RED_HUE_TOLERANCE = 30;
+const MIN_RED_SATURATION = 15;
+const MIN_WHITE_LIGHTNESS = 80;
+
+/**
+ * @return array{float, float, float} [teinte en degrés 0-360, saturation 0-100, luminosité 0-100]
+ */
+function rgbToHsl(int $r, int $g, int $b): array
+{
+    $r /= 255;
+    $g /= 255;
+    $b /= 255;
+
+    $max = max($r, $g, $b);
+    $min = min($r, $g, $b);
+    $delta = $max - $min;
+    $l = ($max + $min) / 2;
+
+    if ($delta == 0) {
+        return [0.0, 0.0, $l * 100];
+    }
+
+    $s = $delta / (1 - abs(2 * $l - 1));
+
+    $h = match ($max) {
+        $r => fmod(($g - $b) / $delta + 6, 6),
+        $g => ($b - $r) / $delta + 2,
+        default => ($r - $g) / $delta + 4,
+    };
+
+    return [$h * 60, $s * 100, $l * 100];
+}
 
 if (PHP_SAPI !== 'cli') {
     exit("Ce script doit être exécuté en ligne de commande.\n");
@@ -72,11 +102,11 @@ for ($y = 0; $y < $height; $y++) {
         $g = ($rgba >> 8) & 0xFF;
         $b = $rgba & 0xFF;
 
-        if ($r - max($g, $b) > RED_DOMINANCE) {
+        [$h, $s, $l] = rgbToHsl($r, $g, $b);
+        $isRed = min($h, 360 - $h) <= RED_HUE_TOLERANCE && $s > MIN_RED_SATURATION;
+
+        if ($isRed || $l > MIN_WHITE_LIGHTNESS) {
             imagesetpixel($image, $x, $y, ($rgba & 0x7F000000) | 0xFFFFFF);
-        } elseif (0.299 * $r + 0.587 * $g + 0.114 * $b < 127.5) {
-            // Luminance perçue (Rec. 601) < 50 % : pixel foncé.
-            imagesetpixel($image, $x, $y, $rgba & 0x7F00FFFF);
         }
     }
 }

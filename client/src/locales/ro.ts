@@ -32,6 +32,10 @@ const ro: I18nSchema = {
         namePlaceholder: "Introduceți numele examenului",
         subject: "Materie",
         subjectPlaceholder: "Selectați materia",
+        country: "Țară",
+        countryPlaceholder: "Selectați țara",
+        level: "Nivel",
+        levelPlaceholder: "Selectați nivelul",
         subjects: {
             MathPipeline: "Matematică",
             Physics: "Fizică",

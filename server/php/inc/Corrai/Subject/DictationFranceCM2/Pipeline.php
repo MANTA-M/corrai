@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject;
+namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\Exam;
 use Corrai\Utils\ObjectStore;
@@ -8,8 +8,22 @@ use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
 use Corrai\LlmClient\Qwen25Vl72bInstructClient;
 
-class Dictation
+class Pipeline
 {
+    public const SUBJECT = 'Dictation';
+    public const LEVEL = 'CM2';
+    public const COUNTRY = 'fr';
+    public const NAMES = [
+        'en' => 'Dictation CM2 France',
+        'fr' => 'Dictée CM2 France',
+        'ru' => 'Диктант CM2 Франция',
+        'uk' => 'Диктант CM2 Франція',
+        'es' => 'Dictado CM2 Francia',
+        'pt' => 'Ditado CM2 Portugal',
+        'ro' => 'Dictare CM2 Franța',
+        'de' => 'Diktat CM2 Frankreich',
+    ];
+
     public const TRANSCRIPTION_INSTRUCTION =
         'Transcript only what is writen without correcting it. DO NOT ADD ANY LETTER OR SIGN. '
         . 'If something is badly written, put a mark to say it\'s unreadable. '

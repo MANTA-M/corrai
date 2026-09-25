@@ -1,15 +1,30 @@
 <?php
 
-namespace Corrai\Subject;
+namespace Corrai\Subject\Other;
 
 use Corrai\Model\Exam;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
 use Corrai\LlmClient\LlmClientFactory;
+use Corrai\Subject\Dictation\Pipeline as DictationPipeline;
 
-class Other
+class Pipeline
 {
+    public const SUBJECT = 'Other';
+    public const LEVEL = '';
+    public const COUNTRY = '';
+    public const NAMES = [
+        'en' => 'Other',
+        'fr' => 'Autre',
+        'ru' => 'Другое',
+        'uk' => 'Інше',
+        'es' => 'Otro',
+        'pt' => 'Outro',
+        'ro' => 'Altul',
+        'de' => 'Sonstiges',
+    ];
+
     /**
      * Transcribe literally, correct, then annotate a submission in any other subject.
      *
@@ -74,7 +89,7 @@ class Other
             . 'Return only the transcription, the unreadable marks, and the calligraphy score.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text(Dictation::TRANSCRIPTION_INSTRUCTION);
+        $request->add_text(DictationPipeline::TRANSCRIPTION_INSTRUCTION);
         return $request->call_text();
     }
 

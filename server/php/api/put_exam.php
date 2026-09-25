@@ -38,6 +38,8 @@ try {
     // Only allow updating name, subject, and date
     $existing_exam->name = $exam_data['name'] ?? $existing_exam->name;
     $existing_exam->subject = $exam_data['subject'] ?? $existing_exam->subject;
+    $existing_exam->country = $exam_data['country'] ?? $existing_exam->country;
+    $existing_exam->level = $exam_data['level'] ?? $existing_exam->level;
     $existing_exam->date = $exam_data['date'] ?? $existing_exam->date;
 
     $existing_exam->validate();

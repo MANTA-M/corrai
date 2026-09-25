@@ -32,6 +32,10 @@ const en: I18nSchema = {
         namePlaceholder: "Enter exam name",
         subject: "Subject",
         subjectPlaceholder: "Choose a subject",
+        country: "Country",
+        countryPlaceholder: "Choose a country",
+        level: "Level",
+        levelPlaceholder: "Choose a level",
         subjects: {
             MathPipeline: "Mathematics",
             Physics: "Physics",

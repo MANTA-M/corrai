@@ -32,6 +32,10 @@ const ru: I18nSchema = {
         namePlaceholder: "Введите название экзамена",
         subject: "Предмет",
         subjectPlaceholder: "Выберите предмет",
+        country: "Страна",
+        countryPlaceholder: "Выберите страну",
+        level: "Уровень",
+        levelPlaceholder: "Выберите уровень",
         subjects: {
             MathPipeline: "Математика",
             Physics: "Физика",
