@@ -120,12 +120,21 @@ class Pipeline
         string $solutionName,
         string $languageName
     ): string {
+
+        $size = @getimagesize($copyPath);
+        $width = is_array($size) ? (int) $size[0] : 0;
+        $height = is_array($size) ? (int) $size[1] : 0;
+        if ($width < 1 || $height < 1) {
+            throw new WSException('The source file is not an image GD can annotate', 400);
+        }
+
         $instructionText = $exam->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
             'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
+            . 'Gather the coordinates of the box containing the error in the original image in terms of percentage of the image width and height starting at the top-left and with 0.0001 precision. '
             . 'Second step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
             . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
@@ -154,7 +163,7 @@ class Pipeline
         $request->set_system_content(
             'You annotate a scanned dictation by writing PHP GD directives. '
             . 'Return only a PHP file that assigns an array to $GD_directives. No markdown, no explanation. '
-            . 'The image is ' . $width . ' by ' . $height . ' pixels, origin at the top-left. '
+            . 'The image is ' . $width . ' by ' . $height . ' pixels, origin at the top-left. Use the error coordinates in terms of percentage of the image width and height to place the marks on the student writing. '
             . 'Place marks on the student writing that the correction lists as wrong. '
             . 'Allowed entries, and nothing else:' . "\n"
             . '- ["fn" => "imagecolorallocate", "as" => "red", "rgb" => [R, G, B]]' . "\n"
