@@ -419,6 +419,22 @@ class Exam
     }
 
     /**
+     * Delete unassigned files of one type for one student.
+     */
+    public function deleteFilesOfType(string $type, string $student): void
+    {
+        $store = ObjectStore::getInstance();
+        foreach ($this->list_files() as $file) {
+            if (($file['type'] ?? '') !== $type || ($file['student'] ?? '') !== $student) {
+                continue;
+            }
+            $name = $file['name'];
+            $store->delete($this->unassignedFileKey($name));
+            $this->removeFileTags($name);
+        }
+    }
+
+    /**
      * Drop tags for a file that is being deleted.
      */
     public function removeFileTags(string $filename): void

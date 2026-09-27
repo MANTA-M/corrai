@@ -41,6 +41,8 @@ class Pipeline
         $tmpPath = $store->downloadToTemp($key);
 
         try {
+            $exam->deleteFilesOfType('correction', $student);
+
             $transcription = $this->transcribe($tmpPath, $filename);
             $exam->createFile(
                 $base . ' transcription.txt',

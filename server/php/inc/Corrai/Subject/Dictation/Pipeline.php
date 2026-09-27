@@ -49,6 +49,8 @@ class Pipeline
         $solutionPath = null;
 
         try {
+            $exam->deleteFilesOfType('correction', $student);
+
             $solution = $this->firstSolutionFile($exam);
             $solutionPath = $store->downloadToTemp($exam->unassignedFileKey($solution['name']));
 
@@ -73,7 +75,7 @@ class Pipeline
                 $base . ' directives.php',
                 $directivesPhp,
                 'text/plain; charset=utf-8',
-                null,
+                'correction',
                 $student
             );
 

@@ -49,6 +49,8 @@ class Pipeline
         $solutionPath = null;
 
         try {
+            $exam->deleteFilesOfType('correction', $student);
+
             $solution = $this->firstSolutionFile($exam);
             $solutionPath = $store->downloadToTemp($exam->unassignedFileKey($solution['name']));
 
@@ -73,7 +75,7 @@ class Pipeline
                 $base . ' directives.php',
                 $directivesPhp,
                 'text/plain; charset=utf-8',
-                null,
+                'correction',
                 $student
             );
 
@@ -134,6 +136,7 @@ class Pipeline
             'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
+            . 'Give all the parameters used by the OCR, such as cropped zone coordinates in the original image, and the OCR parameters used. '
             . 'Gather the coordinates of the box containing the error in the original image in terms of percentage of the image width and height starting at the top-left and with 0.0001 precision. '
             . 'Second step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
