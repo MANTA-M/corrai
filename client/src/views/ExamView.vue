@@ -48,11 +48,11 @@
             </div>
             <div v-if="exam.country" class="detail-row">
               <dt>{{ t('exam.country') }}</dt>
-              <dd data-testid="exam-country-value">{{ exam.country }}</dd>
+              <dd data-testid="exam-country-value">{{ countryLabel(exam.subject, exam.country) }}</dd>
             </div>
             <div v-if="exam.level" class="detail-row">
               <dt>{{ t('exam.level') }}</dt>
-              <dd data-testid="exam-level-value">{{ exam.level }}</dd>
+              <dd data-testid="exam-level-value">{{ levelLabel(exam.subject, exam.country, exam.level) }}</dd>
             </div>
             <div class="detail-row">
               <dt>{{ t('exam.date') }}</dt>
@@ -86,6 +86,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import ExamFilesSection from '@/components/ExamFilesSection.vue'
+import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { isExamSubject, type Exam, type ExamFile } from '@/types/types'
 
 const route = useRoute()
@@ -98,10 +99,20 @@ const isLoading = ref(true)
 const isDeleting = ref(false)
 const error = ref('')
 
+const { subjects, load: loadSubjects, countryName, levelName } = useSubjectCatalog()
+
 const subjectLabel = (subject: string) => {
+  const node = subjects.value.find(item => item.subject === subject)
+  if (node?.name) return node.name
   if (isExamSubject(subject)) return t(`exam.subjects.${subject}`)
   return subject || '—'
 }
+
+const countryLabel = (subject: string, country: string | null | undefined) =>
+  countryName(subject, country) || '—'
+
+const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) =>
+  levelName(subject, country, level) || '—'
 
 const examId = computed(() => route.params.id as string)
 const files = computed(() => exam.value?.files ?? [])
@@ -168,6 +179,7 @@ const confirmDelete = async () => {
 }
 
 onMounted(() => {
+  loadSubjects()
   if (examId.value) {
     loadExam(examId.value)
   }

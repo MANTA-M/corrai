@@ -45,22 +45,23 @@ class Catalog
 
             $countries = [];
             foreach ($byCountry as $country => $countryEntries) {
-                $countryBare = null;
                 $countryLevels = [];
                 foreach ($countryEntries as $entry) {
                     if ($entry['level'] === '') {
-                        $countryBare = $entry;
-                    } else {
-                        $countryLevels[] = [
-                            'level' => $entry['level'],
-                            'name' => self::localizedName($entry, $locale),
-                        ];
+                        continue;
                     }
+                    $countryLevels[] = [
+                        'level' => $entry['level'],
+                        'name' => self::localizedName($entry, $locale),
+                    ];
                 }
-                $countryNameEntry = $countryBare ?? $countryEntries[0];
+                usort(
+                    $countryLevels,
+                    static fn (array $a, array $b): int => strcmp($a['level'], $b['level'])
+                );
                 $countries[] = [
                     'country' => $country,
-                    'name' => self::localizedName($countryNameEntry, $locale),
+                    'name' => self::countryName($country, $locale),
                     'levels' => $countryLevels,
                 ];
             }
@@ -89,6 +90,25 @@ class Catalog
             return $names['en'];
         }
         return $entry['subject'];
+    }
+
+    /**
+     * Localized country name for an ISO 3166-1 alpha-2 code.
+     */
+    private static function countryName(string $country, string $locale): string
+    {
+        $region = strtoupper($country);
+        if ($region === '' || !class_exists(\Locale::class)) {
+            return $country;
+        }
+        $name = \Locale::getDisplayRegion('-' . $region, $locale);
+        if (!is_string($name) || $name === '' || strcasecmp($name, $region) === 0) {
+            $name = \Locale::getDisplayRegion('-' . $region, 'en');
+        }
+        if (!is_string($name) || $name === '' || strcasecmp($name, $region) === 0) {
+            return $country;
+        }
+        return $name;
     }
 
     /**

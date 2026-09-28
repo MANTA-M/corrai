@@ -28,7 +28,7 @@ test.describe('Exams CRUD', () => {
       await page.waitForURL('**/create_exam', { timeout: 10000 })
 
       await page.getByTestId('exam-name').fill('Math Midterm')
-      await page.getByTestId('exam-subject').selectOption('MathPipeline')
+      await page.getByTestId('exam-subject').selectOption('Math')
       await page.getByTestId('exam-date').fill('2026-10-15')
       await page.getByTestId('exam-submit').click()
 

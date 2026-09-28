@@ -27,9 +27,12 @@ class SubjectCatalogTest extends TestCase
         $this->assertSame([], $dictation['levels']);
         $this->assertCount(1, $dictation['countries']);
         $this->assertSame('fr', $dictation['countries'][0]['country']);
-        $this->assertSame('Dictée CM2 France', $dictation['countries'][0]['name']);
+        $this->assertSame('France', $dictation['countries'][0]['name']);
         $this->assertSame(
-            [['level' => 'CM2', 'name' => 'Dictée CM2 France']],
+            [
+                ['level' => 'CM1', 'name' => 'Dictée CM1 France'],
+                ['level' => 'CM2', 'name' => 'Dictée CM2 France'],
+            ],
             $dictation['countries'][0]['levels']
         );
 
@@ -55,7 +58,8 @@ class SubjectCatalogTest extends TestCase
         $this->assertNotNull($math);
         $this->assertSame('Mathematics', $math['name']);
         $this->assertNotNull($dictation);
-        $this->assertSame('Dictation CM2 France', $dictation['countries'][0]['name']);
-        $this->assertSame('Dictation CM2 France', $dictation['countries'][0]['levels'][0]['name']);
+        $this->assertSame('France', $dictation['countries'][0]['name']);
+        $this->assertSame('Dictation CM1 France', $dictation['countries'][0]['levels'][0]['name']);
+        $this->assertSame('Dictation CM2 France', $dictation['countries'][0]['levels'][1]['name']);
     }
 }

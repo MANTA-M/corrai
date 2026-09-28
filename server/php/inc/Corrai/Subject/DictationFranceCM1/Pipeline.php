@@ -1,9 +1,8 @@
 <?php
 
-namespace Corrai\Subject\DictationFranceCM2;
+namespace Corrai\Subject\DictationFranceCM1;
 
 use Corrai\Model\Exam;
-use Corrai\Utils\GridDetector;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
@@ -12,17 +11,17 @@ use Corrai\LlmClient\Qwen25Vl72bInstructClient;
 class Pipeline
 {
     public const SUBJECT = 'Dictation';
-    public const LEVEL = 'CM2';
+    public const LEVEL = 'CM1';
     public const COUNTRY = 'fr';
     public const NAMES = [
-        'en' => 'Dictation CM2 France',
-        'fr' => 'Dictée CM2 France',
-        'ru' => 'Диктант CM2 Франция',
-        'uk' => 'Диктант CM2 Франція',
-        'es' => 'Dictado CM2 Francia',
-        'pt' => 'Ditado CM2 Portugal',
-        'ro' => 'Dictare CM2 Franța',
-        'de' => 'Diktat CM2 Frankreich',
+        'en' => 'Dictation CM1 France',
+        'fr' => 'Dictée CM1 France',
+        'ru' => 'Диктант CM1 Франция',
+        'uk' => 'Диктант CM1 Франція',
+        'es' => 'Dictado CM1 Francia',
+        'pt' => 'Ditado CM1 Portugal',
+        'ro' => 'Dictare CM1 Franța',
+        'de' => 'Diktat CM1 Frankreich',
     ];
 
     public const TRANSCRIPTION_INSTRUCTION =
@@ -35,8 +34,6 @@ class Pipeline
     private const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
 
     private const BASELINE_MARK_LENGTH = 30;
-
-    private const SYNTHETIC_GRID_STEP = 50;
 
     public int $debug = self::DEBUG;
 
@@ -67,8 +64,6 @@ class Pipeline
         $solutionPath = null;
 
         try {
-            $this->ensureGrid($tmpPath);
-
             $exam->deleteFilesOfType('correction', $student);
 
             $solution = $this->firstSolutionFile($exam);
@@ -122,85 +117,6 @@ class Pipeline
     }
 
     /**
-     * Detect the page ruling. When none is found, draw a yellow grid with a 50px step.
-     */
-    private function ensureGrid(string $imagePath): void
-    {
-        $bytes = file_get_contents($imagePath);
-        if ($bytes === false) {
-            throw new WSException('Cannot read the source image', 400);
-        }
-
-        $info = @getimagesizefromstring($bytes);
-        if ($info === false) {
-            throw new WSException('The source file is not an image GD can annotate', 400);
-        }
-
-        try {
-            new GridDetector($bytes);
-            return;
-        } catch (\Exception $exception) {
-            if ($exception->getMessage() !== 'Grid was not found') {
-                throw $exception;
-            }
-        }
-
-        $this->drawYellowGrid($imagePath, $bytes, (int) $info[2]);
-    }
-
-    private function drawYellowGrid(string $imagePath, string $bytes, int $type): void
-    {
-        if (!function_exists('imagecreatefromstring')) {
-            throw new WSException('PHP GD is not available', 500);
-        }
-
-        $image = @imagecreatefromstring($bytes);
-        if ($image === false) {
-            throw new WSException('The source file is not an image GD can annotate', 400);
-        }
-
-        try {
-            if (!imageistruecolor($image)) {
-                imagepalettetotruecolor($image);
-            }
-            imagealphablending($image, true);
-
-            $yellow = imagecolorallocate($image, 255, 255, 0);
-            if ($yellow === false) {
-                throw new WSException('GD could not allocate a color', 500);
-            }
-
-            $width = imagesx($image);
-            $height = imagesy($image);
-            $step = self::SYNTHETIC_GRID_STEP;
-            for ($x = 0; $x < $width; $x += $step) {
-                imageline($image, $x, 0, $x, $height - 1, $yellow);
-            }
-            for ($y = 0; $y < $height; $y += $step) {
-                imageline($image, 0, $y, $width - 1, $y, $yellow);
-            }
-
-            $this->saveImage($image, $imagePath, $type);
-        } finally {
-            imagedestroy($image);
-        }
-    }
-
-    private function saveImage(\GdImage $image, string $path, int $type): void
-    {
-        $written = match ($type) {
-            IMAGETYPE_JPEG => imagejpeg($image, $path, 90),
-            IMAGETYPE_GIF => imagegif($image, $path),
-            IMAGETYPE_WEBP => imagewebp($image, $path, 90),
-            IMAGETYPE_BMP => imagebmp($image, $path),
-            default => imagepng($image, $path),
-        };
-        if ($written !== true) {
-            throw new WSException('GD did not produce an image', 500);
-        }
-    }
-
-    /**
      * @return array{name: string, type: string, student: string}
      */
     private function firstSolutionFile(Exam $exam): array
@@ -232,10 +148,12 @@ class Pipeline
         $instructionText = $exam->instructionFilesText();
         $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
-            'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
+            'First, give the OCR image cropping coordinates. Put 0 if no cropping was done. '
+            . 'Also list every handwritten line by the Y of its baseline, using the same normalized coordinates as error boxes: 0 at the top of the cropped image and 1000 at the bottom. '
+            . 'Second step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
-            . 'Gather the coordinates of the box containing the error in the original image using the main lines of the grid. . '
+            . 'Gather the coordinates of the box containing the error in the original image. '
             . 'Third step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
             . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
@@ -250,6 +168,33 @@ class Pipeline
             'additionalProperties' => false,
             'required' => ['cropped_image', 'lines', 'errors'],
             'properties' => [
+                'cropped_image' => [
+                    'type' => 'object',
+                    'description' => 'OCR-analyzed image cropped coordinates in pixels. Origin is top-left.',
+                    'additionalProperties' => false,
+                    'required' => ['x1', 'y1', 'x2', 'y2'],
+                    'properties' => [
+                        'x1' => ['type' => 'integer'],
+                        'y1' => ['type' => 'integer'],
+                        'x2' => ['type' => 'integer'],
+                        'y2' => ['type' => 'integer'],
+                    ],
+                ],
+                'lines' => [
+                    'type' => 'array',
+                    'description' => 'One entry per handwritten line. y is the baseline, normalized from 0 at the top of the cropped image to 1000 at the bottom.',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['y'],
+                        'properties' => [
+                            'y' => [
+                                'type' => 'integer',
+                                'description' => 'Baseline Y of the handwritten line, normalized between 0 and 1000.',
+                            ],
+                        ],
+                    ],
+                ],
                 'errors' => [
                     'type' => 'array',
                     'description' => 'Clear spelling or grammar errors only. Omit missing spaces and badly written letters. Do not rewrite the dictation.',
@@ -272,14 +217,14 @@ class Pipeline
                             ],
                             'box' => [
                                 'type' => 'object',
-                                'description' => 'The error bounding box using the main lines of the grid,  0,0 is the top-left corner.',
+                                'description' => 'The errorbounding box using normalized values ​​between 0 and 1000 (where 0,0 is the top-left corner and 1000,1000 is the bottom-right corner).',
                                 'additionalProperties' => false,
                                 'required' => ['x1', 'y1', 'x2', 'y2'],
                                 'properties' => [
-                                    'x1' => ['type' => 'number'],
-                                    'y1' => ['type' => 'number'],
-                                    'x2' => ['type' => 'number'],
-                                    'y2' => ['type' => 'number'],
+                                    'x1' => ['type' => 'integer'],
+                                    'y1' => ['type' => 'integer'],
+                                    'x2' => ['type' => 'integer'],
+                                    'y2' => ['type' => 'integer'],
                                 ],
                             ],
                         ],

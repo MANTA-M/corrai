@@ -11,7 +11,9 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { isExamSubject, type Exam } from '@/types/types'
 
 defineProps<{
@@ -19,11 +21,18 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
+const { subjects, load } = useSubjectCatalog()
 
 const subjectLabel = (subject: string) => {
+  const node = subjects.value.find(item => item.subject === subject)
+  if (node?.name) return node.name
   if (isExamSubject(subject)) return t(`exam.subjects.${subject}`)
   return subject || '—'
 }
+
+onMounted(() => {
+  load()
+})
 </script>
 
 <style scoped>

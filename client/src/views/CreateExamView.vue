@@ -117,7 +117,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import type { Exam, SubjectCountryNode, SubjectLevelNode, SubjectNode } from '@/types/types'
+import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
+import type { Exam, SubjectCountryNode, SubjectLevelNode } from '@/types/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,7 +130,7 @@ const isSubmitting = ref(false)
 const isLoading = ref(false)
 const formLoaded = ref(false)
 
-const subjects = ref<SubjectNode[]>([])
+const { subjects, load: loadSubjects } = useSubjectCatalog()
 
 /** Select value that submits country or level as null. */
 const NOT_SPECIFIED = '__not_specified__'
@@ -208,20 +209,9 @@ const applyStoredOptionalFields = () => {
   }
 }
 
-const loadSubjects = async () => {
-  try {
-    const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ subjects?: SubjectNode[] }>(
-      'GET',
-      '/subject',
-      { locale: locale.value }
-    )
-    subjects.value = response?.subjects ?? []
-    applyStoredOptionalFields()
-  } catch (err) {
-    console.error('Error loading subjects:', err)
-    subjects.value = []
-  }
+const refreshSubjects = async () => {
+  await loadSubjects()
+  applyStoredOptionalFields()
 }
 
 const loadExamForEdit = async (hash: string) => {
@@ -377,11 +367,11 @@ watch(
 )
 
 watch(locale, () => {
-  loadSubjects()
+  refreshSubjects()
 })
 
 onMounted(() => {
-  loadSubjects()
+  refreshSubjects()
   if (isEditMode.value && examId.value) {
     loadExamForEdit(examId.value)
   }
