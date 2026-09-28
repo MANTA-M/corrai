@@ -2,10 +2,15 @@
 
 namespace Corrai\LlmClient;
 
+use Corrai\Utils\ImageRedimentioner;
 use Corrai\Utils\Utils;
 
 class ClaudeSonnetClient extends LlmClient
 {
+    public const MAX_IMAGE_DIMENTION = 1568;
+    public float $rescale = 1.0;
+    public int $debug = 0;
+
     public function __construct(?string $model = null)
     {
         parent::__construct($model ?: ($_ENV['OPENROUTER_MODEL'] ?? 'anthropic/claude-3.7-sonnet'));
@@ -26,6 +31,7 @@ class ClaudeSonnetClient extends LlmClient
         $user_content = &$this->get_user_content();
 
         if (str_starts_with($mime, 'image/')) {
+            $bytes = $this->imageBytesForPayload($bytes);
             $dataUrl = 'data:' . $mime . ';base64,' . base64_encode($bytes);
             $user_content[] = ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]];
             return;
@@ -44,5 +50,24 @@ class ClaudeSonnetClient extends LlmClient
                 'file_data' => $dataUrl,
             ],
         ];
+    }
+
+    /**
+     * Downscale raster image bytes when the longest side exceeds MAX_IMAGE_DIMENTION.
+     */
+    protected function imageBytesForPayload(string $bytes): string
+    {
+        $this->rescale = 1.0;
+        if (!extension_loaded('gd')) {
+            return $bytes;
+        }
+
+        $info = @getimagesizefromstring($bytes);
+        if ($info === false) {
+            return $bytes;
+        }
+        $redimentioner = new ImageRedimentioner(self::MAX_IMAGE_DIMENTION, $bytes);
+        $this->rescale = $redimentioner->factor;
+        return $redimentioner->image;
     }
 }

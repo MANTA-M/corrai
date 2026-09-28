@@ -66,8 +66,8 @@ export interface Exam {
   author: string
   name: string
   subject: string
-  country?: string
-  level?: string
+  country?: string | null
+  level?: string | null
   date: string
   verified?: string
   verifier?: string

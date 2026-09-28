@@ -36,6 +36,7 @@ const ru: I18nSchema = {
         countryPlaceholder: "Выберите страну",
         level: "Уровень",
         levelPlaceholder: "Выберите уровень",
+        notSpecified: "Не указано",
         subjects: {
             MathPipeline: "Математика",
             Physics: "Физика",

@@ -57,6 +57,7 @@
                 required
               >
                 <option value="" disabled>{{ t('exam.countryPlaceholder') }}</option>
+                <option :value="NOT_SPECIFIED">{{ t('exam.notSpecified') }}</option>
                 <option
                   v-for="country in countryOptions"
                   :key="country.country"
@@ -75,6 +76,7 @@
                 required
               >
                 <option value="" disabled>{{ t('exam.levelPlaceholder') }}</option>
+                <option :value="NOT_SPECIFIED">{{ t('exam.notSpecified') }}</option>
                 <option
                   v-for="level in levelOptions"
                   :key="level.level"
@@ -129,6 +131,9 @@ const formLoaded = ref(false)
 
 const subjects = ref<SubjectNode[]>([])
 
+/** Select value that submits country or level as null. */
+const NOT_SPECIFIED = '__not_specified__'
+
 const form = reactive({
   name: '',
   subject: '',
@@ -142,11 +147,23 @@ const selectedSubject = computed(() =>
 )
 const countryOptions = computed<SubjectCountryNode[]>(() => selectedSubject.value?.countries ?? [])
 const levelOptions = computed<SubjectLevelNode[]>(() => {
-  if (form.country) {
+  if (isChosen(form.country)) {
     return countryOptions.value.find(country => country.country === form.country)?.levels ?? []
   }
   return selectedSubject.value?.levels ?? []
 })
+
+function isChosen(value: string): boolean {
+  return value !== '' && value !== NOT_SPECIFIED
+}
+
+function optionalAttribute(value: string): string | null {
+  if (!isChosen(value)) {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
 
 const examId = computed(() => (route.params.id as string | undefined) ?? '')
 const isEditMode = computed(() => route.name === 'exam-edit' && !!examId.value)
@@ -178,6 +195,17 @@ const syncForm = (value: Exam) => {
   form.country = value.country || ''
   form.level = value.level || ''
   form.date = value.date || ''
+  applyStoredOptionalFields()
+}
+
+const applyStoredOptionalFields = () => {
+  if (!isEditMode.value || !formLoaded.value || !subjects.value.length) return
+  if (!form.country && countryOptions.value.length) {
+    form.country = NOT_SPECIFIED
+  }
+  if (!form.level && levelOptions.value.length) {
+    form.level = NOT_SPECIFIED
+  }
 }
 
 const loadSubjects = async () => {
@@ -189,6 +217,7 @@ const loadSubjects = async () => {
       { locale: locale.value }
     )
     subjects.value = response?.subjects ?? []
+    applyStoredOptionalFields()
   } catch (err) {
     console.error('Error loading subjects:', err)
     subjects.value = []
@@ -201,15 +230,15 @@ const loadExamForEdit = async (hash: string) => {
   try {
     const cached = sessionStore.get_exam(hash)
     if (cached) {
-      syncForm(cached)
       formLoaded.value = true
+      syncForm(cached)
     } else {
       isLoading.value = true
     }
     const loaded = await sessionStore.load_exam(hash)
     if (loaded) {
-      syncForm(loaded)
       formLoaded.value = true
+      syncForm(loaded)
     } else if (!cached) {
       error.value = t('exam.notFoundMessage', { hash })
     }
@@ -245,8 +274,8 @@ const createExam = async () => {
     const payload = {
       name: form.name.trim(),
       subject: form.subject.trim(),
-      country: form.country.trim(),
-      level: form.level.trim(),
+      country: optionalAttribute(form.country),
+      level: optionalAttribute(form.level),
       date: form.date
     }
     const response = await wsClient.queryWs<{ hash?: string }>(
@@ -291,8 +320,8 @@ const saveExam = async () => {
     const payload = {
       name: form.name.trim(),
       subject: form.subject.trim(),
-      country: form.country.trim(),
-      level: form.level.trim(),
+      country: optionalAttribute(form.country),
+      level: optionalAttribute(form.level),
       date: form.date
     }
     await wsClient.queryWs('PUT', '/exam', { hash: examId.value }, payload)
@@ -329,10 +358,10 @@ watch(
   () => form.subject,
   () => {
     if (!subjects.value.length) return
-    if (form.country && !countryOptions.value.some(country => country.country === form.country)) {
+    if (!countryOptions.value.length || (isChosen(form.country) && !countryOptions.value.some(country => country.country === form.country))) {
       form.country = ''
     }
-    if (form.level && !levelOptions.value.some(level => level.level === form.level)) {
+    if (!levelOptions.value.length || (isChosen(form.level) && !levelOptions.value.some(level => level.level === form.level))) {
       form.level = ''
     }
   }
@@ -341,7 +370,7 @@ watch(
 watch(
   () => form.country,
   () => {
-    if (form.level && !levelOptions.value.some(level => level.level === form.level)) {
+    if (!levelOptions.value.length || (isChosen(form.level) && !levelOptions.value.some(level => level.level === form.level))) {
       form.level = ''
     }
   }

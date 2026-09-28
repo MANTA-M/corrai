@@ -65,6 +65,7 @@ export interface I18nSchema {
         countryPlaceholder: string
         level: string
         levelPlaceholder: string
+        notSpecified: string
         subjects: {
             MathPipeline: string
             Physics: string

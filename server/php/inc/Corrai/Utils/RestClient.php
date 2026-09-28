@@ -139,6 +139,7 @@ class RestClient
     }
 
     private const BASE64_REDACT_MIN_LEN = 200;
+    private const NEWLINE_PLACEHOLDER = '###CORRAI_LOG_NL###';
 
     /**
      * Log POST payload using error_log, formatting JSON if applicable.
@@ -164,10 +165,76 @@ class RestClient
     }
 
     /**
+     * Pre-process choices[*].message.content in LLM responses before formatting JSON for log.
+     * - If content starts with '{', replace '\"' with '"' and parse JSON into an object.
+     * - If content contains '\n', replace them with line breaks for log output.
+     */
+    private function processChoicesForLog(array &$decoded): bool
+    {
+        if (!isset($decoded['choices']) || !is_array($decoded['choices'])) {
+            return false;
+        }
+
+        $hasReplacedNewlines = false;
+
+        foreach ($decoded['choices'] as &$choice) {
+            if (!isset($choice['message']['content']) || !is_string($choice['message']['content'])) {
+                continue;
+            }
+
+            $content = $choice['message']['content'];
+            $trimmed = trim($content);
+
+            if (str_starts_with($trimmed, '{')) {
+                $cleaned = str_replace('\"', '"', $content);
+                $parsed = json_decode($cleaned);
+                if ($parsed === null) {
+                    $parsed = json_decode(str_replace(['\r\n', '\n', '\r'], ["\r\n", "\n", "\r"], $cleaned));
+                }
+                if ($parsed !== null && (is_object($parsed) || is_array($parsed))) {
+                    $choice['message']['content'] = $parsed;
+                    continue;
+                }
+            }
+
+            if (str_contains($content, "\n") || str_contains($content, '\n') || str_contains($content, "\r")) {
+                $choice['message']['content'] = str_replace(
+                    ["\r\n", "\n", "\r", '\r\n', '\n', '\r'],
+                    self::NEWLINE_PLACEHOLDER,
+                    $content
+                );
+                $hasReplacedNewlines = true;
+            }
+        }
+        unset($choice);
+
+        return $hasReplacedNewlines;
+    }
+
+    /**
+     * Format a response body for logging.
+     */
+    public function formatResponseForLog(string $response): string
+    {
+        $decoded = json_decode($response, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $hasReplacedNewlines = $this->processChoicesForLog($decoded);
+            $redacted = $this->redactBinaryForLog($decoded);
+            $formatted = json_encode($redacted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if ($hasReplacedNewlines) {
+                $formatted = str_replace(self::NEWLINE_PLACEHOLDER, "\n", $formatted);
+            }
+            return $formatted;
+        }
+
+        return $this->redactBinaryString($response);
+    }
+
+    /**
      * Log received response using error_log, formatting JSON if applicable.
      * Binary/base64 bodies are replaced with short placeholders.
      */
-    private function logResponse($response, int $responseCode, bool $isJson): void
+    protected function logResponse($response, int $responseCode, bool $isJson): void
     {
         if ($response === false || $response === '') {
             error_log(sprintf('[RestClient] Response (HTTP %d): Empty or failed', $responseCode));
@@ -177,14 +244,8 @@ class RestClient
         $logMessage = sprintf('[RestClient] Response (HTTP %d):', $responseCode);
         
         if ($isJson) {
-            $decoded = json_decode($response, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $redacted = $this->redactBinaryForLog($decoded);
-                $formatted = json_encode($redacted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                error_log($logMessage . "\n" . $formatted);
-            } else {
-                error_log($logMessage . "\n" . $this->redactBinaryString($response));
-            }
+            $formatted = $this->formatResponseForLog((string) $response);
+            error_log($logMessage . "\n" . $formatted);
         } else {
             error_log($logMessage . "\n" . $this->redactBinaryString($response));
         }
@@ -202,6 +263,13 @@ class RestClient
             $out = [];
             foreach ($value as $key => $item) {
                 $out[$key] = $this->redactBinaryForLog($item);
+            }
+            return $out;
+        }
+        if (is_object($value)) {
+            $out = clone $value;
+            foreach ($out as $key => $item) {
+                $out->$key = $this->redactBinaryForLog($item);
             }
             return $out;
         }

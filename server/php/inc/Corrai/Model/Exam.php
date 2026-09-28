@@ -43,14 +43,14 @@ class Exam
     public string $subject = '';
 
     /**
-     * Optional country for this exam's subject. Empty when the subject has none.
+     * Optional country for this exam's subject. Null when not specified.
      */
-    public string $country = '';
+    public ?string $country = null;
 
     /**
-     * Optional level for this exam's subject. Empty when the subject has none.
+     * Optional level for this exam's subject. Null when not specified.
      */
-    public string $level = '';
+    public ?string $level = null;
 
     /**
      * The date of the exam (YYYY-MM-DD).
@@ -88,11 +88,23 @@ class Exam
         $exam->user_id = $data['user_id'] ?? ($data['author'] ?? '');
         $exam->name = $data['name'] ?? '';
         $exam->subject = $data['subject'] ?? '';
-        $exam->country = $data['country'] ?? '';
-        $exam->level = $data['level'] ?? '';
+        $exam->country = self::optionalAttribute($data['country'] ?? null);
+        $exam->level = self::optionalAttribute($data['level'] ?? null);
         $exam->date = $data['date'] ?? '';
         $exam->created_at = $data['created_at'] ?? '';
         return $exam;
+    }
+
+    /**
+     * Country and level are null when the client sends null, omits them, or sends a blank string.
+     */
+    public static function optionalAttribute(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+        $trimmed = trim($value);
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**
@@ -176,8 +188,8 @@ class Exam
             'user_id' => $this->user_id,
             'name' => $this->name,
             'subject' => $this->subject,
-            'country' => $this->country,
-            'level' => $this->level,
+            'country' => self::optionalAttribute($this->country),
+            'level' => self::optionalAttribute($this->level),
             'date' => $this->date,
             'created_at' => $this->created_at,
         ];
@@ -204,8 +216,8 @@ class Exam
             'user_id' => $this->user_id,
             'name' => $this->name,
             'subject' => $this->subject,
-            'country' => $this->country,
-            'level' => $this->level,
+            'country' => self::optionalAttribute($this->country),
+            'level' => self::optionalAttribute($this->level),
             'date' => $this->date,
             'created_at' => $this->created_at,
         ];
@@ -573,7 +585,7 @@ class Exam
      */
     public function pipelineClass(): string
     {
-        return Catalog::pipelineClass($this->subject, $this->country, $this->level);
+        return Catalog::pipelineClass($this->subject, $this->country ?? '', $this->level ?? '');
     }
 
     /**

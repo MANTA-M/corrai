@@ -36,6 +36,7 @@ const ro: I18nSchema = {
         countryPlaceholder: "Selectați țara",
         level: "Nivel",
         levelPlaceholder: "Selectați nivelul",
+        notSpecified: "Nespecificat",
         subjects: {
             MathPipeline: "Matematică",
             Physics: "Fizică",

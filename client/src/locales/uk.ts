@@ -36,6 +36,7 @@ const uk: I18nSchema = {
         countryPlaceholder: "Оберіть країну",
         level: "Рівень",
         levelPlaceholder: "Оберіть рівень",
+        notSpecified: "Не вказано",
         subjects: {
             MathPipeline: "Математика",
             Physics: "Фізика",

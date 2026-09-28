@@ -75,6 +75,29 @@ abstract class LlmClient extends RestClient
     }
 
     /**
+     * Require JSON that matches $schema.
+     * OpenRouter's response_format is shared by every model. For json_schema it
+     * applies Claude's structured-outputs beta header itself, so Claude needs no
+     * extra parameter. The schema is supplied by the caller.
+     *
+     * @param array<string, mixed> $schema
+     */
+    public function set_json_response(string $name, array $schema): void
+    {
+        $this->payload['response_format'] = [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => $name,
+                'strict' => true,
+                'schema' => $schema,
+            ],
+        ];
+        $provider = is_array($this->payload['provider'] ?? null) ? $this->payload['provider'] : [];
+        $provider['require_parameters'] = true;
+        $this->payload['provider'] = $provider;
+    }
+
+    /**
      * Call OpenRouter and return the assistant text (no JSON parsing).
      */
     public function call_text(): string

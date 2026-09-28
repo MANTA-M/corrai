@@ -36,6 +36,7 @@ const de: I18nSchema = {
         countryPlaceholder: "Land auswählen",
         level: "Niveau",
         levelPlaceholder: "Niveau auswählen",
+        notSpecified: "Nicht angegeben",
         subjects: {
             MathPipeline: "Mathematik",
             Physics: "Physik",

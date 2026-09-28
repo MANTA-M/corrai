@@ -29,7 +29,17 @@ class Pipeline
         . 'If something is badly written, put a mark to say it\'s unreadable. '
         . 'Value de quality of caligraphy from 0.0 to 1.0.';
 
+    public const DEBUG = 1;
+
     private const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+
+    public int $debug = self::DEBUG;
+
+    public ?float $rescale = null;
+    public ?int $cropped_x1 = null;
+    public ?int $cropped_y1 = null;
+    public ?int $cropped_x2 = null;
+    public ?int $cropped_y2 = null;
 
     /**
      * Compare a dictation copy to the corrigé, then draw the errors with GD.
@@ -114,7 +124,7 @@ class Pipeline
         throw new WSException('No corrigé file on this exam', 400);
     }
 
-    private function findErrors(
+    protected function findErrors(
         Exam $exam,
         string $copyPath,
         string $copyName,
@@ -131,29 +141,86 @@ class Pipeline
         }
 
         $instructionText = $exam->instructionFilesText();
-        $request = new ClaudeSonnetClient();
+        $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
-            'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
+            'First, give the OCR image cropping coordinates. Put 0 if no cropping was done. '
+            . 'Second step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
-            . 'Give all the parameters used by the OCR, such as cropped zone coordinates in the original image, and the OCR parameters used. '
-            . 'Gather the coordinates of the box containing the error in the original image in terms of percentage of the image width and height starting at the top-left and with 0.0001 precision. '
-            . 'Second step, filter the errors: Do not get missing space errors. '
+            . 'Gather the coordinates of the box containing the error in the original image. '
+            . 'Third step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
             . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
-            . 'Write in ' . $languageName . '. '
+            . 'Write text fields in ' . $languageName . '. '
+            . 'All coordinates are pixels of the original image, origin top-left. '
             . "Follow these exam-specific instructions:\n"
             . $instructionText
         );
+        $request->set_json_response('dictation_errors', [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['cropped_image', 'errors'],
+            'properties' => [
+                'cropped_image' => [
+                    'type' => 'object',
+                    'description' => 'OCR-analyzed image cropped coordinates in pixels. Origin is top-left.',
+                    'additionalProperties' => false,
+                    'required' => ['x1', 'y1', 'x2', 'y2'],
+                    'properties' => [
+                        'x1' => ['type' => 'integer'],
+                        'y1' => ['type' => 'integer'],
+                        'x2' => ['type' => 'integer'],
+                        'y2' => ['type' => 'integer'],
+                    ],
+                ],
+                'errors' => [
+                    'type' => 'array',
+                    'description' => 'Clear spelling or grammar errors only. Omit missing spaces and badly written letters. Do not rewrite the dictation.',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['student', 'expected', 'kind', 'box'],
+                        'properties' => [
+                            'student' => [
+                                'type' => 'string',
+                                'description' => 'What the student wrote, in ' . $languageName,
+                            ],
+                            'expected' => [
+                                'type' => 'string',
+                                'description' => 'Expected text from the corrigé, in ' . $languageName,
+                            ],
+                            'kind' => [
+                                'type' => 'string',
+                                'description' => 'Kind of mistake, in ' . $languageName,
+                            ],
+                            'box' => [
+                                'type' => 'object',
+                                'description' => 'The errorbounding box using normalized values ​​between 0 and 1000 (where 0,0 is the top-left corner and 1000,1000 is the bottom-right corner).',
+                                'additionalProperties' => false,
+                                'required' => ['x1', 'y1', 'x2', 'y2'],
+                                'properties' => [
+                                    'x1' => ['type' => 'integer'],
+                                    'y1' => ['type' => 'integer'],
+                                    'x2' => ['type' => 'integer'],
+                                    'y2' => ['type' => 'integer'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
         $request->add_text('Official corrigé:');
         $request->add_file($solutionPath, $solutionName);
         $request->add_text('Student copy to decipher:');
         $request->add_file($copyPath, $copyName);
-        return $request->call_text();
+        $resp = $request->call_text();
+        $this->rescale = $request->rescale;
+        return $resp;
     }
 
-    private function gdDirectives(string $copyPath, string $copyName, string $correction): string
+    protected function gdDirectives(string $copyPath, string $copyName, string $correction): string
     {
         $size = @getimagesize($copyPath);
         $width = is_array($size) ? (int) $size[0] : 0;
@@ -162,7 +229,22 @@ class Pipeline
             throw new WSException('The source file is not an image GD can annotate', 400);
         }
 
-        $request = new ClaudeSonnetClient();
+        $data = json_decode($correction, true);
+        if (!is_array($data)) {
+            $trimmed = trim($correction);
+            if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $trimmed, $matches)) {
+                $data = json_decode(trim($matches[1]), true);
+            }
+        }
+        if (!is_array($data)) {
+            throw new WSException('Invalid correction JSON', 400);
+        }
+
+        $this->extractCroppedCoordinates($data);
+        $data = $this->adjustCoordinates($data);
+        $correctedCorrection = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
             'You annotate a scanned dictation by writing PHP GD directives. '
             . 'Return only a PHP file that assigns an array to $GD_directives. No markdown, no explanation. '
@@ -186,8 +268,212 @@ class Pipeline
             . '];'
         );
         $request->add_file($copyPath, $copyName);
-        $request->add_text("Correction listing the errors to mark:\n" . $correction);
-        return $request->call_text();
+        $request->add_text("Correction listing the errors to mark:\n" . $correctedCorrection);
+        $directives = $request->call_text();
+
+        if ($this->isDebug() && $this->hasCroppedCoordinates()) {
+            $directives = $this->addCropDebugDirective($directives);
+        }
+
+        return $directives;
+    }
+
+    public function isDebug(): bool
+    {
+        if ($this->debug !== self::DEBUG) {
+            return (bool) $this->debug;
+        }
+        return (bool) static::DEBUG;
+    }
+
+    public function hasCroppedCoordinates(): bool
+    {
+        return $this->cropped_x1 !== null
+            || $this->cropped_y1 !== null
+            || $this->cropped_x2 !== null
+            || $this->cropped_y2 !== null;
+    }
+
+    /**
+     * Append a GD directive drawing the crop rectangle when DEBUG is active.
+     */
+    protected function addCropDebugDirective(string $directivesPhp): string
+    {
+        $rescale = ($this->rescale !== null && $this->rescale > 0.0) ? $this->rescale : 1.0;
+        $x1 = (int) ($this->cropped_x1 ?? 0) / $rescale;
+        $y1 = (int) ($this->cropped_y1 ?? 0) / $rescale;
+        $x2 = (int) ($this->cropped_x2 ?? $x1) / $rescale;
+        $y2 = (int) ($this->cropped_y2 ?? $y1) / $rescale;
+
+        $cropDirective = [
+            'fn' => 'imagerectangle',
+            'args' => [$x1, $y1, $x2, $y2],
+            'color' => 'red',
+        ];
+
+        try {
+            $directives = $this->loadDirectives($directivesPhp);
+            $directives[] = $cropDirective;
+            return $this->formatDirectives($directives);
+        } catch (\Throwable) {
+            $cropDirectiveCode = "    ['fn' => 'imagerectangle', 'args' => [{$x1}, {$y1}, {$x2}, {$y2}], 'color' => 'red'],\n";
+            $lastBracketPos = strrpos($directivesPhp, ']');
+            if ($lastBracketPos !== false) {
+                return substr($directivesPhp, 0, $lastBracketPos) . $cropDirectiveCode . substr($directivesPhp, $lastBracketPos);
+            }
+            return $directivesPhp;
+        }
+    }
+
+    /**
+     * Format a list of GD directives into PHP code.
+     *
+     * @param list<array<string, mixed>> $directives
+     */
+    private function formatDirectives(array $directives): string
+    {
+        $lines = ["<?php\n\n\$GD_directives = ["];
+        foreach ($directives as $directive) {
+            $parts = [];
+            foreach ($directive as $key => $val) {
+                $keyExport = var_export($key, true);
+                if (is_array($val)) {
+                    $valExport = '[' . implode(', ', array_map(static fn($v) => var_export($v, true), $val)) . ']';
+                } else {
+                    $valExport = var_export($val, true);
+                }
+                $parts[] = "$keyExport => $valExport";
+            }
+            $lines[] = '    [' . implode(', ', $parts) . '],';
+        }
+        $lines[] = "];\n";
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Extract cropped coordinates from correction data and assign to object attributes.
+     *
+     * @param array<string, mixed>|string $data
+     */
+    public function extractCroppedCoordinates(array|string $data): void
+    {
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (!is_array($decoded)) {
+                $trimmed = trim($data);
+                if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $trimmed, $matches)) {
+                    $decoded = json_decode(trim($matches[1]), true);
+                }
+            }
+            if (!is_array($decoded)) {
+                return;
+            }
+            $data = $decoded;
+        }
+
+        $cropped = is_array($data['cropped_image'] ?? null) ? $data['cropped_image'] : [];
+
+        if (isset($cropped['x1'])) {
+            $this->cropped_x1 = (int) $cropped['x1'];
+        } elseif (isset($data['cropped_x1'])) {
+            $this->cropped_x1 = (int) $data['cropped_x1'];
+        }
+
+        if (isset($cropped['y1'])) {
+            $this->cropped_y1 = (int) $cropped['y1'];
+        } elseif (isset($data['cropped_y1'])) {
+            $this->cropped_y1 = (int) $data['cropped_y1'];
+        }
+
+        if (isset($cropped['x2'])) {
+            $this->cropped_x2 = (int) $cropped['x2'];
+        } elseif (isset($data['cropped_x2'])) {
+            $this->cropped_x2 = (int) $data['cropped_x2'];
+        }
+
+        if (isset($cropped['y2'])) {
+            $this->cropped_y2 = (int) $cropped['y2'];
+        } elseif (isset($data['cropped_y2'])) {
+            $this->cropped_y2 = (int) $data['cropped_y2'];
+        }
+
+        if ($this->cropped_x1 === null || $this->cropped_y1 === null || $this->cropped_x2 === null || $this->cropped_y2 === null) {
+            $iterator = function (array $items) use (&$iterator): void {
+                foreach ($items as $k => $v) {
+                    if (is_array($v)) {
+                        $iterator($v);
+                    } elseif (is_numeric($v) && is_string($k)) {
+                        $lower = strtolower($k);
+                        if ($lower === 'cropped_x1' && $this->cropped_x1 === null) {
+                            $this->cropped_x1 = (int) $v;
+                        } elseif ($lower === 'cropped_y1' && $this->cropped_y1 === null) {
+                            $this->cropped_y1 = (int) $v;
+                        } elseif ($lower === 'cropped_x2' && $this->cropped_x2 === null) {
+                            $this->cropped_x2 = (int) $v;
+                        } elseif ($lower === 'cropped_y2' && $this->cropped_y2 === null) {
+                            $this->cropped_y2 = (int) $v;
+                        }
+                    }
+                }
+            };
+            $iterator($data);
+        }
+    }
+
+    /**
+     * Recursively adjust error coordinates given in 1/1000 of the cropped image.
+     * Map them onto the image the model saw, then divide by rescale so they
+     * match the original scan. rescale is new size / original size.
+     *
+     * @param mixed $data
+     * @return mixed
+     */
+    protected function adjustCoordinates(mixed $data): mixed
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+
+        if ($this->cropped_x1 === null && $this->cropped_y1 === null) {
+            $this->extractCroppedCoordinates($data);
+        }
+
+        $x1 = (int) ($this->cropped_x1 ?? 0);
+        $y1 = (int) ($this->cropped_y1 ?? 0);
+        $x2 = (int) ($this->cropped_x2 ?? $x1);
+        $y2 = (int) ($this->cropped_y2 ?? $y1);
+
+        $croppedWidth = max(0, $x2 - $x1);
+        $croppedHeight = max(0, $y2 - $y1);
+        $rescale = ($this->rescale !== null && $this->rescale > 0.0) ? $this->rescale : 1.0;
+
+        foreach ($data as $key => $value) {
+            if ($key === 'cropped_image') {
+                continue;
+            }
+            if (is_array($value)) {
+                $data[$key] = $this->adjustCoordinates($value);
+            } elseif (is_numeric($value) && is_string($key)) {
+                $lowerKey = strtolower($key);
+                if (in_array($lowerKey, ['x', 'x1', 'x2', 'xmin', 'xmax', 'x_min', 'x_max'], true)) {
+                    $data[$key] = (int) round((((float) $value) * $croppedWidth / 1000.0 + $x1) );
+                } elseif (in_array($lowerKey, ['y', 'y1', 'y2', 'ymin', 'ymax', 'y_min', 'y_max'], true)) {
+                    $data[$key] = (int) round((((float) $value) * $croppedHeight / 1000.0 + $y1) );
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    protected function adjustYCoordinates(mixed $data): mixed
+    {
+        return $this->adjustCoordinates($data);
+    }
+
+    protected function createClaudeSonnetClient(): ClaudeSonnetClient
+    {
+        return new ClaudeSonnetClient();
     }
 
     /**
@@ -326,7 +612,15 @@ class Pipeline
 
         $colorName = $directive['color'] ?? '';
         if (!is_string($colorName) || !isset($colors[$colorName])) {
-            throw new WSException('GD directive uses an unknown color', 400);
+            if ($colorName === 'red') {
+                $allocated = imagecolorallocate($image, 200, 30, 30);
+                if ($allocated !== false) {
+                    $colors['red'] = $allocated;
+                }
+            }
+            if (!isset($colors[$colorName])) {
+                throw new WSException('GD directive uses an unknown color', 400);
+            }
         }
         $color = $colors[$colorName];
         $args = $directive['args'] ?? null;
