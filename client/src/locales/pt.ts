@@ -73,6 +73,7 @@ const pt: I18nSchema = {
         fileTypeSubmission: "Submissão",
         fileTypeInstructions: "Instruções",
         fileTypeCorrection: "Correção",
+        fileTypeDebug: "Debug",
         fileTypeUnknown: "Desconhecido",
         fileChangeType: "Alterar tipo",
         fileSetStudent: "Definir aluno",

@@ -65,7 +65,7 @@ class Exam
     /**
      * Allowed file type tags. Empty / unknown is stored as an empty string.
      */
-    public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'];
+    public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'];
 
     /**
      * Pipeline name => pipeline class. Unknown subjects use Other.

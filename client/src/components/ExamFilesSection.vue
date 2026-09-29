@@ -463,6 +463,7 @@ const typeZoneLabel = (zone: ExamFileTypeZone) => {
     submission: 'exam.fileTypeSubmission',
     instructions: 'exam.fileTypeInstructions',
     correction: 'exam.fileTypeCorrection',
+    debug: 'exam.fileTypeDebug',
     unknown: 'exam.fileTypeUnknown',
   }
   return t(keys[zone])

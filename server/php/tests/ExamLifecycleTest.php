@@ -381,9 +381,12 @@ class ExamLifecycleTest extends TestCase
             'copy_directives.php',
             '<?php $GD_directives = [];',
             'text/plain; charset=utf-8',
-            'correction',
+            'debug',
             'Carol'
         );
+        $debugFiles = $exam->list_files();
+        $debug = array_values(array_filter($debugFiles, fn($f) => $f['name'] === 'copy_directives.php'))[0];
+        $this->assertSame('debug', $debug['type']);
         $exam->createFile(
             'other_correction.txt',
             'other student',
@@ -397,9 +400,14 @@ class ExamLifecycleTest extends TestCase
         $leftNames = array_column($left, 'name');
         $this->assertNotContains('copy_correction.txt', $leftNames);
         $this->assertNotContains('copy_correction_1.txt', $leftNames);
-        $this->assertNotContains('copy_directives.php', $leftNames);
+        $this->assertContains('copy_directives.php', $leftNames);
         $this->assertContains('other_correction.txt', $leftNames);
         $this->assertContains($filename, $leftNames);
+
+        $exam->deleteFilesOfType('debug', 'Carol');
+        $afterDebug = array_column($exam->list_files(), 'name');
+        $this->assertNotContains('copy_directives.php', $afterDebug);
+        $this->assertContains('other_correction.txt', $afterDebug);
 
         $exam->delete();
     }

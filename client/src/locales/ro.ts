@@ -73,6 +73,7 @@ const ro: I18nSchema = {
         fileTypeSubmission: "Lucrare",
         fileTypeInstructions: "Instrucțiuni",
         fileTypeCorrection: "Corecție",
+        fileTypeDebug: "Debug",
         fileTypeUnknown: "Necunoscut",
         fileChangeType: "Schimbă tipul",
         fileSetStudent: "Setează elevul",

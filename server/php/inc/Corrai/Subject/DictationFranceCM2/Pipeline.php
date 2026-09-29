@@ -69,6 +69,7 @@ class Pipeline
         try {
             $this->ensureGrid($tmpPath);
 
+            $exam->deleteFilesOfType('debug', $student);
             $exam->deleteFilesOfType('correction', $student);
 
             $solution = $this->firstSolutionFile($exam);
@@ -86,7 +87,7 @@ class Pipeline
                 $base . ' correction.txt',
                 $correction,
                 'text/plain; charset=utf-8',
-                'correction',
+                'debug',
                 $student
             );
 
@@ -95,7 +96,7 @@ class Pipeline
                 $base . ' directives.php',
                 $directivesPhp,
                 'text/plain; charset=utf-8',
-                'correction',
+                'debug',
                 $student
             );
 

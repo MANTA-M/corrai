@@ -41,6 +41,7 @@ class Pipeline
         $tmpPath = $store->downloadToTemp($key);
 
         try {
+            $exam->deleteFilesOfType('debug', $student);
             $exam->deleteFilesOfType('correction', $student);
 
             $transcription = $this->transcribe($tmpPath, $filename);
@@ -48,7 +49,7 @@ class Pipeline
                 $base . ' transcription.txt',
                 $transcription,
                 'text/plain; charset=utf-8',
-                null,
+                'debug',
                 $student
             );
 
@@ -61,7 +62,7 @@ class Pipeline
                 $base . ' correction.txt',
                 $correction,
                 'text/plain; charset=utf-8',
-                'correction',
+                'debug',
                 $student
             );
 

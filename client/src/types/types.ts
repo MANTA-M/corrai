@@ -23,7 +23,7 @@ export function isExamSubject(value: string): value is ExamSubject {
   return (EXAM_SUBJECTS as readonly string[]).includes(value)
 }
 
-export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction'] as const
+export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'] as const
 export type ExamFileType = (typeof EXAM_FILE_TYPES)[number]
 
 export const EXAM_FILE_TYPE_ZONES = [...EXAM_FILE_TYPES, 'unknown'] as const

@@ -73,6 +73,7 @@ const fr: I18nSchema = {
         fileTypeSubmission: "Copie",
         fileTypeInstructions: "Consignes",
         fileTypeCorrection: "Correction",
+        fileTypeDebug: "Debug",
         fileTypeUnknown: "Inconnu",
         fileChangeType: "Changer le type",
         fileSetStudent: "Définir l'élève",

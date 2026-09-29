@@ -36,7 +36,9 @@ RUN apt-get install -y --no-install-recommends \
     libssl-dev \
     zip \
     nano \
-    nginx;
+    nginx \
+    php-imagick 
+    imagemagick;
 
 # memcached (using latest version compatible with PHP 8.3)
 RUN pecl install memcached

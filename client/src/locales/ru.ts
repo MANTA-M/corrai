@@ -73,6 +73,7 @@ const ru: I18nSchema = {
         fileTypeSubmission: "Работа",
         fileTypeInstructions: "Инструкции",
         fileTypeCorrection: "Проверка",
+        fileTypeDebug: "Отладка",
         fileTypeUnknown: "Неизвестно",
         fileChangeType: "Изменить тип",
         fileSetStudent: "Указать ученика",

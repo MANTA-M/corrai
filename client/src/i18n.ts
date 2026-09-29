@@ -102,6 +102,7 @@ export interface I18nSchema {
         fileTypeSubmission: string
         fileTypeInstructions: string
         fileTypeCorrection: string
+        fileTypeDebug: string
         fileTypeUnknown: string
         fileChangeType: string
         fileSetStudent: string

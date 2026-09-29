@@ -73,6 +73,7 @@ const uk: I18nSchema = {
         fileTypeSubmission: "Робота",
         fileTypeInstructions: "Інструкції",
         fileTypeCorrection: "Перевірка",
+        fileTypeDebug: "Налагодження",
         fileTypeUnknown: "Невідомо",
         fileChangeType: "Змінити тип",
         fileSetStudent: "Вказати учня",
