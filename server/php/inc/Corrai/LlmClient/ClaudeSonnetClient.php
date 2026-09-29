@@ -30,8 +30,9 @@ class ClaudeSonnetClient extends LlmClient
         $mime = strtolower(trim(explode(';', Utils::mimeTypeForFilename($file_name))[0]));
         $user_content = &$this->get_user_content();
 
-        if (str_starts_with($mime, 'image/')) {
+        if (str_starts_with($mime, 'image/') || $this->imageMime($bytes) !== null) {
             $bytes = $this->imageBytesForPayload($bytes);
+            $mime = $this->imageMime($bytes) ?? $mime;
             $dataUrl = 'data:' . $mime . ';base64,' . base64_encode($bytes);
             $user_content[] = ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]];
             return;
@@ -69,5 +70,23 @@ class ClaudeSonnetClient extends LlmClient
         $redimentioner = new ImageRedimentioner(self::MAX_IMAGE_DIMENTION, $bytes);
         $this->rescale = $redimentioner->factor;
         return $redimentioner->image;
+    }
+
+    /**
+     * MIME of the bytes that will be sent. The filename can stay .jpg after the copy is rewritten as PNG.
+     */
+    private function imageMime(string $bytes): ?string
+    {
+        $info = @getimagesizefromstring($bytes);
+        if ($info === false) {
+            return null;
+        }
+
+        $detected = image_type_to_mime_type((int) $info[2]);
+        if (!is_string($detected) || !str_starts_with($detected, 'image/')) {
+            return null;
+        }
+
+        return $detected;
     }
 }

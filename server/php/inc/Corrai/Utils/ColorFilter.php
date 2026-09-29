@@ -37,6 +37,22 @@ class ColorFilter
     }
 
     /**
+     * Stretch each color channel so the darkest ink and the lightest paper
+     * span the full range.
+     */
+    public function normalizeColors(): self
+    {
+        $imagick = new Imagick();
+        $imagick->readImageBlob($this->image);
+        $imagick->normalizeImage();
+
+        $result = $imagick->getImageBlob();
+        $imagick->clear();
+
+        return new self($result);
+    }
+
+    /**
      * Flatten uneven paper illumination by dividing the scan by a strong blur.
      */
     public function backgroundDivision(): self
@@ -48,15 +64,14 @@ class ColorFilter
         $background = clone $imagick;
 
         // 2. Flouter fortement pour ne garder que la luminosité du fond (sans le texte)
-        // Ajuster le rayon (ex: 30) selon la résolution du scan
-        $background->blurImage(0, 30);
+        $background->blurImage(0, 100);
 
         // 3. Diviser l'image originale par le fond flouté
         $imagick->compositeImage($background, Imagick::COMPOSITE_DIVIDE, 0, 0);
 
         // 4. Ajuster légèrement le point de blanc pour garantir un fond 100 % blanc
-        $quantum = $imagick->getImageQuantumRange()['quantumRangeLong'];
-        $imagick->contrastStretchImage(0.01 * $quantum, 0.95 * $quantum);
+        $quantum = $imagick->getQuantumRange()['quantumRangeLong'];
+        $imagick->levelImage(0 * $quantum, 1.0, 0.90 * $quantum);
 
         $result = $imagick->getImageBlob();
         $background->clear();
@@ -71,7 +86,7 @@ class ColorFilter
      * Luminosity is Rec. 601 luma, from 0 (black) to 100 (white). Pixels at
      * the threshold stay unchanged.
      */
-    public function whiteThresholdImage(float $luminosity): self
+    public function whiteThresholdImage(float $luminosity = 80.0): self
     {
         if ($luminosity < 0 || $luminosity > 100) {
             throw new InvalidArgumentException("Luminosity must be between 0 and 100, got {$luminosity}");

@@ -13,6 +13,12 @@ class DictationFranceCM2PipelineTest extends TestCase
 {
     private string $tempImagePath;
 
+    /** Known centres on the 500×800 fixture: round(w/3), round(h/3), … */
+    private const C1X = 167;
+    private const C1Y = 267;
+    private const C2X = 333;
+    private const C2Y = 533;
+
     protected function setUp(): void
     {
         $img = imagecreatetruecolor(500, 800);
@@ -29,15 +35,24 @@ class DictationFranceCM2PipelineTest extends TestCase
         }
     }
 
-    public function testGdDirectivesParsesJsonStoresCroppedAttributesAndCorrectsCoordinates(): void
+    /**
+     * @return list<array{x: float|int, y: float|int}>
+     */
+    private function identityCrosses(): array
     {
-        // Cropped dimensions: width = 450 - 50 = 400, height = 750 - 50 = 700
+        return [
+            ['x' => self::C1X, 'y' => self::C1Y],
+            ['x' => self::C2X, 'y' => self::C2Y],
+        ];
+    }
+
+    public function testGdDirectivesCalibratesFromMagentaCrossesAndMapsCoordinates(): void
+    {
+        // Model reports half-size centres → scale 2, offset 0
         $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 50,
-                'y1' => 50,
-                'x2' => 450,
-                'y2' => 750,
+            'magenta_crosses' => [
+                ['x' => self::C1X / 2, 'y' => self::C1Y / 2],
+                ['x' => self::C2X / 2, 'y' => self::C2Y / 2],
             ],
             'errors' => [
                 [
@@ -45,21 +60,10 @@ class DictationFranceCM2PipelineTest extends TestCase
                     'expected' => 'avance',
                     'kind' => 'orthographe',
                     'box' => [
-                        'x1' => 100, // 100/1000 * 400 + 50 = 40 + 50 = 90
-                        'y1' => 100, // 100/1000 * 700 + 50 = 70 + 50 = 120
-                        'x2' => 250, // 250/1000 * 400 + 50 = 100 + 50 = 150
-                        'y2' => 200, // 200/1000 * 700 + 50 = 140 + 50 = 190
-                    ],
-                ],
-                [
-                    'student' => 'chevalle',
-                    'expected' => 'cheval',
-                    'kind' => 'orthographe',
-                    'box' => [
-                        'x1' => 500, // 500/1000 * 400 + 50 = 200 + 50 = 250
-                        'y1' => 0,   // 0/1000 * 700 + 50 = 0 + 50 = 50
-                        'x2' => 1000, // 1000/1000 * 400 + 50 = 400 + 50 = 450
-                        'y2' => 500,  // 500/1000 * 700 + 50 = 350 + 50 = 400
+                        'x1' => 50,
+                        'y1' => 60,
+                        'x2' => 100,
+                        'y2' => 120,
                     ],
                 ],
             ],
@@ -70,11 +74,10 @@ class DictationFranceCM2PipelineTest extends TestCase
 
         $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
 
-        // Object attributes should be set
-        $this->assertSame(50, $pipeline->cropped_x1);
-        $this->assertSame(50, $pipeline->cropped_y1);
-        $this->assertSame(450, $pipeline->cropped_x2);
-        $this->assertSame(750, $pipeline->cropped_y2);
+        $this->assertEqualsWithDelta(2.0, $pipeline->scaleX, 1e-9);
+        $this->assertEqualsWithDelta(2.0, $pipeline->scaleY, 1e-9);
+        $this->assertEqualsWithDelta(0.0, $pipeline->offsetX, 1e-9);
+        $this->assertEqualsWithDelta(0.0, $pipeline->offsetY, 1e-9);
 
         $promptText = $mockClient->sentPromptText();
         $this->assertStringContainsString('Correction listing the errors to mark:', $promptText);
@@ -85,90 +88,94 @@ class DictationFranceCM2PipelineTest extends TestCase
         $data = json_decode($sentJson, true);
         $this->assertIsArray($data);
 
-        // cropped_image values should remain unchanged
-        $this->assertSame(50, $data['cropped_image']['x1']);
-        $this->assertSame(50, $data['cropped_image']['y1']);
-        $this->assertSame(450, $data['cropped_image']['x2']);
-        $this->assertSame(750, $data['cropped_image']['y2']);
+        $this->assertSame(self::C1X / 2, $data['magenta_crosses'][0]['x']);
+        $this->assertSame(self::C1Y / 2, $data['magenta_crosses'][0]['y']);
+        $this->assertSame(self::C2X / 2, $data['magenta_crosses'][1]['x']);
+        $this->assertSame(self::C2Y / 2, $data['magenta_crosses'][1]['y']);
 
-        // First error: (value / 1000) * cropped_dim + x1/y1
-        $this->assertSame(90, $data['errors'][0]['box']['x1']);
-        $this->assertSame(120, $data['errors'][0]['box']['y1']);
-        $this->assertSame(150, $data['errors'][0]['box']['x2']);
-        $this->assertSame(190, $data['errors'][0]['box']['y2']);
+        $this->assertEqualsWithDelta(2.0, $data['calibration']['scale_x'], 1e-9);
+        $this->assertEqualsWithDelta(2.0, $data['calibration']['scale_y'], 1e-9);
+        $this->assertEqualsWithDelta(0.0, $data['calibration']['offset_x'], 1e-9);
+        $this->assertEqualsWithDelta(0.0, $data['calibration']['offset_y'], 1e-9);
 
-        // Second error
-        $this->assertSame(250, $data['errors'][1]['box']['x1']);
-        $this->assertSame(50, $data['errors'][1]['box']['y1']);
-        $this->assertSame(450, $data['errors'][1]['box']['x2']);
-        $this->assertSame(400, $data['errors'][1]['box']['y2']);
+        $this->assertSame(99, $data['errors'][0]['box']['x1']);
+        $this->assertSame(119, $data['errors'][0]['box']['y1']);
+        $this->assertSame(199, $data['errors'][0]['box']['x2']);
+        $this->assertSame(239, $data['errors'][0]['box']['y2']);
     }
 
-    public function testExtractCroppedCoordinatesAndAdjustCoordinatesWithRootLevelKeys(): void
+    public function testExtractMagentaCalibrationAndAdjustWithOffset(): void
     {
         $pipeline = new Pipeline();
-        // Cropped dimensions: width = 215 - 15 = 200, height = 325 - 25 = 300
+        $reflectionWidth = new \ReflectionProperty(Pipeline::class, 'imageWidth');
+        $reflectionHeight = new \ReflectionProperty(Pipeline::class, 'imageHeight');
+        $reflectionWidth->setValue($pipeline, 500);
+        $reflectionHeight->setValue($pipeline, 800);
+
+        // scaleX=2, offsetX=10 → M1.x = (167-10)/2 = 78.5; M2.x = (333-10)/2 = 161.5
+        // scaleY=2, offsetY=20 → M1.y = (267-20)/2 = 123.5; M2.y = (533-20)/2 = 256.5
         $data = [
-            'cropped_x1' => 15,
-            'cropped_y1' => 25,
-            'cropped_x2' => 215,
-            'cropped_y2' => 325,
+            'magenta_crosses' => [
+                ['x' => 78.5, 'y' => 123.5],
+                ['x' => 161.5, 'y' => 256.5],
+            ],
             'errors' => [
                 [
                     'box' => [
-                        'x1' => 100, // 100/1000 * 200 + 15 = 20 + 15 = 35
-                        'y1' => 200, // 200/1000 * 300 + 25 = 60 + 25 = 85
-                        'x2' => 500, // 500/1000 * 200 + 15 = 100 + 15 = 115
-                        'y2' => 600, // 600/1000 * 300 + 25 = 180 + 25 = 205
+                        'x1' => 100, // 10 + 2*100 = 210
+                        'y1' => 200, // 20 + 2*200 = 420
+                        'x2' => 150, // 10 + 2*150 = 310
+                        'y2' => 250, // 20 + 2*250 = 520
                     ],
                 ],
             ],
         ];
 
-        $pipeline->extractCroppedCoordinates($data);
-        $this->assertSame(15, $pipeline->cropped_x1);
-        $this->assertSame(25, $pipeline->cropped_y1);
-        $this->assertSame(215, $pipeline->cropped_x2);
-        $this->assertSame(325, $pipeline->cropped_y2);
+        $pipeline->extractMagentaCalibration($data);
+        $this->assertEqualsWithDelta(2.0, $pipeline->scaleX, 1e-9);
+        $this->assertEqualsWithDelta(2.0, $pipeline->scaleY, 1e-9);
+        $this->assertEqualsWithDelta(10.0, $pipeline->offsetX, 1e-9);
+        $this->assertEqualsWithDelta(20.0, $pipeline->offsetY, 1e-9);
 
         $reflection = new \ReflectionMethod(Pipeline::class, 'adjustCoordinates');
         $adjusted = $reflection->invoke($pipeline, $data);
 
-        $this->assertSame(35, $adjusted['errors'][0]['box']['x1']);
-        $this->assertSame(85, $adjusted['errors'][0]['box']['y1']);
-        $this->assertSame(115, $adjusted['errors'][0]['box']['x2']);
-        $this->assertSame(205, $adjusted['errors'][0]['box']['y2']);
+        $this->assertSame(210, $adjusted['errors'][0]['box']['x1']);
+        $this->assertSame(420, $adjusted['errors'][0]['box']['y1']);
+        $this->assertSame(310, $adjusted['errors'][0]['box']['x2']);
+        $this->assertSame(520, $adjusted['errors'][0]['box']['y2']);
+        $this->assertSame(78.5, $adjusted['magenta_crosses'][0]['x']);
     }
 
-    public function testAdjustCoordinatesDividesMappedPixelsByRescale(): void
+    public function testRenderErrorBoxesDrawsGreenRectanglesOnTheSourceImage(): void
     {
         $pipeline = new Pipeline();
-        $pipeline->rescale = 0.5;
-        $data = [
-            'cropped_x1' => 15,
-            'cropped_y1' => 25,
-            'cropped_x2' => 215,
-            'cropped_y2' => 325,
+        $method = new \ReflectionMethod(Pipeline::class, 'renderErrorBoxes');
+        $png = $method->invoke($pipeline, $this->tempImagePath, [
             'errors' => [
                 [
+                    'student' => 'avansse',
                     'box' => [
-                        'x1' => 100, // (100/1000 * 200 + 15) / 0.5 = 70
-                        'y1' => 200, // (200/1000 * 300 + 25) / 0.5 = 170
-                        'x2' => 500, // (500/1000 * 200 + 15) / 0.5 = 230
-                        'y2' => 600, // (600/1000 * 300 + 25) / 0.5 = 410
+                        'x1' => 40,
+                        'y1' => 50,
+                        'x2' => 120,
+                        'y2' => 90,
                     ],
                 ],
             ],
-        ];
+        ]);
 
-        $pipeline->extractCroppedCoordinates($data);
-        $reflection = new \ReflectionMethod(Pipeline::class, 'adjustCoordinates');
-        $adjusted = $reflection->invoke($pipeline, $data);
-
-        $this->assertSame(70, $adjusted['errors'][0]['box']['x1']);
-        $this->assertSame(170, $adjusted['errors'][0]['box']['y1']);
-        $this->assertSame(230, $adjusted['errors'][0]['box']['x2']);
-        $this->assertSame(410, $adjusted['errors'][0]['box']['y2']);
+        $this->assertIsString($png);
+        $image = @imagecreatefromstring($png);
+        $this->assertNotFalse($image);
+        try {
+            $this->assertSame([0, 200, 0], $this->rgb($image, 40, 50));
+            $this->assertSame([0, 200, 0], $this->rgb($image, 120, 90));
+            $this->assertSame([0, 0, 0], $this->rgb($image, 80, 70));
+            $this->assertSame([0, 0, 0], $this->rgb($image, 10, 10));
+        } finally {
+            imagedestroy($image);
+        }
     }
 
     public function testGdDirectivesThrowsExceptionOnInvalidJson(): void
@@ -181,171 +188,27 @@ class DictationFranceCM2PipelineTest extends TestCase
         $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', 'Not a valid JSON');
     }
 
-    public function testDebugFlagIsActiveByDefaultAndAddsCroppingRectangleDirective(): void
+    public function testGdDirectivesThrowsWhenMagentaCrossesMissing(): void
     {
-        $this->assertSame(1, Pipeline::DEBUG);
-
-        $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 60,
-                'y1' => 70,
-                'x2' => 460,
-                'y2' => 760,
-            ],
-            'errors' => [],
-        ]);
-
         $mockClient = new CapturedClaudeSonnetClient();
         $pipeline = new TestablePipeline($mockClient);
-        $this->assertTrue($pipeline->isDebug());
 
-        $directivesPhp = $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
-
-        $reflection = new \ReflectionMethod(Pipeline::class, 'loadDirectives');
-        $directives = $reflection->invoke($pipeline, $directivesPhp);
-
-        $this->assertCount(1, $directives);
-        $this->assertSame('imagerectangle', $directives[0]['fn']);
-        $this->assertSame([60, 70, 460, 760], $directives[0]['args']);
-        $this->assertSame('red', $directives[0]['color']);
-
-        $renderReflection = new \ReflectionMethod(Pipeline::class, 'renderCorrection');
-        $png = $renderReflection->invoke($pipeline, $this->tempImagePath, $directivesPhp);
-        $this->assertIsString($png);
-        $this->assertNotEmpty($png);
-    }
-
-    public function testDebugFlagDisabledDoesNotAddCroppingRectangleDirective(): void
-    {
-        $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 60,
-                'y1' => 70,
-                'x2' => 460,
-                'y2' => 760,
-            ],
-            'errors' => [],
-        ]);
-
-        $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
-        $pipeline->debug = 0;
-        $this->assertFalse($pipeline->isDebug());
-
-        $directivesPhp = $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
-
-        $reflection = new \ReflectionMethod(Pipeline::class, 'loadDirectives');
-        $directives = $reflection->invoke($pipeline, $directivesPhp);
-
-        $this->assertCount(0, $directives);
-    }
-
-    public function testHandwrittenBaselineYsBecomeThirtyPixelLines(): void
-    {
-        // Cropped height: 750 - 50 = 700
-        $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 50,
-                'y1' => 50,
-                'x2' => 450,
-                'y2' => 750,
-            ],
-            'lines' => [
-                ['y' => 100], // 100/1000 * 700 + 50 = 120
-                ['y' => 500], // 500/1000 * 700 + 50 = 400
-            ],
-            'errors' => [
-                [
-                    'student' => 'avansse',
-                    'expected' => 'avance',
-                    'kind' => 'orthographe',
-                    'box' => [
-                        'x1' => 100, // 100/1000 * 400 + 50 = 90
-                        'y1' => 100, // 100/1000 * 700 + 50 = 120
-                        'x2' => 250,
-                        'y2' => 200,
-                    ],
-                ],
-            ],
-        ]);
-
-        $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
-        $pipeline->debug = 0;
-
-        $directivesPhp = $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
-
-        $jsonStart = strpos($mockClient->sentPromptText(), '{');
-        $this->assertNotFalse($jsonStart);
-        $sent = json_decode(substr($mockClient->sentPromptText(), $jsonStart), true);
-        $this->assertIsArray($sent);
-        $this->assertArrayNotHasKey('lines', $sent);
-        $this->assertSame(120, $sent['errors'][0]['box']['y1']);
-
-        $reflection = new \ReflectionMethod(Pipeline::class, 'loadDirectives');
-        $directives = $reflection->invoke($pipeline, $directivesPhp);
-
-        $this->assertCount(2, $directives);
-        $this->assertSame('imageline', $directives[0]['fn']);
-        $this->assertSame([0, 120, 30, 120], $directives[0]['args']);
-        $this->assertSame('red', $directives[0]['color']);
-        $this->assertSame([0, 400, 30, 400], $directives[1]['args']);
-
-        $renderReflection = new \ReflectionMethod(Pipeline::class, 'renderCorrection');
-        $png = $renderReflection->invoke($pipeline, $this->tempImagePath, $directivesPhp);
-        $this->assertIsString($png);
-        $this->assertNotEmpty($png);
-    }
-
-    public function testHandwrittenBaselineYUsesSameRescaleCorrectionAsErrors(): void
-    {
-        $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 50,
-                'y1' => 50,
-                'x2' => 450,
-                'y2' => 750,
-            ],
-            'lines' => [
-                ['y' => 100], // (100/1000 * 700 + 50) / 0.5 = 240
-            ],
-            'errors' => [],
-        ]);
-
-        $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
-        $pipeline->rescale = 0.5;
-        $pipeline->debug = 0;
-
-        $directivesPhp = $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
-
-        $reflection = new \ReflectionMethod(Pipeline::class, 'loadDirectives');
-        $directives = $reflection->invoke($pipeline, $directivesPhp);
-
-        $this->assertCount(1, $directives);
-        $this->assertSame([0, 240, 30, 240], $directives[0]['args']);
+        $this->expectException(WSException::class);
+        $this->expectExceptionMessage('Missing magenta cross coordinates');
+        $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', json_encode(['errors' => []]));
     }
 
     public function testCoordinatesPastTheImageAreLimitedToItsDimensions(): void
     {
-        // Source image is 500 by 800. Crop is larger than the scan.
         $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 0,
-                'y1' => 0,
-                'x2' => 2000,
-                'y2' => 3000,
-            ],
-            'lines' => [
-                ['y' => 1000], // 1000/1000 * 3000 = 3000 → 800
-            ],
+            'magenta_crosses' => $this->identityCrosses(),
             'errors' => [
                 [
                     'box' => [
-                        'x1' => 100, // 100/1000 * 2000 = 200
-                        'y1' => 100, // 100/1000 * 3000 = 300
-                        'x2' => 1000, // 2000 → 500
-                        'y2' => 1000, // 3000 → 800
+                        'x1' => 200,
+                        'y1' => 300,
+                        'x2' => 2000,
+                        'y2' => 3000,
                     ],
                 ],
             ],
@@ -353,12 +216,11 @@ class DictationFranceCM2PipelineTest extends TestCase
 
         $mockClient = new CapturedClaudeSonnetClient();
         $pipeline = new TestablePipeline($mockClient);
-        $pipeline->debug = 0;
 
         $log = tempnam(sys_get_temp_dir(), 'coord_log_');
         $previousLog = ini_set('error_log', $log);
         try {
-            $directivesPhp = $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
+            $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
         } finally {
             if ($previousLog === false) {
                 ini_restore('error_log');
@@ -381,36 +243,9 @@ class DictationFranceCM2PipelineTest extends TestCase
         $this->assertSame(300, $sent['errors'][0]['box']['y1']);
         $this->assertSame(500, $sent['errors'][0]['box']['x2']);
         $this->assertSame(800, $sent['errors'][0]['box']['y2']);
-
-        $reflection = new \ReflectionMethod(Pipeline::class, 'loadDirectives');
-        $directives = $reflection->invoke($pipeline, $directivesPhp);
-        $this->assertSame([0, 800, 30, 800], $directives[0]['args']);
     }
 
-    public function testCropDebugRectangleIsLimitedToImageDimensions(): void
-    {
-        $inputCorrection = json_encode([
-            'cropped_image' => [
-                'x1' => 0,
-                'y1' => 0,
-                'x2' => 900,
-                'y2' => 2000,
-            ],
-            'errors' => [],
-        ]);
-
-        $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
-
-        $directivesPhp = $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
-        $reflection = new \ReflectionMethod(Pipeline::class, 'loadDirectives');
-        $directives = $reflection->invoke($pipeline, $directivesPhp);
-
-        $this->assertSame('imagerectangle', $directives[0]['fn']);
-        $this->assertSame([0, 0, 500, 800], $directives[0]['args']);
-    }
-
-    public function testFindErrorsSchemaUsesCroppedImage(): void
+    public function testFindErrorsSchemaUsesMagentaCrosses(): void
     {
         $mockClient = new CapturedClaudeSonnetClient();
         $pipeline = new TestablePipeline($mockClient);
@@ -425,21 +260,18 @@ class DictationFranceCM2PipelineTest extends TestCase
             $pipeline->callFindErrors($exam, $this->tempImagePath, 'copy.png', $solutionPath, 'sol.png', 'French');
 
             $schema = $mockClient->responseFormat()['json_schema']['schema'];
-            $this->assertArrayNotHasKey('analyzed_image', $schema['properties']);
-            $this->assertContains('cropped_image', $schema['required']);
-            $this->assertContains('lines', $schema['required']);
+            $this->assertArrayNotHasKey('cropped_image', $schema['properties']);
+            $this->assertContains('magenta_crosses', $schema['required']);
+            $this->assertNotContains('lines', $schema['required']);
+            $this->assertArrayNotHasKey('lines', $schema['properties']);
 
-            $croppedImage = $schema['properties']['cropped_image'];
-            $this->assertSame(['x1', 'y1', 'x2', 'y2'], $croppedImage['required']);
-            $this->assertSame('integer', $croppedImage['properties']['x1']['type']);
-            $this->assertSame('integer', $croppedImage['properties']['y1']['type']);
-            $this->assertSame('integer', $croppedImage['properties']['x2']['type']);
-            $this->assertSame('integer', $croppedImage['properties']['y2']['type']);
+            $crosses = $schema['properties']['magenta_crosses'];
+            $this->assertSame(2, $crosses['minItems']);
+            $this->assertSame(2, $crosses['maxItems']);
+            $this->assertSame(['x', 'y'], $crosses['items']['required']);
 
-            $lines = $schema['properties']['lines'];
-            $this->assertSame('array', $lines['type']);
-            $this->assertSame(['y'], $lines['items']['required']);
-            $this->assertSame('integer', $lines['items']['properties']['y']['type']);
+            $system = $mockClient->systemContent();
+            $this->assertStringContainsString('origin (0,0) is top-left', strtolower($system));
         } finally {
             if (is_file($solutionPath)) {
                 @unlink($solutionPath);
@@ -447,51 +279,37 @@ class DictationFranceCM2PipelineTest extends TestCase
         }
     }
 
-    public function testEnsureGridDrawsYellowStepWhenNoneIsFound(): void
+    public function testDrawMagentaCrossesAtOneThirdAndTwoThirds(): void
     {
-        $path = $this->writePng($this->solidImage(200, 150, 255, 255, 255));
+        $path = $this->writePng($this->solidImage(500, 800, 255, 255, 255));
 
         try {
-            $method = new \ReflectionMethod(Pipeline::class, 'ensureGrid');
-            $method->invoke(new Pipeline(), $path);
+            $method = new \ReflectionMethod(Pipeline::class, 'drawMagentaCrosses');
+            $method->invoke(new Pipeline(), $path, [
+                [self::C1X, self::C1Y],
+                [self::C2X, self::C2Y],
+            ]);
 
             $image = imagecreatefrompng($path);
             $this->assertNotFalse($image);
-            $this->assertYellow($image, 0, 25);
-            $this->assertYellow($image, 50, 25);
-            $this->assertYellow($image, 100, 0);
-            $this->assertYellow($image, 25, 50);
-            $this->assertSame([255, 255, 255], $this->rgb($image, 25, 25));
-            $this->assertSame([255, 255, 255], $this->rgb($image, 49, 25));
+
+            $half = max(7, (int) round(500 * 0.02));
+
+            $this->assertSame([255, 0, 255], $this->rgb($image, self::C1X, self::C1Y));
+            $this->assertSame([255, 0, 255], $this->rgb($image, self::C1X + $half, self::C1Y));
+            $this->assertSame([255, 0, 255], $this->rgb($image, self::C1X + $half, self::C1Y + 1));
+            $this->assertSame([255, 255, 255], $this->rgb($image, self::C1X + $half, self::C1Y - 1));
+            $this->assertSame([255, 255, 255], $this->rgb($image, self::C1X + $half, self::C1Y + 2));
+            $this->assertSame([255, 0, 255], $this->rgb($image, self::C1X, self::C1Y - $half));
+            $this->assertSame([255, 0, 255], $this->rgb($image, self::C1X + 1, self::C1Y - $half));
+            $this->assertSame([255, 255, 255], $this->rgb($image, self::C1X - 1, self::C1Y - $half));
+            $this->assertSame([255, 255, 255], $this->rgb($image, self::C1X + 2, self::C1Y - $half));
+
+            $this->assertSame([255, 0, 255], $this->rgb($image, self::C2X, self::C2Y));
+            $this->assertSame([255, 255, 255], $this->rgb($image, self::C1X - $half - 1, self::C1Y));
+            $this->assertSame([255, 255, 255], $this->rgb($image, 10, 10));
+
             imagedestroy($image);
-        } finally {
-            if (is_file($path)) {
-                @unlink($path);
-            }
-        }
-    }
-
-    public function testEnsureGridLeavesAnExistingRulingUntouched(): void
-    {
-        $image = $this->solidImage(600, 800, 255, 255, 255);
-        $black = imagecolorallocate($image, 0, 0, 0);
-        $this->assertNotFalse($black);
-        for ($y = 40; $y < 800; $y += 40) {
-            imageline($image, 0, $y, 599, $y, $black);
-        }
-        for ($x = 40; $x < 600; $x += 40) {
-            imageline($image, $x, 0, $x, 799, $black);
-        }
-        $path = $this->writePng($image);
-
-        try {
-            $before = file_get_contents($path);
-            $this->assertNotFalse($before);
-
-            $method = new \ReflectionMethod(Pipeline::class, 'ensureGrid');
-            $method->invoke(new Pipeline(), $path);
-
-            $this->assertSame($before, file_get_contents($path));
         } finally {
             if (is_file($path)) {
                 @unlink($path);
@@ -512,16 +330,11 @@ class DictationFranceCM2PipelineTest extends TestCase
 
     private function writePng(\GdImage $image): string
     {
-        $path = tempnam(sys_get_temp_dir(), 'cm2_grid_') . '.png';
+        $path = tempnam(sys_get_temp_dir(), 'cm2_marked_') . '.png';
         imagepng($image, $path);
         imagedestroy($image);
 
         return $path;
-    }
-
-    private function assertYellow(\GdImage $image, int $x, int $y): void
-    {
-        $this->assertSame([255, 255, 0], $this->rgb($image, $x, $y), "pixel $x,$y");
     }
 
     /**

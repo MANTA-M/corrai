@@ -3,11 +3,10 @@
 namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\Exam;
-use Corrai\Utils\GridDetector;
 use Corrai\Utils\ObjectStore;
+use Corrai\Utils\ReferenceChanger;
 use Corrai\Utils\WSException;
 use Corrai\LlmClient\ClaudeSonnetClient;
-use Corrai\LlmClient\Qwen25Vl72bInstructClient;
 
 class Pipeline
 {
@@ -25,29 +24,21 @@ class Pipeline
         'de' => 'Diktat CM2 Frankreich',
     ];
 
-    public const TRANSCRIPTION_INSTRUCTION =
-        'Transcript only what is writen without correcting it. DO NOT ADD ANY LETTER OR SIGN. '
-        . 'If something is badly written, put a mark to say it\'s unreadable. '
-        . 'Value de quality of caligraphy from 0.0 to 1.0.';
-
-    public const DEBUG = 1;
-
     private const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
 
-    private const BASELINE_MARK_LENGTH = 30;
+    /** Minimum half-length of each arm, in pixels. */
+    private const MAGENTA_CROSS_HALF = 7;
 
-    private const SYNTHETIC_GRID_STEP = 50;
+    private const MAGENTA_CROSS_THICKNESS = 2;
 
-    public int $debug = self::DEBUG;
-
-    public ?float $rescale = null;
-    public ?int $cropped_x1 = null;
-    public ?int $cropped_y1 = null;
-    public ?int $cropped_x2 = null;
-    public ?int $cropped_y2 = null;
+    private const ERROR_BOX_THICKNESS = 3;
 
     private ?int $imageWidth = null;
     private ?int $imageHeight = null;
+
+    private ?string $errorBoxesPng = null;
+
+    private ?ReferenceChanger $referenceChanger = null;
 
     /**
      * Compare a dictation copy to the corrigé, then draw the errors with GD.
@@ -67,10 +58,26 @@ class Pipeline
         $solutionPath = null;
 
         try {
-            $this->ensureGrid($tmpPath);
-
             $exam->deleteFilesOfType('debug', $student);
             $exam->deleteFilesOfType('correction', $student);
+
+            $size = @getimagesize($tmpPath);
+            $this->imageWidth = is_array($size) ? (int) $size[0] : null;
+            $this->imageHeight = is_array($size) ? (int) $size[1] : null;
+            if ($this->imageWidth === null || $this->imageHeight === null
+                || $this->imageWidth < 1 || $this->imageHeight < 1) {
+                throw new WSException('The source file is not an image GD can annotate', 400);
+            }
+
+            $calibration_centers_in_image = $this->getCallibrationCrossCenters($this->imageWidth, $this->imageHeight);
+            $marked = $this->markImage($tmpPath, $calibration_centers_in_image);
+            $exam->createFile(
+                $base . '_marked.' . $marked['extension'],
+                $marked['bytes'],
+                $marked['mime'],
+                'debug',
+                $student
+            );
 
             $solution = $this->firstSolutionFile($exam);
             $solutionPath = $store->downloadToTemp($exam->unassignedFileKey($solution['name']));
@@ -78,10 +85,15 @@ class Pipeline
             $correction = $this->findErrors(
                 $exam,
                 $tmpPath,
-                $filename,
+                $base . '_marked.' . $marked['extension'],
                 $solutionPath,
                 $solution['name'],
                 $languageName
+            );
+            $calibration_centers_in_llm = $this->calibrationCentersInLlm($correction);
+            $this->referenceChanger = new ReferenceChanger(
+                $calibration_centers_in_llm,
+                $calibration_centers_in_image
             );
             $exam->createFile(
                 $base . ' correction.txt',
@@ -91,7 +103,7 @@ class Pipeline
                 $student
             );
 
-            $directivesPhp = $this->gdDirectives($tmpPath, $filename, $correction);
+            $directivesPhp = $this->gdDirectives($tmpPath, $base . '_marked.' . $marked['extension'], $correction);
             $exam->createFile(
                 $base . ' directives.php',
                 $directivesPhp,
@@ -99,6 +111,16 @@ class Pipeline
                 'debug',
                 $student
             );
+
+            if (is_string($this->errorBoxesPng) && $this->errorBoxesPng !== '') {
+                $exam->createFile(
+                    $base . '_boxes.png',
+                    $this->errorBoxesPng,
+                    'image/png',
+                    'debug',
+                    $student
+                );
+            }
 
             $png = $this->renderCorrection($tmpPath, $directivesPhp);
             $exam->createFile(
@@ -123,10 +145,43 @@ class Pipeline
     }
 
     /**
-     * Detect the page ruling. When none is found, draw a yellow grid with a 50px step.
+     * Apply calibration marks on the copy and return the resulting image bytes.
+     *
+     * @return array{bytes: string, mime: string, extension: string}
      */
-    private function ensureGrid(string $imagePath): void
+    private function markImage(string $imagePath, array $centers): array
     {
+        $this->drawMagentaCrosses($imagePath, $centers);
+
+        $bytes = file_get_contents($imagePath);
+        if ($bytes === false) {
+            throw new WSException('Cannot read the marked image', 500);
+        }
+        $info = @getimagesizefromstring($bytes);
+        if ($info === false) {
+            throw new WSException('The marked file is not an image', 500);
+        }
+        $extension = image_type_to_extension((int) $info[2], false);
+        if (!is_string($extension) || $extension === '') {
+            $extension = 'png';
+        }
+
+        return [
+            'bytes' => $bytes,
+            'mime' => is_string($info['mime'] ?? null) ? $info['mime'] : 'image/png',
+            'extension' => $extension,
+        ];
+    }
+
+    /**
+     * Draw two pure-magenta calibration crosses at (1/3, 1/3) and (2/3, 2/3).
+     */
+    private function drawMagentaCrosses(string $imagePath, array $centers): void
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            throw new WSException('PHP GD is not available', 500);
+        }
+
         $bytes = file_get_contents($imagePath);
         if ($bytes === false) {
             throw new WSException('Cannot read the source image', 400);
@@ -135,24 +190,6 @@ class Pipeline
         $info = @getimagesizefromstring($bytes);
         if ($info === false) {
             throw new WSException('The source file is not an image GD can annotate', 400);
-        }
-
-        try {
-            new GridDetector($bytes);
-            return;
-        } catch (\Exception $exception) {
-            if ($exception->getMessage() !== 'Grid was not found') {
-                throw $exception;
-            }
-        }
-
-        $this->drawYellowGrid($imagePath, $bytes, (int) $info[2]);
-    }
-
-    private function drawYellowGrid(string $imagePath, string $bytes, int $type): void
-    {
-        if (!function_exists('imagecreatefromstring')) {
-            throw new WSException('PHP GD is not available', 500);
         }
 
         $image = @imagecreatefromstring($bytes);
@@ -166,39 +203,71 @@ class Pipeline
             }
             imagealphablending($image, true);
 
-            $yellow = imagecolorallocate($image, 255, 255, 0);
-            if ($yellow === false) {
+            $magenta = imagecolorallocate($image, 255, 0, 255);
+            if ($magenta === false) {
                 throw new WSException('GD could not allocate a color', 500);
             }
 
             $width = imagesx($image);
             $height = imagesy($image);
-            $step = self::SYNTHETIC_GRID_STEP;
-            for ($x = 0; $x < $width; $x += $step) {
-                imageline($image, $x, 0, $x, $height - 1, $yellow);
-            }
-            for ($y = 0; $y < $height; $y += $step) {
-                imageline($image, 0, $y, $width - 1, $y, $yellow);
+            $geometry = $this->magentaCrossGeometry($width, $height);
+            foreach ($centers as $center) {
+                $this->drawMagentaCross(
+                    $image,
+                    (int) $center[0],
+                    (int) $center[1],
+                    $geometry['half'],
+                    $geometry['thickness'],
+                    $magenta
+                );
             }
 
-            $this->saveImage($image, $imagePath, $type);
+            imagesavealpha($image, false);
+            if (imagepng($image, $imagePath) !== true) {
+                throw new WSException('GD did not produce an image', 500);
+            }
         } finally {
             imagedestroy($image);
         }
     }
 
-    private function saveImage(\GdImage $image, string $path, int $type): void
+    /**
+     * @return array{0: array{0: int, 1: int}, 1: array{0: int, 1: int}}
+     */
+    private function getCallibrationCrossCenters(int $width, int $height): array
     {
-        $written = match ($type) {
-            IMAGETYPE_JPEG => imagejpeg($image, $path, 90),
-            IMAGETYPE_GIF => imagegif($image, $path),
-            IMAGETYPE_WEBP => imagewebp($image, $path, 90),
-            IMAGETYPE_BMP => imagebmp($image, $path),
-            default => imagepng($image, $path),
-        };
-        if ($written !== true) {
-            throw new WSException('GD did not produce an image', 500);
-        }
+        return [
+            [
+                (int) round($width / 3),
+                (int) round($height / 3),
+            ],
+            [
+                (int) round(2 * $width / 3),
+                (int) round(2 * $height / 3),
+            ],
+        ];
+    }
+
+    /**
+     * Arm length grows with the page so the mark stays visible on a scan.
+     *
+     * @return array{half: int, thickness: int}
+     */
+    private function magentaCrossGeometry(int $width, int $height): array
+    {
+        $half = max(self::MAGENTA_CROSS_HALF, (int) round(min($width, $height) * 0.02));
+
+        return [
+            'half' => $half,
+            'thickness' => self::MAGENTA_CROSS_THICKNESS,
+        ];
+    }
+
+    private function drawMagentaCross(\GdImage $image, int $cx, int $cy, int $half, int $thickness, int $color): void
+    {
+        $end = $thickness - 1;
+        imagefilledrectangle($image, $cx - $half, $cy, $cx + $half, $cy + $end, $color);
+        imagefilledrectangle($image, $cx, $cy - $half, $cx + $end, $cy + $half, $color);
     }
 
     /**
@@ -237,20 +306,35 @@ class Pipeline
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
             . 'Gather the coordinates of the box containing the error in the original image using the main lines of the grid. . '
-            . 'Third step, filter the errors: Do not get missing space errors. '
+            . 'Second step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
             . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
             . 'Write text fields in ' . $languageName . '. '
-            . 'All coordinates are pixels of the original image, origin top-left. '
+            . 'All coordinates are pixels of the image you receive, origin (0,0) is top-left. IMPORTANT: magenta crosses coordinates and error boxes coordinates are in the same pixel space! '
             . "Follow these exam-specific instructions:\n"
             . $instructionText
         );
         $request->set_json_response('dictation_errors', [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['cropped_image', 'lines', 'errors'],
+            'required' => ['magenta_crosses', 'errors'],
             'properties' => [
+                'magenta_crosses' => [
+                    'type' => 'array',
+                    'description' => 'Centres of the two pure-magenta (255,0,255) calibration crosses. If no cross, return empty array.',
+                    'minItems' => 2,
+                    'maxItems' => 2,
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['x', 'y'],
+                        'properties' => [
+                            'x' => ['type' => 'number'],
+                            'y' => ['type' => 'number'],
+                        ],
+                    ],
+                ],
                 'errors' => [
                     'type' => 'array',
                     'description' => 'Clear spelling or grammar errors only. Omit missing spaces and badly written letters. Do not rewrite the dictation.',
@@ -273,7 +357,7 @@ class Pipeline
                             ],
                             'box' => [
                                 'type' => 'object',
-                                'description' => 'The error bounding box using the main lines of the grid,  0,0 is the top-left corner.',
+                                'description' => 'The error bounding box coordinates.',
                                 'additionalProperties' => false,
                                 'required' => ['x1', 'y1', 'x2', 'y2'],
                                 'properties' => [
@@ -292,9 +376,55 @@ class Pipeline
         $request->add_file($solutionPath, $solutionName);
         $request->add_text('Student copy to decipher:');
         $request->add_file($copyPath, $copyName);
-        $resp = $request->call_text();
-        $this->rescale = $request->rescale;
-        return $resp;
+        return $request->call_text();
+    }
+
+    /**
+     * Centres of the two calibration marks as reported by the model, as a 2×2 array.
+     *
+     * @return array{0: array{0: int, 1: int}, 1: array{0: int, 1: int}}
+     */
+    private function calibrationCentersInLlm(string $correction): array
+    {
+        $data = json_decode($correction, true);
+        if (!is_array($data)) {
+            $trimmed = trim($correction);
+            if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $trimmed, $matches)) {
+                $data = json_decode(trim($matches[1]), true);
+            }
+        }
+        if (!is_array($data)) {
+            throw new WSException('Invalid correction JSON', 400);
+        }
+
+        $crosses = $data['magenta_crosses'] ?? null;
+        if (!is_array($crosses) || count($crosses) < 2 || !array_is_list($crosses)) {
+            throw new WSException('Missing magenta cross coordinates', 400);
+        }
+
+        return [
+            $this->llmCenter($crosses[0]),
+            $this->llmCenter($crosses[1]),
+        ];
+    }
+
+    /**
+     * @param mixed $center
+     * @return array{0: int, 1: int}
+     */
+    private function llmCenter(mixed $center): array
+    {
+        if (!is_array($center)) {
+            throw new WSException('Invalid magenta cross coordinates', 400);
+        }
+
+        $x = $center['x'] ?? $center[0] ?? null;
+        $y = $center['y'] ?? $center[1] ?? null;
+        if (!is_numeric($x) || !is_numeric($y)) {
+            throw new WSException('Invalid magenta cross coordinates', 400);
+        }
+
+        return [(int) round((float) $x), (int) round((float) $y)];
     }
 
     protected function gdDirectives(string $copyPath, string $copyName, string $correction): string
@@ -320,11 +450,9 @@ class Pipeline
             throw new WSException('Invalid correction JSON', 400);
         }
 
-        $this->extractCroppedCoordinates($data);
-        $data = $this->adjustCoordinates($data);
-        $promptData = $data;
-        unset($promptData['lines']);
-        $correctedCorrection = (string) json_encode($promptData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $data = $this->translateErrorBoxes($data);
+        $this->errorBoxesPng = $this->renderErrorBoxes($copyPath, $data);
+        $correctedCorrection = (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
@@ -351,207 +479,52 @@ class Pipeline
         );
         $request->add_file($copyPath, $copyName);
         $request->add_text("Correction listing the errors to mark:\n" . $correctedCorrection);
-        $directives = $request->call_text();
-        $directives = $this->addHandwrittenBaselineDirectives($directives, $data);
-
-        if ($this->isDebug() && $this->hasCroppedCoordinates()) {
-            $directives = $this->addCropDebugDirective($directives);
-        }
-
-        return $directives;
-    }
-
-    public function isDebug(): bool
-    {
-        if ($this->debug !== self::DEBUG) {
-            return (bool) $this->debug;
-        }
-        return (bool) static::DEBUG;
-    }
-
-    public function hasCroppedCoordinates(): bool
-    {
-        return $this->cropped_x1 !== null
-            || $this->cropped_y1 !== null
-            || $this->cropped_x2 !== null
-            || $this->cropped_y2 !== null;
+        return $request->call_text();
     }
 
     /**
-     * Append a GD directive drawing the crop rectangle when DEBUG is active.
-     */
-    protected function addCropDebugDirective(string $directivesPhp): string
-    {
-        $rescale = ($this->rescale !== null && $this->rescale > 0.0) ? $this->rescale : 1.0;
-        $x1 = $this->limitToImage((int) round(($this->cropped_x1 ?? 0) / $rescale), $this->imageWidth);
-        $y1 = $this->limitToImage((int) round(($this->cropped_y1 ?? 0) / $rescale), $this->imageHeight);
-        $x2 = $this->limitToImage((int) round(($this->cropped_x2 ?? ($this->cropped_x1 ?? 0)) / $rescale), $this->imageWidth);
-        $y2 = $this->limitToImage((int) round(($this->cropped_y2 ?? ($this->cropped_y1 ?? 0)) / $rescale), $this->imageHeight);
-
-        $cropDirective = [
-            'fn' => 'imagerectangle',
-            'args' => [$x1, $y1, $x2, $y2],
-            'color' => 'red',
-        ];
-
-        try {
-            $directives = $this->loadDirectives($directivesPhp);
-            $directives[] = $cropDirective;
-            return $this->formatDirectives($directives);
-        } catch (\Throwable) {
-            $cropDirectiveCode = "    ['fn' => 'imagerectangle', 'args' => [{$x1}, {$y1}, {$x2}, {$y2}], 'color' => 'red'],\n";
-            $lastBracketPos = strrpos($directivesPhp, ']');
-            if ($lastBracketPos !== false) {
-                return substr($directivesPhp, 0, $lastBracketPos) . $cropDirectiveCode . substr($directivesPhp, $lastBracketPos);
-            }
-            return $directivesPhp;
-        }
-    }
-
-    /**
-     * Format a list of GD directives into PHP code.
+     * Map each error box from the model frame onto the source image.
      *
-     * @param list<array<string, mixed>> $directives
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
      */
-    private function formatDirectives(array $directives): string
+    private function translateErrorBoxes(array $data): array
     {
-        $lines = ["<?php\n\n\$GD_directives = ["];
-        foreach ($directives as $directive) {
-            $parts = [];
-            foreach ($directive as $key => $val) {
-                $keyExport = var_export($key, true);
-                if (is_array($val)) {
-                    $valExport = '[' . implode(', ', array_map(static fn($v) => var_export($v, true), $val)) . ']';
-                } else {
-                    $valExport = var_export($val, true);
-                }
-                $parts[] = "$keyExport => $valExport";
-            }
-            $lines[] = '    [' . implode(', ', $parts) . '],';
-        }
-        $lines[] = "];\n";
-        return implode("\n", $lines);
-    }
-
-    /**
-     * Extract cropped coordinates from correction data and assign to object attributes.
-     *
-     * @param array<string, mixed>|string $data
-     */
-    public function extractCroppedCoordinates(array|string $data): void
-    {
-        if (is_string($data)) {
-            $decoded = json_decode($data, true);
-            if (!is_array($decoded)) {
-                $trimmed = trim($data);
-                if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $trimmed, $matches)) {
-                    $decoded = json_decode(trim($matches[1]), true);
-                }
-            }
-            if (!is_array($decoded)) {
-                return;
-            }
-            $data = $decoded;
+        if ($this->referenceChanger === null) {
+            throw new WSException('Reference changer is required to map error boxes', 400);
         }
 
-        $cropped = is_array($data['cropped_image'] ?? null) ? $data['cropped_image'] : [];
-
-        if (isset($cropped['x1'])) {
-            $this->cropped_x1 = (int) $cropped['x1'];
-        } elseif (isset($data['cropped_x1'])) {
-            $this->cropped_x1 = (int) $data['cropped_x1'];
-        }
-
-        if (isset($cropped['y1'])) {
-            $this->cropped_y1 = (int) $cropped['y1'];
-        } elseif (isset($data['cropped_y1'])) {
-            $this->cropped_y1 = (int) $data['cropped_y1'];
-        }
-
-        if (isset($cropped['x2'])) {
-            $this->cropped_x2 = (int) $cropped['x2'];
-        } elseif (isset($data['cropped_x2'])) {
-            $this->cropped_x2 = (int) $data['cropped_x2'];
-        }
-
-        if (isset($cropped['y2'])) {
-            $this->cropped_y2 = (int) $cropped['y2'];
-        } elseif (isset($data['cropped_y2'])) {
-            $this->cropped_y2 = (int) $data['cropped_y2'];
-        }
-
-        if ($this->cropped_x1 === null || $this->cropped_y1 === null || $this->cropped_x2 === null || $this->cropped_y2 === null) {
-            $iterator = function (array $items) use (&$iterator): void {
-                foreach ($items as $k => $v) {
-                    if (is_array($v)) {
-                        $iterator($v);
-                    } elseif (is_numeric($v) && is_string($k)) {
-                        $lower = strtolower($k);
-                        if ($lower === 'cropped_x1' && $this->cropped_x1 === null) {
-                            $this->cropped_x1 = (int) $v;
-                        } elseif ($lower === 'cropped_y1' && $this->cropped_y1 === null) {
-                            $this->cropped_y1 = (int) $v;
-                        } elseif ($lower === 'cropped_x2' && $this->cropped_x2 === null) {
-                            $this->cropped_x2 = (int) $v;
-                        } elseif ($lower === 'cropped_y2' && $this->cropped_y2 === null) {
-                            $this->cropped_y2 = (int) $v;
-                        }
-                    }
-                }
-            };
-            $iterator($data);
-        }
-    }
-
-    /**
-     * Recursively adjust error coordinates given in 1/1000 of the cropped image.
-     *
-     * @param mixed $data
-     * @return mixed
-     */
-    protected function adjustCoordinates(mixed $data): mixed
-    {
-        if (!is_array($data)) {
+        $errors = $data['errors'] ?? null;
+        if (!is_array($errors)) {
             return $data;
         }
 
-        if ($this->cropped_x1 === null && $this->cropped_y1 === null) {
-            $this->extractCroppedCoordinates($data);
-        }
-
-        foreach ($data as $key => $value) {
-            if ($key === 'cropped_image') {
+        foreach ($errors as $index => $error) {
+            if (!is_array($error) || !is_array($error['box'] ?? null)) {
                 continue;
             }
-            if (is_array($value)) {
-                $data[$key] = $this->adjustCoordinates($value);
-            } elseif (is_numeric($value) && is_string($key)) {
-                $lowerKey = strtolower($key);
-                if (in_array($lowerKey, ['x', 'x1', 'x2', 'xmin', 'xmax', 'x_min', 'x_max'], true)) {
-                    $data[$key] = $this->cropped2SourceX((float) $value);
-                } elseif (in_array($lowerKey, ['y', 'y1', 'y2', 'ymin', 'ymax', 'y_min', 'y_max'], true)) {
-                    $data[$key] = $this->cropped2SourceY((float) $value);
-                }
+            $box = $error['box'];
+            if (!is_numeric($box['x1'] ?? null) || !is_numeric($box['y1'] ?? null)
+                || !is_numeric($box['x2'] ?? null) || !is_numeric($box['y2'] ?? null)) {
+                continue;
             }
+
+            [$x1, $y1] = $this->referenceChanger->transform( $box['x1'], $box['y1']);
+            [$x2, $y2] = $this->referenceChanger->transform( $box['x2'], $box['y2']);
+            $error['box']['x1'] = $this->limitX($x1);
+            $error['box']['y1'] = $this->limitY($y1);
+            $error['box']['x2'] = $this->limitX($x2);
+            $error['box']['y2'] = $this->limitY($y2);
+            $errors[$index] = $error;
         }
+
+        $data['errors'] = $errors;
 
         return $data;
     }
 
-    /**
-     * Map an X given in thousandths of the cropped zone onto the source image.
-     */
-    private function cropped2SourceX(float $x): int
+    private function limitX(int $inSource): int
     {
-        $x1 = (int) ($this->cropped_x1 ?? 0);
-        $x2 = (int) ($this->cropped_x2 ?? $x1);
-        $croppedWidth = max(0, $x2 - $x1);
-        $rescale = ($this->rescale !== null && $this->rescale > 0.0) ? $this->rescale : 1.0;
-
-        $inCrop = ($x / 1000.0) * $croppedWidth;
-        $inScaled = $inCrop + $x1;
-        $inSource = (int) round($inScaled / $rescale);
-
         if ($this->imageWidth !== null && $this->imageWidth >= 1 && $inSource > $this->imageWidth) {
             error_log(sprintf(
                 '[DictationFranceCM2] X %d exceeds source image width %d',
@@ -560,24 +533,15 @@ class Pipeline
             ));
             return $this->imageWidth;
         }
+        if ($inSource < 0) {
+            return 0;
+        }
 
         return $inSource;
     }
 
-    /**
-     * Map a Y given in thousandths of the cropped zone onto the source image.
-     */
-    private function cropped2SourceY(float $y): int
+    private function limitY(int $inSource): int
     {
-        $y1 = (int) ($this->cropped_y1 ?? 0);
-        $y2 = (int) ($this->cropped_y2 ?? $y1);
-        $croppedHeight = max(0, $y2 - $y1);
-        $rescale = ($this->rescale !== null && $this->rescale > 0.0) ? $this->rescale : 1.0;
-
-        $inCrop = ($y / 1000.0) * $croppedHeight;
-        $inScaled = $inCrop + $y1;
-        $inSource = (int) round($inScaled / $rescale);
-
         if ($this->imageHeight !== null && $this->imageHeight >= 1 && $inSource > $this->imageHeight) {
             error_log(sprintf(
                 '[DictationFranceCM2] Y %d exceeds source image height %d',
@@ -586,90 +550,84 @@ class Pipeline
             ));
             return $this->imageHeight;
         }
+        if ($inSource < 0) {
+            return 0;
+        }
 
         return $inSource;
-    }
-
-    protected function adjustYCoordinates(mixed $data): mixed
-    {
-        return $this->adjustCoordinates($data);
-    }
-
-    /**
-     * Draw a 30px horizontal tick at each handwritten baseline.
-     * Y values are already mapped like error coordinates.
-     *
-     * @param array<string, mixed> $data
-     */
-    protected function addHandwrittenBaselineDirectives(string $directivesPhp, array $data): string
-    {
-        $marks = $this->handwrittenBaselineDirectives($data);
-        if ($marks === []) {
-            return $directivesPhp;
-        }
-
-        try {
-            $directives = $this->loadDirectives($directivesPhp);
-            foreach ($marks as $mark) {
-                $directives[] = $mark;
-            }
-            return $this->formatDirectives($directives);
-        } catch (\Throwable) {
-            $snippet = '';
-            foreach ($marks as $mark) {
-                $y = (int) $mark['args'][1];
-                $x2 = (int) $mark['args'][2];
-                $snippet .= "    ['fn' => 'imageline', 'args' => [0, {$y}, {$x2}, {$y}], 'color' => 'red'],\n";
-            }
-            $lastBracketPos = strrpos($directivesPhp, ']');
-            if ($lastBracketPos !== false) {
-                return substr($directivesPhp, 0, $lastBracketPos) . $snippet . substr($directivesPhp, $lastBracketPos);
-            }
-            return $directivesPhp;
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     * @return list<array<string, mixed>>
-     */
-    private function handwrittenBaselineDirectives(array $data): array
-    {
-        $lines = $data['lines'] ?? null;
-        if (!is_array($lines)) {
-            return [];
-        }
-
-        $directives = [];
-        foreach ($lines as $line) {
-            if (!is_array($line) || !is_numeric($line['y'] ?? null)) {
-                continue;
-            }
-            $y = $this->limitToImage((int) $line['y'], $this->imageHeight);
-            $x2 = $this->limitToImage(self::BASELINE_MARK_LENGTH, $this->imageWidth);
-            $directives[] = [
-                'fn' => 'imageline',
-                'args' => [0, $y, $x2, $y],
-                'color' => 'red',
-            ];
-        }
-        return $directives;
-    }
-
-    /**
-     * Cap a pixel coordinate at the image width or height.
-     */
-    private function limitToImage(int $value, ?int $maximum): int
-    {
-        if ($maximum === null || $maximum < 1 || $value <= $maximum) {
-            return $value;
-        }
-        return $maximum;
     }
 
     protected function createClaudeSonnetClient(): ClaudeSonnetClient
     {
         return new ClaudeSonnetClient();
+    }
+
+    /**
+     * Draw a green rectangle on the source image for each calibrated error box.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function renderErrorBoxes(string $copyPath, array $data): string
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            throw new WSException('PHP GD is not available', 500);
+        }
+
+        $bytes = file_get_contents($copyPath);
+        if ($bytes === false) {
+            throw new WSException('Cannot read the source image', 400);
+        }
+        $image = @imagecreatefromstring($bytes);
+        if ($image === false) {
+            throw new WSException('The source file is not an image GD can annotate', 400);
+        }
+
+        try {
+            if (!imageistruecolor($image)) {
+                imagepalettetotruecolor($image);
+            }
+            imagealphablending($image, true);
+
+            $green = imagecolorallocate($image, 0, 200, 0);
+            if ($green === false) {
+                throw new WSException('GD could not allocate a color', 500);
+            }
+            imagesetthickness($image, self::ERROR_BOX_THICKNESS);
+
+            $errors = $data['errors'] ?? [];
+            if (is_array($errors)) {
+                foreach ($errors as $error) {
+                    if (!is_array($error)) {
+                        continue;
+                    }
+                    $box = $error['box'] ?? null;
+                    if (!is_array($box)
+                        || !is_numeric($box['x1'] ?? null) || !is_numeric($box['y1'] ?? null)
+                        || !is_numeric($box['x2'] ?? null) || !is_numeric($box['y2'] ?? null)) {
+                        continue;
+                    }
+                    $x1 = (int) $box['x1'];
+                    $y1 = (int) $box['y1'];
+                    $x2 = (int) $box['x2'];
+                    $y2 = (int) $box['y2'];
+                    if (imagerectangle($image, $x1, $y1, $x2, $y2, $green) !== true) {
+                        throw new WSException('GD failed to draw an error box', 500);
+                    }
+                }
+            }
+
+            ob_start();
+            imagepng($image);
+            $png = ob_get_clean();
+        } finally {
+            imagedestroy($image);
+        }
+
+        if (!is_string($png) || $png === '') {
+            throw new WSException('GD did not produce an image', 500);
+        }
+
+        return $png;
     }
 
     /**

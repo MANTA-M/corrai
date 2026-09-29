@@ -96,6 +96,25 @@ class ClaudeSonnetClientTest extends TestCase
         }
     }
 
+    public function testPngBytesKeepPngMediaTypeWhenTheFilenameIsJpeg(): void
+    {
+        if (!extension_loaded('gd')) {
+            $this->markTestSkipped('GD extension required');
+        }
+
+        $path = $this->temporaryPng(400, 300);
+
+        try {
+            $client = new TestableClaudeSonnetClient();
+            $client->add_file($path, 'copy.jpg');
+
+            $url = $client->userContent()[0]['image_url']['url'] ?? '';
+            $this->assertMatchesRegularExpression('#^data:image/png;base64,#', $url);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function testJsonResponseFormatIsSetOnThePayload(): void
     {
         $schema = [
