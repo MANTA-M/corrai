@@ -16,6 +16,17 @@ const pt: I18nSchema = {
         subtitle: "Gerencie seus exames",
         empty: "Nenhum exame ainda."
     },
+    share: {
+        title: "Partilhar ficheiros",
+        subtitle: "Escolha um exame para carregar os ficheiros partilhados",
+        filesHeading: "Ficheiros partilhados",
+        noFiles: "Nenhum ficheiro partilhado à espera de ser carregado.",
+        chooseExam: "Escolher um exame",
+        noExams: "Nenhum exame ainda. Crie primeiro um exame.",
+        uploading: "A carregar ficheiros partilhados...",
+        uploadError: "Falha ao carregar os ficheiros partilhados",
+        loadError: "Falha ao carregar os ficheiros partilhados"
+    },
     createExam: {
         title: "Criar exame",
         subtitle: "Introduza o nome, a disciplina e a data do seu exame",

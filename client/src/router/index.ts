@@ -39,6 +39,12 @@ const router = createRouter({
       meta: { title: 'Exam', requiresAuth: true }
     },
     {
+      path: '/share',
+      name: 'share',
+      component: () => import('@/views/ShareView.vue'),
+      meta: { title: 'Share', requiresAuth: true }
+    },
+    {
       path: '/not-authenticated',
       name: 'not-authenticated',
       component: () => import('@/views/NotAuthenticatedView.vue'),

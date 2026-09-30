@@ -45,6 +45,17 @@ export interface I18nSchema {
         subtitle: string
         empty: string
     }
+    share: {
+        title: string
+        subtitle: string
+        filesHeading: string
+        noFiles: string
+        chooseExam: string
+        noExams: string
+        uploading: string
+        uploadError: string
+        loadError: string
+    }
     createExam: {
         title: string
         subtitle: string

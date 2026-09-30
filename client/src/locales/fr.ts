@@ -16,6 +16,17 @@ const fr: I18nSchema = {
         subtitle: "Gérez vos examens",
         empty: "Aucun examen pour le moment."
     },
+    share: {
+        title: "Partager des fichiers",
+        subtitle: "Choisissez un examen pour téléverser les fichiers partagés",
+        filesHeading: "Fichiers partagés",
+        noFiles: "Aucun fichier partagé en attente de téléversement.",
+        chooseExam: "Choisir un examen",
+        noExams: "Aucun examen pour le moment. Créez d'abord un examen.",
+        uploading: "Téléversement des fichiers partagés...",
+        uploadError: "Échec du téléversement des fichiers partagés",
+        loadError: "Échec du chargement des fichiers partagés"
+    },
     createExam: {
         title: "Créer un examen",
         subtitle: "Saisissez le nom, la matière et la date de votre examen",

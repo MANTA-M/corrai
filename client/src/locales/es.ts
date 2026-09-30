@@ -16,6 +16,17 @@ const es: I18nSchema = {
         subtitle: "Gestiona tus exámenes",
         empty: "Aún no hay exámenes."
     },
+    share: {
+        title: "Compartir archivos",
+        subtitle: "Elige un examen para subir los archivos compartidos",
+        filesHeading: "Archivos compartidos",
+        noFiles: "No hay archivos compartidos pendientes de subir.",
+        chooseExam: "Elegir un examen",
+        noExams: "Aún no hay exámenes. Crea primero un examen.",
+        uploading: "Subiendo archivos compartidos...",
+        uploadError: "Error al subir los archivos compartidos",
+        loadError: "Error al cargar los archivos compartidos"
+    },
     createExam: {
         title: "Crear examen",
         subtitle: "Introduce el nombre, la asignatura y la fecha de tu examen",

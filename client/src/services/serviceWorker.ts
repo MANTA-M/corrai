@@ -15,9 +15,11 @@ export function registerServiceWorker(): Promise<ServiceWorkerRegistration> {
   }
 
   if (!registrationPromise) {
-    registrationPromise = navigator.serviceWorker.register(resolvedServiceWorkerUrl)
+    registrationPromise = navigator.serviceWorker.register(resolvedServiceWorkerUrl, {
+      type: 'module',
+      scope: baseUrl.pathname,
+    })
   }
 
   return registrationPromise
 }
-

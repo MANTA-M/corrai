@@ -16,6 +16,17 @@ const en: I18nSchema = {
         subtitle: "Manage your exams",
         empty: "No exams yet."
     },
+    share: {
+        title: "Share files",
+        subtitle: "Choose an exam to upload the shared files",
+        filesHeading: "Shared files",
+        noFiles: "No shared files waiting to be uploaded.",
+        chooseExam: "Choose an exam",
+        noExams: "No exams yet. Create an exam first.",
+        uploading: "Uploading shared files...",
+        uploadError: "Failed to upload shared files",
+        loadError: "Failed to load shared files"
+    },
     createExam: {
         title: "Create Exam",
         subtitle: "Enter the name, subject, and date of your exam",

@@ -16,6 +16,17 @@ const de: I18nSchema = {
         subtitle: "Verwalten Sie Ihre Prüfungen",
         empty: "Noch keine Prüfungen."
     },
+    share: {
+        title: "Dateien teilen",
+        subtitle: "Wählen Sie eine Prüfung, um die geteilten Dateien hochzuladen",
+        filesHeading: "Geteilte Dateien",
+        noFiles: "Keine geteilten Dateien zum Hochladen vorhanden.",
+        chooseExam: "Prüfung wählen",
+        noExams: "Noch keine Prüfungen. Erstellen Sie zuerst eine Prüfung.",
+        uploading: "Geteilte Dateien werden hochgeladen...",
+        uploadError: "Hochladen der geteilten Dateien fehlgeschlagen",
+        loadError: "Laden der geteilten Dateien fehlgeschlagen"
+    },
     createExam: {
         title: "Prüfung erstellen",
         subtitle: "Geben Sie Name, Fach und Datum Ihrer Prüfung ein",

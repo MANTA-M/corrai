@@ -16,6 +16,17 @@ const ro: I18nSchema = {
         subtitle: "Gestionați examenele",
         empty: "Niciun examen încă."
     },
+    share: {
+        title: "Partajează fișiere",
+        subtitle: "Alegeți un examen pentru a încărca fișierele partajate",
+        filesHeading: "Fișiere partajate",
+        noFiles: "Nu există fișiere partajate în așteptare.",
+        chooseExam: "Alegeți un examen",
+        noExams: "Niciun examen încă. Creați mai întâi un examen.",
+        uploading: "Se încarcă fișierele partajate...",
+        uploadError: "Încărcarea fișierelor partajate a eșuat",
+        loadError: "Încărcarea fișierelor partajate a eșuat"
+    },
     createExam: {
         title: "Creează examen",
         subtitle: "Introduceți numele, materia și data examenului",
