@@ -1,0 +1,10 @@
+pyproject.toml
+pycorrai/__init__.py
+pycorrai/__main__.py
+pycorrai/cli.py
+pycorrai.egg-info/PKG-INFO
+pycorrai.egg-info/SOURCES.txt
+pycorrai.egg-info/dependency_links.txt
+pycorrai.egg-info/entry_points.txt
+pycorrai.egg-info/requires.txt
+pycorrai.egg-info/top_level.txt

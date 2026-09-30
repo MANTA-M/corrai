@@ -3,6 +3,7 @@
 namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\Exam;
+use Corrai\Utils\OCR;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\ReferenceChanger;
 use Corrai\Utils\WSException;
@@ -32,6 +33,9 @@ class Pipeline
     private const MAGENTA_CROSS_THICKNESS = 2;
 
     private const ERROR_BOX_THICKNESS = 3;
+
+    /** PaddleOCR language code of the dictation. */
+    private const OCR_LANG = 'fr';
 
     private ?int $imageWidth = null;
     private ?int $imageHeight = null;
@@ -75,6 +79,14 @@ class Pipeline
                 $base . '_marked.' . $marked['extension'],
                 $marked['bytes'],
                 $marked['mime'],
+                'debug',
+                $student
+            );
+
+            $exam->createFile(
+                $base . '_ocr.json',
+                $this->ocrJson($marked['bytes']),
+                'application/json',
                 'debug',
                 $student
             );
@@ -171,6 +183,23 @@ class Pipeline
             'mime' => is_string($info['mime'] ?? null) ? $info['mime'] : 'image/png',
             'extension' => $extension,
         ];
+    }
+
+    /**
+     * Recognize the words of the standardised copy as pretty-printed JSON.
+     *
+     * Boxes are pixels of the standardised image, so they share the frame of
+     * the error boxes drawn later.
+     */
+    protected function ocrJson(string $imageBytes): string
+    {
+        $words = (new OCR($imageBytes, self::OCR_LANG))->words;
+        $json = json_encode($words, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($json)) {
+            throw new WSException('Cannot encode the OCR result', 500);
+        }
+
+        return $json . "\n";
     }
 
     /**

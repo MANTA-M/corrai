@@ -51,6 +51,7 @@ Thumbs.db
 server/log/*
 !server/log/.gitkeep
 server/php/vendor/
+server/python/.venv/
 docker/storage/
 doc/test_files/
 
@@ -58,4 +59,3 @@ doc/test_files/
 .env
 .env.local
 client/vite.config.ts
-logs/*
