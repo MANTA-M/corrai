@@ -7,7 +7,7 @@
     >
       <div class="popup-content instruction-editor">
       <div class="popup-header">
-        <h2>{{ existingFile ? t('exam.instructionEditTitle') : t('exam.instructionCreateTitle') }}</h2>
+        <h2>{{ existingFile ? labels.editTitle : labels.createTitle }}</h2>
         <button
           type="button"
           class="close-button"
@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import { EXAM_FILE_TYPES, type ExamFile, type ExamFileTypeZone } from '@/types/types'
@@ -73,6 +73,7 @@ const props = defineProps<{
   examId: string
   files: ExamFile[]
   existingFile: ExamFile | null
+  kind: 'instructions' | 'solution'
 }>()
 
 const emit = defineEmits<{
@@ -82,6 +83,24 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const sessionStore = useSessionStore()
+
+const labels = computed(() =>
+  props.kind === 'solution'
+    ? {
+        createTitle: t('exam.solutionCreateTitle'),
+        editTitle: t('exam.solutionEditTitle'),
+        prefix: t('exam.solutionTitlePrefix'),
+        saveError: t('exam.solutionSaveError'),
+        loadError: t('exam.solutionLoadError'),
+      }
+    : {
+        createTitle: t('exam.instructionCreateTitle'),
+        editTitle: t('exam.instructionEditTitle'),
+        prefix: t('exam.instructionTitlePrefix'),
+        saveError: t('exam.instructionSaveError'),
+        loadError: t('exam.instructionLoadError'),
+      }
+)
 
 const title = ref('')
 const body = ref('')
@@ -107,12 +126,12 @@ const filenameFromTitle = (value: string) => {
 }
 
 const nextInstructionTitle = () => {
-  const prefix = t('exam.instructionTitlePrefix')
+  const prefix = labels.value.prefix
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const pattern = new RegExp(`^${escaped}\\s*(\\d+)`, 'i')
   let max = 0
   for (const file of props.files) {
-    if (fileZone(file) !== 'instructions') continue
+    if (fileZone(file) !== props.kind) continue
     const match = titleFromFilename(file.name).match(pattern)
     if (match) {
       max = Math.max(max, Number.parseInt(match[1], 10))
@@ -149,7 +168,7 @@ onMounted(async () => {
     body.value = await response.text()
   } catch (err) {
     console.error('Error loading instruction:', err)
-    error.value = t('exam.instructionLoadError')
+    error.value = labels.value.loadError
   } finally {
     isLoading.value = false
   }
@@ -169,14 +188,14 @@ const save = async () => {
 
     if (!props.existingFile) {
       if (props.files.some((file) => file.name === filename)) {
-        error.value = t('exam.instructionSaveError')
+        error.value = labels.value.saveError
         return
       }
       const blob = new Blob([body.value], { type: 'text/plain;charset=utf-8' })
       const file = new File([blob], filename, { type: 'text/plain' })
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('type', 'instructions')
+      formData.append('type', props.kind)
       const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
         'POST',
         '/file',
@@ -205,7 +224,7 @@ const save = async () => {
     emit('close')
   } catch (err) {
     console.error('Error saving instruction:', err)
-    error.value = t('exam.instructionSaveError')
+    error.value = labels.value.saveError
   } finally {
     isSaving.value = false
   }

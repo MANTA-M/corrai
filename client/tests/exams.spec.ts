@@ -44,6 +44,7 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
       await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
       await expect(page.getByTestId('add-instruction')).toBeVisible()
+      await expect(page.getByTestId('add-solution')).toBeVisible()
       await expect(page.getByTestId('file-student-view')).toHaveCount(0)
 
       await page.goto('/exam-list')
@@ -207,6 +208,7 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('files-view-student')).toHaveCount(0)
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
       await expect(page.getByTestId('add-instruction')).toBeVisible()
+      await expect(page.getByTestId('add-solution')).toBeVisible()
       await expect(page.getByTestId('file-student-view')).toHaveCount(0)
     })
 
@@ -241,6 +243,32 @@ test.describe('Exams CRUD', () => {
       await page.getByTestId('add-instruction').click()
       await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 3')
       await page.getByTestId('instruction-editor-cancel').click()
+    })
+
+    await test.step('Create and edit a solution file', async () => {
+      await page.getByTestId('add-solution').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Corrigé 1')
+      await page.getByTestId('instruction-body').fill('The expected answer is 42.')
+      await page.getByTestId('instruction-editor-save').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(
+        page.getByTestId('file-zone-solution').getByTestId('exam-file-item')
+      ).toContainText('Corrigé 1.txt')
+
+      await page.getByTestId('file-zone-solution').getByTestId('exam-file-item').click()
+      await expect(page.getByTestId('file-menu-edit')).toBeVisible()
+      await page.getByTestId('file-menu-edit').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Corrigé 1')
+      await expect(page.getByTestId('instruction-body')).toHaveValue('The expected answer is 42.')
+      await page.getByTestId('instruction-title').fill('Corrigé 2')
+      await page.getByTestId('instruction-body').fill('The expected answer is 7.')
+      await page.getByTestId('instruction-editor-save').click()
+      await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(
+        page.getByTestId('file-zone-solution').getByTestId('exam-file-item')
+      ).toContainText('Corrigé 2.txt')
     })
 
     await test.step('Delete the exam', async () => {

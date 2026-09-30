@@ -4,6 +4,7 @@ namespace Corrai\LlmClient;
 
 use Corrai\Utils\JsonUtils;
 use Corrai\Utils\RestClient;
+use Corrai\Utils\WSException;
 
 abstract class LlmClient extends RestClient
 {
@@ -102,7 +103,7 @@ abstract class LlmClient extends RestClient
      */
     public function call_text(): string
     {
-        $response = $this->QueryArray(self::OPENROUTER_API_URL, 'POST', $this->common_headers, $this->payload);
+        $response = $this->query_model();
         if ($response === null) {
             throw new \Exception('Empty response from model');
         }
@@ -126,7 +127,7 @@ abstract class LlmClient extends RestClient
      */
     public function call_annotation(): array
     {
-        $response = $this->QueryArray(self::OPENROUTER_API_URL, 'POST', $this->common_headers, $this->payload);
+        $response = $this->query_model();
         if ($response === null) {
             throw new \Exception('Empty response from model');
         }
@@ -204,7 +205,7 @@ abstract class LlmClient extends RestClient
     public function call(): array
     {
         try {
-            $respone = $this->QueryArray(self::OPENROUTER_API_URL, 'POST', $this->common_headers, $this->payload);
+            $respone = $this->query_model();
             $json_content = $respone['choices'][0]['message']['content'];
             $response = JsonUtils::decodeArray(str_replace('json', '', str_replace('```', '', $json_content)));
 
@@ -212,8 +213,26 @@ abstract class LlmClient extends RestClient
                 throw new \Exception("Invalid JSON content: " . $json_content);
             }
             return ["model" => $this->payload["model"], "response" => $response, "payload" => $this->payload, "respone" => $respone];
+        } catch (WSException $e) {
+            throw $e;
         } catch (\Throwable $th) {
             return ["model" => $this->payload["model"], "response" => $th->getMessage(), "payload" => $this->payload, "respone" => null];
+        }
+    }
+
+    /**
+     * OpenRouter 402 means the account has no credit. Log that and surface a generic AI error.
+     */
+    private function query_model(): ?array
+    {
+        try {
+            return $this->QueryArray(self::OPENROUTER_API_URL, 'POST', $this->common_headers, $this->payload);
+        } catch (\Throwable $th) {
+            if ((int) $th->getCode() === 402) {
+                error_log('LLM Credit payment required');
+                throw new WSException('AI error', 500, $th);
+            }
+            throw $th;
         }
     }
 }

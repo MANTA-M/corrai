@@ -55,12 +55,12 @@
         <div class="file-zone-header">
           <h3>{{ typeZoneLabel(zone) }}</h3>
           <button
-            v-if="zone === 'instructions'"
+            v-if="zone === 'instructions' || zone === 'solution'"
             type="button"
             class="add-instruction-button"
-            data-testid="add-instruction"
-            :aria-label="t('exam.addInstruction')"
-            @click="openCreateInstruction"
+            :data-testid="zone === 'instructions' ? 'add-instruction' : 'add-solution'"
+            :aria-label="zone === 'instructions' ? t('exam.addInstruction') : t('exam.addSolution')"
+            @click="openCreateTextFile(zone)"
           >
             +
           </button>
@@ -147,6 +147,7 @@
     :exam-id="examId"
     :files="files"
     :existing-file="instructionEditorFile"
+    :kind="textFileKind"
     @close="closeInstructionEditor"
     @saved="onFilesUploaded"
   />
@@ -180,12 +181,12 @@
             {{ t('exam.fileView') }}
           </a>
           <button
-            v-if="fileZone(menu.file) === 'instructions'"
+            v-if="fileZone(menu.file) === 'instructions' || fileZone(menu.file) === 'solution'"
             type="button"
             class="file-menu-item"
             data-testid="file-menu-edit"
             role="menuitem"
-            @click="startEditInstruction"
+            @click="startEditTextFile"
           >
             {{ t('exam.fileEdit') }}
           </button>
@@ -431,6 +432,7 @@ const selectedStudent = ref<string | null>(null)
 const showAddFilePopup = ref(false)
 const showInstructionEditor = ref(false)
 const instructionEditorFile = ref<ExamFile | null>(null)
+const textFileKind = ref<'instructions' | 'solution'>('instructions')
 const error = ref('')
 const actionError = ref('')
 const isUpdating = ref(false)
@@ -580,14 +582,18 @@ const startSetStudent = () => {
   menu.value.mode = 'student'
 }
 
-const openCreateInstruction = () => {
+const openCreateTextFile = (zone: 'instructions' | 'solution') => {
+  textFileKind.value = zone
   instructionEditorFile.value = null
   showInstructionEditor.value = true
   closeMenu()
 }
 
-const startEditInstruction = () => {
+const startEditTextFile = () => {
   if (!menu.value) return
+  const zone = fileZone(menu.value.file)
+  if (zone !== 'instructions' && zone !== 'solution') return
+  textFileKind.value = zone
   instructionEditorFile.value = menu.value.file
   showInstructionEditor.value = true
   closeMenu()

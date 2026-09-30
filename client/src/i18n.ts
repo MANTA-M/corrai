@@ -128,6 +128,12 @@ export interface I18nSchema {
         instructionTitlePrefix: string
         instructionSaveError: string
         instructionLoadError: string
+        addSolution: string
+        solutionCreateTitle: string
+        solutionEditTitle: string
+        solutionTitlePrefix: string
+        solutionSaveError: string
+        solutionLoadError: string
         fileRename: string
         fileDelete: string
         fileDeleteTitle: string
