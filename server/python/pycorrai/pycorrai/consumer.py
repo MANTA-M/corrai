@@ -13,6 +13,7 @@ from typing import Any
 import boto3
 from botocore.client import Config
 from redis import Redis
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from pycorrai.cli import get_engine, recognize_bytes
 
@@ -23,6 +24,11 @@ PHP_LIST_KEY = "corrai:files"
 SCHEMA = 1
 DEFAULT_LANG = "fr"
 BRPOP_TIMEOUT = 5
+# redis-py 8 defaults socket_timeout to 5s. That races an equal BRPOP and
+# raises TimeoutError before Redis can return nil. Keep the read deadline
+# strictly longer than the block, with room for the reply to arrive.
+SOCKET_CONNECT_TIMEOUT = 5
+SOCKET_TIMEOUT = BRPOP_TIMEOUT + 10
 
 
 def env(key: str, default: str = "") -> str:
@@ -153,7 +159,13 @@ def make_s3_client():
 def make_redis_client() -> Redis:
     host = env("REDIS_HOST", "127.0.0.1")
     port = int(env("REDIS_PORT", "6379"))
-    return Redis(host=host, port=port, decode_responses=True)
+    return Redis(
+        host=host,
+        port=port,
+        decode_responses=True,
+        socket_connect_timeout=SOCKET_CONNECT_TIMEOUT,
+        socket_timeout=SOCKET_TIMEOUT,
+    )
 
 
 class ObjectStore:
@@ -258,8 +270,19 @@ def run_forever(
     while True:
         try:
             result = redis.brpop(OCR_LIST_KEY, timeout=BRPOP_TIMEOUT)
-            if result is None:
-                continue
+        except RedisTimeoutError:
+            logger.warning(
+                "Redis read timed out while waiting on %s; retrying",
+                OCR_LIST_KEY,
+            )
+            continue
+        except Exception:
+            logger.exception("OCR consumer error")
+            continue
+
+        if result is None:
+            continue
+        try:
             _key, raw = result
             ticket = parse_ticket(raw)
             logger.info("Treating OCR ticket %s", ticket["path"])

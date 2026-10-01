@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# Watch and monitor Corrai Redis work queues.
+#
+# Queues (LPUSH + BRPOP; the next ticket to consume is the list tail):
+#   corrai:files  PHP file-status consumer
+#   corrai:ocr    Python OCR consumer
+#
+# Usage:
+#   bin/watch-redis-queues              # refresh until Ctrl-C
+#   bin/watch-redis-queues --once       # one snapshot
+#   bin/watch-redis-queues --interval 5
+#   bin/watch-redis-queues --peek 20
+#
+# Connection: redis-cli against REDIS_HOST:REDIS_PORT (default 127.0.0.1:6379).
+# If redis-cli is missing, falls back to `docker compose exec` on the redis service.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+
+FILES_KEY="corrai:files"
+OCR_KEY="corrai:ocr"
+
+INTERVAL=1
+PEEK=8
+ONCE=0
+
+usage() {
+  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --once)
+      ONCE=1
+      shift
+      ;;
+    --interval)
+      INTERVAL="${2:?--interval requires seconds}"
+      shift 2
+      ;;
+    --peek)
+      PEEK="${2:?--peek requires a count}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if ! [[ "$INTERVAL" =~ ^[0-9]+([.][0-9]+)?$ ]] || [[ "$INTERVAL" == 0 ]]; then
+  echo "Interval must be a positive number of seconds" >&2
+  exit 2
+fi
+if ! [[ "$PEEK" =~ ^[0-9]+$ ]]; then
+  echo "--peek must be a non-negative integer" >&2
+  exit 2
+fi
+
+USE_DOCKER=0
+if [[ -n "${REDIS_CLI:-}" ]]; then
+  REDIS_BIN="$REDIS_CLI"
+elif command -v redis-cli >/dev/null 2>&1; then
+  REDIS_BIN="$(command -v redis-cli)"
+else
+  USE_DOCKER=1
+  REDIS_BIN=""
+fi
+
+redis_cmd() {
+  if [[ "$USE_DOCKER" -eq 1 ]]; then
+    docker compose -f "$ROOT/docker-compose.yml" exec -T redis redis-cli "$@"
+  else
+    "$REDIS_BIN" -h "$REDIS_HOST" -p "$REDIS_PORT" "$@"
+  fi
+}
+
+connection_label() {
+  if [[ "$USE_DOCKER" -eq 1 ]]; then
+    echo "docker compose service redis"
+  else
+    echo "${REDIS_HOST}:${REDIS_PORT}"
+  fi
+}
+
+check_redis() {
+  local pong
+  if ! pong="$(redis_cmd PING 2>&1)"; then
+    echo "Cannot reach Redis ($(connection_label)): ${pong}" >&2
+    exit 1
+  fi
+  if [[ "$pong" != "PONG" ]]; then
+    echo "Unexpected Redis PING reply ($(connection_label)): ${pong}" >&2
+    exit 1
+  fi
+}
+
+# Print up to PEEK tickets in consumer order (tail first).
+print_tickets() {
+  local key="$1"
+  local depth="$2"
+  local show="$PEEK"
+
+  if [[ "$depth" -eq 0 ]]; then
+    echo "  (empty)"
+    return
+  fi
+  if [[ "$show" -gt "$depth" ]]; then
+    show="$depth"
+  fi
+  if [[ "$show" -eq 0 ]]; then
+    return
+  fi
+
+  local i idx raw
+  for ((i = 1; i <= show; i++)); do
+    idx="-$i"
+    raw="$(redis_cmd LINDEX "$key" "$idx")"
+    printf '  %d. %s\n' "$i" "$raw"
+  done
+  if [[ "$depth" -gt "$show" ]]; then
+    printf '  … %d more\n' "$((depth - show))"
+  fi
+}
+
+print_queue() {
+  local title="$1"
+  local key="$2"
+  local depth
+  depth="$(redis_cmd LLEN "$key")"
+  printf '%s  %s  depth=%s\n' "$title" "$key" "$depth"
+  print_tickets "$key" "$depth"
+}
+
+snapshot() {
+  local now
+  now="$(date '+%Y-%m-%d %H:%M:%S')"
+  echo "Redis queues  ${now}  $(connection_label)"
+  echo
+  print_queue "PHP files" "$FILES_KEY"
+  echo
+  print_queue "OCR" "$OCR_KEY"
+}
+
+check_redis
+
+if [[ "$ONCE" -eq 1 ]]; then
+  snapshot
+  exit 0
+fi
+
+trap 'printf "\nStopped.\n"; exit 0' INT TERM
+
+while true; do
+  if [[ -t 1 ]]; then
+    printf '\033[H\033[2J'
+  fi
+  snapshot
+  if [[ -t 1 ]]; then
+    echo
+    echo "Refreshing every ${INTERVAL}s  (Ctrl-C to stop)"
+  else
+    echo
+  fi
+  sleep "$INTERVAL"
+done

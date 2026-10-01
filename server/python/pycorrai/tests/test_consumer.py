@@ -8,6 +8,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from pycorrai.consumer import (
+    BRPOP_TIMEOUT,
+    SOCKET_TIMEOUT,
     ObjectStore,
     attributes_key,
     event_body,
@@ -15,6 +17,7 @@ from pycorrai.consumer import (
     file_id_from_path,
     file_prefix,
     format_ocr_json,
+    make_redis_client,
     ocr_json_key,
     parse_ticket,
     treat,
@@ -193,6 +196,18 @@ class TreatTest(unittest.TestCase):
 
         client.put_object.assert_not_called()
         redis.lpush.assert_not_called()
+
+
+class RedisClientTest(unittest.TestCase):
+    def test_socket_timeout_exceeds_brpop(self) -> None:
+        self.assertGreater(SOCKET_TIMEOUT, BRPOP_TIMEOUT)
+
+    def test_make_redis_client_sets_timeouts(self) -> None:
+        with patch("pycorrai.consumer.Redis") as redis_cls:
+            make_redis_client()
+        kwargs = redis_cls.call_args.kwargs
+        self.assertGreater(kwargs["socket_timeout"], BRPOP_TIMEOUT)
+        self.assertEqual(kwargs["socket_connect_timeout"], 5)
 
 
 class EngineCacheTest(unittest.TestCase):
