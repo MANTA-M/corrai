@@ -52,6 +52,10 @@ const ro: I18nSchema = {
             MathPipeline: "Matematică",
             Physics: "Fizică",
             Dictation: "Dictare",
+            English: "Engleză",
+            German: "Germană",
+            Spanish: "Spaniolă",
+            Russian: "Rusă",
             Law: "Drept",
             Other: "Altul"
         },

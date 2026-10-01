@@ -19,7 +19,11 @@ class SubjectCatalogTest extends TestCase
 
         $this->assertSame('Math', $bySubject['Math']['name']);
         $this->assertSame('Physique', $bySubject['Physics']['name']);
-        $this->assertSame('Dictée', $bySubject['Dictation']['name']);
+        $this->assertSame('Français (dictée)', $bySubject['Dictation']['name']);
+        $this->assertSame('Anglais', $bySubject['English']['name']);
+        $this->assertSame('Allemand', $bySubject['German']['name']);
+        $this->assertSame('Espagnol', $bySubject['Spanish']['name']);
+        $this->assertSame('Russe', $bySubject['Russian']['name']);
         $this->assertSame('Droit', $bySubject['Law']['name']);
         $this->assertSame('Autre', $bySubject['Other']['name']);
 
@@ -37,7 +41,7 @@ class SubjectCatalogTest extends TestCase
             $dictation['countries'][0]['levels']
         );
 
-        foreach (['Math', 'Physics', 'Law', 'Other'] as $subject) {
+        foreach (['Math', 'Physics', 'Law', 'Other', 'English', 'German', 'Spanish', 'Russian'] as $subject) {
             $this->assertSame([], $bySubject[$subject]['countries']);
             $this->assertSame([], $bySubject[$subject]['levels']);
         }

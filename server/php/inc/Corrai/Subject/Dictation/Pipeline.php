@@ -15,7 +15,7 @@ class Pipeline
     public const COUNTRY = '';
     public const NAMES = [
         'en' => 'Dictation',
-        'fr' => 'Dictée',
+        'fr' => 'Français (dictée)',
         'ru' => 'Диктант',
         'uk' => 'Диктант',
         'es' => 'Dictado',

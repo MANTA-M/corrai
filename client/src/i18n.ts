@@ -81,6 +81,10 @@ export interface I18nSchema {
             MathPipeline: string
             Physics: string
             Dictation: string
+            English: string
+            German: string
+            Spanish: string
+            Russian: string
             Law: string
             Other: string
         }

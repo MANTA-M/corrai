@@ -51,7 +51,11 @@ const fr: I18nSchema = {
         subjects: {
             MathPipeline: "Math",
             Physics: "Physique",
-            Dictation: "Dictée",
+            Dictation: "Français (dictée)",
+            English: "Anglais",
+            German: "Allemand",
+            Spanish: "Espagnol",
+            Russian: "Russe",
             Law: "Droit",
             Other: "Autre"
         },

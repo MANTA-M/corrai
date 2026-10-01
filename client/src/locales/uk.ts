@@ -52,6 +52,10 @@ const uk: I18nSchema = {
             MathPipeline: "Математика",
             Physics: "Фізика",
             Dictation: "Диктант",
+            English: "Англійська",
+            German: "Німецька",
+            Spanish: "Іспанська",
+            Russian: "Російська",
             Law: "Право",
             Other: "Інше"
         },

@@ -52,6 +52,10 @@ const pt: I18nSchema = {
             MathPipeline: "Matemática",
             Physics: "Física",
             Dictation: "Ditado",
+            English: "Inglês",
+            German: "Alemão",
+            Spanish: "Espanhol",
+            Russian: "Russo",
             Law: "Direito",
             Other: "Outro"
         },

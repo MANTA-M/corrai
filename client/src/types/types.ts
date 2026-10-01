@@ -14,6 +14,10 @@ export const EXAM_SUBJECTS = [
   'MathPipeline',
   'Physics',
   'Dictation',
+  'English',
+  'German',
+  'Spanish',
+  'Russian',
   'Law',
   'Other',
 ] as const
