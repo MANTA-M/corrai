@@ -44,9 +44,9 @@
                 }}</label>
                 <select
                   id="admin_locale"
-                  v-model="settings.admin_locale"
+                  :value="sessionStore.locale"
                   class="select"
-                  @change="saveSetting('admin_locale')"
+                  @change="onAdminLocaleChange"
                 >
                   <option v-for="locale in availableLocales" :key="locale.code" :value="locale.code">
                     {{ locale.name }}
@@ -134,10 +134,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import { AVAILABLE_LOCALES } from '@/i18n'
+import { AVAILABLE_LOCALES, isValidLocale, loadLanguage } from '@/i18n'
 import { useNotificationService } from '@/services/notifications'
 
 const sessionStore = useSessionStore()
@@ -161,18 +161,6 @@ const availableLocales = computed(() => {
     code,
     name: localeNames[code] || code,
   }))
-})
-
-// Load settings on component mount
-
-interface Settings {
-  admin_locale: string
-  link?: string
-}
-
-// Initialize settings with default values
-const settings = ref<Settings>({
-  admin_locale: 'en',
 })
 
 // Notification permission state
@@ -266,25 +254,14 @@ const copyLinkToClipboard = () => {
     })
 }
 
-const saveSetting = async (setting: keyof Settings) => {
-  const originalValue = settings.value[setting]
-
-  try {
-    const response = await sessionStore
-      .getWsClient()
-      .queryWs<any>('PUT', '/settings/' + setting, null, { new_value: originalValue })
-
-    if (!response.ok) {
-      throw new Error('Failed to save setting')
-    }
-  } catch (error) {
-    console.error(`Failed to save ${setting}:`, error)
-    // Revert the value if save failed
-    settings.value = {
-      ...settings.value,
-      [setting]: originalValue,
-    }
+const onAdminLocaleChange = async (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  const newLocale = target.value
+  if (!isValidLocale(newLocale)) {
+    return
   }
+  await loadLanguage(newLocale)
+  sessionStore.setLocale(newLocale)
 }
 
 const onDebugModeChange = (event: Event) => {
@@ -299,16 +276,6 @@ const link_data = computed(() => {
   }
 })
 
-onMounted(async () => {
-  try {
-    const adminLocaleResponse = await sessionStore
-      .getWsClient()
-      .queryWs<{ admin_locale: string }>('GET', '/settings/admin_locale')
-    settings.value.admin_locale = adminLocaleResponse.admin_locale
-  } catch (error) {
-    console.error('Error loading admin_locale:', error)
-  }
-})
 </script>
 
 <style scoped>
