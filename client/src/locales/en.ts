@@ -10,7 +10,8 @@ const en: I18nSchema = {
         assessments: "Assessments",
         settings: "Settings",
         login: "Login",
-        logout: "Logout"
+        logout: "Logout",
+        myAccount: "My account"
     },
     assessmentList: {
         subtitle: "Manage your assessments",
@@ -31,7 +32,14 @@ const en: I18nSchema = {
         title: "Create Assessment",
         subtitle: "Enter the name, subject, and date of your assessment",
         editTitle: "Edit Assessment",
-        editSubtitle: "Update the name, subject, and date of your assessment"
+        editSubtitle: "Update the name, subject, and date of your assessment",
+        subjectSubtitle: "Add the subject file, or continue without one.",
+        chooseSubject: "Choose the subject file",
+        noSubject: "No subject",
+        analyzing: "Reading the first page...",
+        analyzeError: "Could not analyze the subject",
+        reviewSubtitle: "Check and complete the assessment details",
+        finish: "Finish"
     },
     assessment: {
         loading: "Loading assessment...",
@@ -142,9 +150,22 @@ const en: I18nSchema = {
     },
     language: "Language",
     settings: {
-        title: "Settings",
-        subtitle: "Configure your preferences and system options",
-        general: "General",
+        title: "My account",
+        subtitle: "Manage your account, preferences, and notifications",
+        credentials: "Credentials",
+        name: "Name",
+        email: "Email",
+        password: "Password",
+        password_confirm: "Confirm password",
+        billing: "Billing",
+        billing_empty: "You have not made a payment yet",
+        preferences: "Preferences",
+        delete_account: "Delete account",
+        delete_account_title: "Delete account",
+        delete_account_confirm: "This action is permanent. Your account and assessments will be deleted.",
+        delete_account_error: "Could not delete the account.",
+        identity_error: "Could not save this change.",
+        password_mismatch: "Passwords do not match.",
         country: "Country",
         country_error: "Could not save the country.",
         debug_mode: "Debug mode",

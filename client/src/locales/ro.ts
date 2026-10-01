@@ -10,7 +10,8 @@ const ro: I18nSchema = {
         assessments: "Evaluări",
         settings: "Setări",
         login: "Autentificare",
-        logout: "Deconectare"
+        logout: "Deconectare",
+        myAccount: "Contul meu"
     },
     assessmentList: {
         subtitle: "Gestionați evaluările",
@@ -31,7 +32,14 @@ const ro: I18nSchema = {
         title: "Creează o evaluare",
         subtitle: "Introduceți numele, materia și data evaluării",
         editTitle: "Editează evaluarea",
-        editSubtitle: "Actualizați numele, materia și data evaluării"
+        editSubtitle: "Actualizați numele, materia și data evaluării",
+        subjectSubtitle: "Adăugați fișierul subiectului, sau continuați fără el.",
+        chooseSubject: "Alege fișierul subiectului",
+        noSubject: "Fără subiect",
+        analyzing: "Se citește prima pagină...",
+        analyzeError: "Subiectul nu a putut fi analizat",
+        reviewSubtitle: "Verificați și completați datele evaluării",
+        finish: "Termină"
     },
     assessment: {
         loading: "Se încarcă evaluarea...",
@@ -142,9 +150,22 @@ const ro: I18nSchema = {
     },
     language: "Limbă",
     settings: {
-        title: "Setări",
-        subtitle: "Configurați preferințele și opțiunile sistemului",
-        general: "General",
+        title: "Contul meu",
+        subtitle: "Gestionați contul, preferințele și notificările",
+        credentials: "Identificatori",
+        name: "Nume",
+        email: "E-mail",
+        password: "Parolă",
+        password_confirm: "Confirmați parola",
+        billing: "Facturare",
+        billing_empty: "Nu ați efectuat nicio plată deocamdată",
+        preferences: "Preferințe",
+        delete_account: "Șterge contul",
+        delete_account_title: "Șterge contul",
+        delete_account_confirm: "Această acțiune este definitivă. Contul și evaluările vor fi șterse.",
+        delete_account_error: "Contul nu a putut fi șters.",
+        identity_error: "Modificarea nu a putut fi salvată.",
+        password_mismatch: "Parolele nu coincid.",
         country: "Țară",
         country_error: "Nu s-a putut salva țara.",
         debug_mode: "Mod depanare",

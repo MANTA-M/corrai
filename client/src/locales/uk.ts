@@ -10,7 +10,8 @@ const uk: I18nSchema = {
         assessments: "Оцінювання",
         settings: "Налаштування",
         login: "Вхід",
-        logout: "Вихід"
+        logout: "Вихід",
+        myAccount: "Мій обліковий запис"
     },
     assessmentList: {
         subtitle: "Керуйте своїми оцінюваннями",
@@ -31,7 +32,14 @@ const uk: I18nSchema = {
         title: "Створити оцінювання",
         subtitle: "Введіть назву, предмет і дату оцінювання",
         editTitle: "Редагувати оцінювання",
-        editSubtitle: "Оновіть назву, предмет і дату оцінювання"
+        editSubtitle: "Оновіть назву, предмет і дату оцінювання",
+        subjectSubtitle: "Додайте файл завдання або продовжте без нього.",
+        chooseSubject: "Обрати файл завдання",
+        noSubject: "Без завдання",
+        analyzing: "Читання першої сторінки...",
+        analyzeError: "Не вдалося розібрати завдання",
+        reviewSubtitle: "Перевірте й доповніть дані оцінювання",
+        finish: "Готово"
     },
     assessment: {
         loading: "Завантаження оцінювання...",
@@ -142,9 +150,22 @@ const uk: I18nSchema = {
     },
     language: "Мова",
     settings: {
-        title: "Налаштування",
-        subtitle: "Налаштуйте ваші вподобання та параметри системи",
-        general: "Загальні",
+        title: "Мій обліковий запис",
+        subtitle: "Керуйте обліковим записом, уподобаннями та сповіщеннями",
+        credentials: "Облікові дані",
+        name: "Ім’я",
+        email: "Ел. пошта",
+        password: "Пароль",
+        password_confirm: "Підтвердьте пароль",
+        billing: "Оплата",
+        billing_empty: "Ви ще не здійснювали платежів",
+        preferences: "Уподобання",
+        delete_account: "Видалити обліковий запис",
+        delete_account_title: "Видалити обліковий запис",
+        delete_account_confirm: "Цю дію не можна скасувати. Обліковий запис і оцінювання буде видалено.",
+        delete_account_error: "Не вдалося видалити обліковий запис.",
+        identity_error: "Не вдалося зберегти зміну.",
+        password_mismatch: "Паролі не збігаються.",
         country: "Країна",
         country_error: "Не вдалося зберегти країну.",
         debug_mode: "Режим налагодження",

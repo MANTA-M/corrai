@@ -10,7 +10,8 @@ const ru: I18nSchema = {
         assessments: "Оценивания",
         settings: "Настройки",
         login: "Вход",
-        logout: "Выход"
+        logout: "Выход",
+        myAccount: "Мой аккаунт"
     },
     assessmentList: {
         subtitle: "Управление вашими оцениваниями",
@@ -31,7 +32,14 @@ const ru: I18nSchema = {
         title: "Создать оценивание",
         subtitle: "Введите название, предмет и дату оценивания",
         editTitle: "Редактировать оценивание",
-        editSubtitle: "Обновите название, предмет и дату оценивания"
+        editSubtitle: "Обновите название, предмет и дату оценивания",
+        subjectSubtitle: "Добавьте файл задания или продолжите без него.",
+        chooseSubject: "Выбрать файл задания",
+        noSubject: "Без задания",
+        analyzing: "Чтение первой страницы...",
+        analyzeError: "Не удалось разобрать задание",
+        reviewSubtitle: "Проверьте и дополните данные оценивания",
+        finish: "Готово"
     },
     assessment: {
         loading: "Загрузка оценивания...",
@@ -142,9 +150,22 @@ const ru: I18nSchema = {
     },
     language: "Язык",
     settings: {
-        title: "Настройки",
-        subtitle: "Настройте ваши предпочтения и параметры системы",
-        general: "Общие",
+        title: "Мой аккаунт",
+        subtitle: "Управляйте аккаунтом, предпочтениями и уведомлениями",
+        credentials: "Учётные данные",
+        name: "Имя",
+        email: "Эл. почта",
+        password: "Пароль",
+        password_confirm: "Подтвердите пароль",
+        billing: "Оплата",
+        billing_empty: "Вы пока не совершали платежей",
+        preferences: "Предпочтения",
+        delete_account: "Удалить аккаунт",
+        delete_account_title: "Удалить аккаунт",
+        delete_account_confirm: "Это действие необратимо. Аккаунт и оценки будут удалены.",
+        delete_account_error: "Не удалось удалить аккаунт.",
+        identity_error: "Не удалось сохранить изменение.",
+        password_mismatch: "Пароли не совпадают.",
         country: "Страна",
         country_error: "Не удалось сохранить страну.",
         debug_mode: "Режим отладки",

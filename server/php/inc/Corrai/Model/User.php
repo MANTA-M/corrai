@@ -170,6 +170,17 @@ class User
         throw new Exception("User with email $email does not exist");
     }
 
+    public static function emailInUse(string $email, ?string $exceptUserId = null): bool
+    {
+        try {
+            $existing = self::from_email($email);
+        } catch (Exception $e) {
+            return false;
+        }
+
+        return $existing->id !== $exceptUserId;
+    }
+
     /**
      * Persist teacher attributes.json and register the _id pointer.
      */

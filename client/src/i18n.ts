@@ -40,6 +40,7 @@ export interface I18nSchema {
         settings: string
         login: string
         logout: string
+        myAccount: string
     }
     assessmentList: {
         subtitle: string
@@ -61,6 +62,13 @@ export interface I18nSchema {
         subtitle: string
         editTitle: string
         editSubtitle: string
+        subjectSubtitle: string
+        chooseSubject: string
+        noSubject: string
+        analyzing: string
+        analyzeError: string
+        reviewSubtitle: string
+        finish: string
     }
     assessment: {
         loading: string
@@ -173,7 +181,20 @@ export interface I18nSchema {
     settings: {
         title: string
         subtitle: string
-        general: string
+        credentials: string
+        name: string
+        email: string
+        password: string
+        password_confirm: string
+        billing: string
+        billing_empty: string
+        preferences: string
+        delete_account: string
+        delete_account_title: string
+        delete_account_confirm: string
+        delete_account_error: string
+        identity_error: string
+        password_mismatch: string
         country: string
         country_error: string
         debug_mode: string

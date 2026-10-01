@@ -1,21 +1,12 @@
 <script setup lang="ts">
-import LocaleSelector from './LocaleSelector.vue'
 import HamburgerMenu from './HamburgerMenu.vue'
-import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ref } from 'vue'
 
-const { t } = useI18n()
 const sessionStore = useSessionStore()
-const router = useRouter()
 const route = useRoute()
 const isMenuOpen = ref(false)
-
-const handleLogout = () => {
-  sessionStore.clearSession()
-  router.push('/login')
-}
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
@@ -35,24 +26,21 @@ const toggleMenu = () => {
           <router-link to="/assessment-list" class="nav-link" @click="isMenuOpen = false">{{
             $t('nav.assessments')
           }}</router-link>
-          <router-link to="/settings_page" class="nav-link" @click="isMenuOpen = false">{{
-            $t('nav.settings')
-          }}</router-link>
           <!-- Mobile menu items -->
           <div class="mobile-menu-items">
-            <LocaleSelector class="mobile-locale-selector" />
-            <button
+            <router-link
               v-if="sessionStore.isAuthenticated"
-              @click="handleLogout"
-              class="button primary mobile-logout"
+              to="/settings_page"
+              class="account-button"
+              @click="isMenuOpen = false"
             >
-              {{ $t('nav.logout') }}
-            </button>
+              <span v-if="sessionStore.user_name" class="account-name">{{ sessionStore.user_name }}</span>
+              <span class="account-label">{{ $t('nav.myAccount') }}</span>
+            </router-link>
           </div>
         </nav>
       </div>
       <div class="header-right desktop-only">
-        <LocaleSelector />
         <router-link
           v-if="!sessionStore.isAuthenticated && route.name !== 'login'"
           to="/login"
@@ -60,9 +48,14 @@ const toggleMenu = () => {
         >
           {{ $t('nav.login') }}
         </router-link>
-        <button v-else-if="sessionStore.isAuthenticated" @click="handleLogout" class="button primary">
-          {{ $t('nav.logout') }}
-        </button>
+        <router-link
+          v-else-if="sessionStore.isAuthenticated"
+          to="/settings_page"
+          class="account-button"
+        >
+          <span v-if="sessionStore.user_name" class="account-name">{{ sessionStore.user_name }}</span>
+          <span class="account-label">{{ $t('nav.myAccount') }}</span>
+        </router-link>
       </div>
     </div>
   </header>
@@ -162,19 +155,7 @@ nav {
     gap: 1rem;
   }
 
-  .mobile-locale-selector {
-    width: 100%;
-  }
-
-  .mobile-locale-selector :deep(.locale-selector) {
-    width: 100%;
-  }
-
-  .mobile-locale-selector :deep(select) {
-    width: 100%;
-  }
-
-  .mobile-logout {
+  .mobile-menu-items .account-button {
     width: 100%;
   }
 }
@@ -183,5 +164,39 @@ nav {
   .mobile-menu-items {
     display: none !important;
   }
+}
+
+.account-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--ink);
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.account-button:hover,
+.account-button.router-link-active {
+  background: var(--pale);
+  border-color: var(--hover-border);
+  text-decoration: none;
+}
+
+.account-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.account-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #4c5670;
 }
 </style>

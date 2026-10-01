@@ -11,10 +11,43 @@
         <button class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
       </div>
 
+      <template v-else-if="showSubjectStep">
+        <div class="header">
+          <h1 data-testid="assessment-form-heading">{{ t('createAssessment.title') }}</h1>
+          <button class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
+        </div>
+        <div class="content">
+          <p class="subtitle">{{ t('createAssessment.subjectSubtitle') }}</p>
+          <div class="file-picker">
+            <label class="file-button" :class="{ disabled: isAnalyzing }">
+              {{ t('createAssessment.chooseSubject') }}
+              <input
+                type="file"
+                accept="application/pdf,image/*,text/plain,.txt,.text,.md,.odt,.docx,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                data-testid="assessment-subject-file"
+                :disabled="isAnalyzing"
+                @change="onSubjectFile"
+              />
+            </label>
+            <button
+              type="button"
+              class="back-button"
+              data-testid="assessment-no-subject"
+              :disabled="isAnalyzing"
+              @click="skipSubject"
+            >
+              {{ t('createAssessment.noSubject') }}
+            </button>
+          </div>
+          <p v-if="isAnalyzing" class="analyzing">{{ t('createAssessment.analyzing') }}</p>
+          <p v-if="error" class="error-message">{{ error }}</p>
+        </div>
+      </template>
+
       <template v-else>
         <div class="header">
           <h1 data-testid="assessment-form-heading">{{ pageTitle }}</h1>
-          <button class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
+          <button v-if="isEditMode" class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
         </div>
         <div class="content">
           <p class="subtitle">{{ pageSubtitle }}</p>
@@ -92,14 +125,26 @@
               />
             </div>
             <p v-if="error" class="error-message">{{ error }}</p>
-            <button
-              type="submit"
-              class="submit-button"
-              :data-testid="isEditMode ? 'assessment-save' : 'assessment-submit'"
-              :disabled="isSubmitting"
-            >
-              {{ submitLabel }}
-            </button>
+            <div class="form-actions">
+              <button
+                type="submit"
+                class="submit-button"
+                :data-testid="isEditMode ? 'assessment-save' : 'assessment-submit'"
+                :disabled="isSubmitting"
+              >
+                {{ submitLabel }}
+              </button>
+              <button
+                v-if="!isEditMode"
+                type="button"
+                class="back-button"
+                data-testid="assessment-cancel"
+                :disabled="isSubmitting"
+                @click="cancelCreate"
+              >
+                {{ t('common.cancel') }}
+              </button>
+            </div>
           </form>
         </div>
       </template>
@@ -124,7 +169,11 @@ const sessionStore = useSessionStore()
 const error = ref('')
 const isSubmitting = ref(false)
 const isLoading = ref(false)
+const isAnalyzing = ref(false)
 const formLoaded = ref(false)
+const step = ref<'subject' | 'details'>('subject')
+const draftId = ref('')
+const analyzedCountry = ref<string | null>(null)
 
 const { subjects, load: loadSubjects } = useSubjectCatalog()
 
@@ -153,18 +202,19 @@ function optionalText(value: string): string | null {
 
 const assessmentId = computed(() => (route.params.id as string | undefined) ?? '')
 const isEditMode = computed(() => route.name === 'assessment-edit' && !!assessmentId.value)
+const showSubjectStep = computed(() => !isEditMode.value && step.value === 'subject')
 
 const pageTitle = computed(() =>
   isEditMode.value ? t('createAssessment.editTitle') : t('createAssessment.title')
 )
 const pageSubtitle = computed(() =>
-  isEditMode.value ? t('createAssessment.editSubtitle') : t('createAssessment.subtitle')
+  isEditMode.value ? t('createAssessment.editSubtitle') : t('createAssessment.reviewSubtitle')
 )
 const submitLabel = computed(() => {
   if (isSubmitting.value) {
-    return isEditMode.value ? t('assessment.saving') : t('assessment.creating')
+    return isEditMode.value || draftId.value ? t('assessment.saving') : t('assessment.creating')
   }
-  return isEditMode.value ? t('assessment.save') : t('assessment.create')
+  return isEditMode.value ? t('assessment.save') : t('createAssessment.finish')
 })
 
 const goBack = () => {
@@ -223,6 +273,95 @@ const submitAssessment = async () => {
   }
 }
 
+const skipSubject = () => {
+  draftId.value = ''
+  analyzedCountry.value = null
+  error.value = ''
+  form.name = ''
+  form.subject = ''
+  form.level = ''
+  form.date = ''
+  step.value = 'details'
+}
+
+const onSubjectFile = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  const userId = sessionStore.hasValidUserId ? sessionStore.user_id : null
+  if (!userId) {
+    error.value = t('createAssessment.analyzeError')
+    return
+  }
+
+  error.value = ''
+  isAnalyzing.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await sessionStore.getWsClient().queryWs<{
+      hash?: string
+      name?: string
+      subject?: string
+      level?: string | null
+      country?: string | null
+      date?: string
+    }>('POST', '/assessment_subject', { locale: String(locale.value) }, formData, 'form')
+
+    const id = response?.hash
+    if (!id) {
+      error.value = t('createAssessment.analyzeError')
+      return
+    }
+
+    draftId.value = id
+    analyzedCountry.value = response.country ?? null
+    form.name = response.name || ''
+    form.subject = response.subject || ''
+    form.level = response.level || ''
+    form.date = response.date || ''
+    sessionStore.own_assessments.push({
+      id,
+      author: userId,
+      name: form.name,
+      subject: form.subject,
+      country: analyzedCountry.value,
+      level: form.level || null,
+      date: form.date,
+      files: []
+    })
+    step.value = 'details'
+  } catch (err) {
+    console.error('Error analyzing subject:', err)
+    error.value = t('createAssessment.analyzeError')
+  } finally {
+    isAnalyzing.value = false
+  }
+}
+
+const cancelCreate = async () => {
+  error.value = ''
+  if (!draftId.value) {
+    await router.push({ name: 'assessment-list' })
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    await sessionStore.getWsClient().queryWs('DELETE', '/assessment', { hash: draftId.value })
+    sessionStore.remove_assessment(draftId.value)
+    draftId.value = ''
+    await router.push({ name: 'assessment-list' })
+  } catch (err) {
+    console.error('Error cancelling assessment:', err)
+    error.value = t('assessment.deleteError')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 const createAssessment = async () => {
   const userId = sessionStore.hasValidUserId ? sessionStore.user_id : null
   if (!userId) {
@@ -234,6 +373,19 @@ const createAssessment = async () => {
   try {
     const wsClient = sessionStore.getWsClient()
     const payload = assessmentPayload()
+    if (draftId.value) {
+      await wsClient.queryWs('PUT', '/assessment', { hash: draftId.value }, payload)
+      const existingIndex = sessionStore.own_assessments.findIndex(e => e.id === draftId.value)
+      if (existingIndex !== -1) {
+        sessionStore.own_assessments[existingIndex] = {
+          ...sessionStore.own_assessments[existingIndex],
+          ...payload
+        }
+      }
+      await router.push(`/assessment/${draftId.value}`)
+      return
+    }
+
     const response = await wsClient.queryWs<{ hash?: string }>(
       'POST',
       '/assessment',
@@ -296,7 +448,9 @@ const saveAssessment = async () => {
 const assessmentPayload = () => ({
   name: form.name.trim(),
   subject: form.subject.trim(),
-  country: userCountry.value || null,
+  country: !isEditMode.value && analyzedCountry.value
+    ? analyzedCountry.value
+    : (userCountry.value || null),
   level: optionalText(form.level),
   date: form.date
 })
@@ -309,6 +463,10 @@ const resetCreateForm = () => {
   error.value = ''
   formLoaded.value = false
   isLoading.value = false
+  isAnalyzing.value = false
+  step.value = 'subject'
+  draftId.value = ''
+  analyzedCountry.value = null
 }
 
 watch(locale, () => {
@@ -418,6 +576,43 @@ watch(
 .submit-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.file-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.file-button {
+  display: inline-block;
+  padding: 12px 18px;
+  background-color: var(--accent);
+  color: white;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--type-label);
+}
+
+.file-button input {
+  display: none;
+}
+
+.file-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.analyzing {
+  color: var(--text-muted);
+  margin-top: 1rem;
 }
 
 .error-message {

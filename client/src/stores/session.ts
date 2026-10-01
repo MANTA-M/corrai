@@ -12,6 +12,7 @@ interface CryptoKeyPair {
 
 interface SessionState {
   user_name: string
+  user_email: string
   country: string
   locale: AvailableLocale
   keyPair: CryptoKeyPair | null
@@ -41,6 +42,7 @@ const USER_ID_PATTERN = /^[0-9a-zA-Z]{7}$/
 
 const defaultState: SessionState = {
   user_name: '',
+  user_email: '',
   country: 'fr',
   locale: DEFAULT_LOCALE,
   keyPair: null,
@@ -69,6 +71,7 @@ function normalizeAssessment(raw: ServerAssessment): Assessment {
 
 export const useSessionStore = defineStore('session', () => {
   const user_name = ref<string>(defaultState.user_name)
+  const user_email = ref<string>(defaultState.user_email)
   const country = ref<string>(defaultState.country)
   const locale = ref<AvailableLocale>(defaultState.locale)
   const keyPair = ref<CryptoKeyPair | null>(defaultState.keyPair)
@@ -148,30 +151,56 @@ export const useSessionStore = defineStore('session', () => {
     country.value = code
   }
 
+  function applyUser(user?: { country?: string; name?: string; email?: string }): void {
+    if (typeof user?.country === 'string' && user.country !== '') {
+      country.value = user.country
+    }
+    if (typeof user?.name === 'string' && user.name !== '') {
+      user_name.value = user.name
+    }
+    if (typeof user?.email === 'string') {
+      user_email.value = user.email
+    }
+  }
+
   async function loadUser(): Promise<void> {
     const wsClient = getWsClient()
-    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string } }>(
+    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string; email?: string } }>(
       'GET',
       '/user'
     )
-    const loaded = response?.user?.country
-    if (typeof loaded === 'string' && loaded !== '') {
-      country.value = loaded
-    }
-    if (!user_name.value && response?.user?.name) {
-      user_name.value = response.user.name
+    applyUser(response?.user)
+  }
+
+  async function saveUser(patch: {
+    name?: string
+    email?: string
+    password?: string
+    country?: string
+  }): Promise<void> {
+    const wsClient = getWsClient()
+    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string; email?: string } }>(
+      'PUT',
+      '/user',
+      undefined,
+      patch
+    )
+    applyUser(response?.user)
+    if (patch.country && !response?.user?.country) {
+      country.value = patch.country
     }
   }
 
   async function saveCountry(code: string): Promise<void> {
+    await saveUser({ country: code })
+  }
+
+  async function deleteAccount(): Promise<void> {
     const wsClient = getWsClient()
-    const response = await wsClient.queryWs<{ user?: { country?: string } }>(
-      'PUT',
-      '/user',
-      undefined,
-      { country: code }
-    )
-    country.value = response?.user?.country || code
+    await wsClient.queryWs('DELETE', '/user')
+    user_name.value = ''
+    user_email.value = ''
+    clearSession()
   }
 
   function setLocale(newLocale: AvailableLocale): void {
@@ -294,6 +323,7 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     user_name,
+    user_email,
     country,
     locale,
     keyPair,
@@ -312,7 +342,9 @@ export const useSessionStore = defineStore('session', () => {
     setUserName,
     setCountry,
     loadUser,
+    saveUser,
     saveCountry,
+    deleteAccount,
     setLocale,
     setDebugMode,
     logout,
@@ -328,7 +360,7 @@ export const useSessionStore = defineStore('session', () => {
   persist: {
     key: STORAGE_KEY,
     storage: localStorage,
-    pick: ['user_name', 'country', 'locale', 'keyPair', 'user_id', 'debugMode'],
+    pick: ['user_name', 'user_email', 'country', 'locale', 'keyPair', 'user_id', 'debugMode'],
     afterHydrate: ({ store }) => {
       store.discardInvalidUserId()
       if (typeof store.debugMode !== 'boolean') {

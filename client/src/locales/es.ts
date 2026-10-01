@@ -10,7 +10,8 @@ const es: I18nSchema = {
         assessments: "Evaluaciones",
         settings: "Configuración",
         login: "Iniciar sesión",
-        logout: "Cerrar sesión"
+        logout: "Cerrar sesión",
+        myAccount: "Mi cuenta"
     },
     assessmentList: {
         subtitle: "Gestiona tus evaluaciones",
@@ -31,7 +32,14 @@ const es: I18nSchema = {
         title: "Crear evaluación",
         subtitle: "Introduce el nombre, la asignatura y la fecha de tu evaluación",
         editTitle: "Editar evaluación",
-        editSubtitle: "Actualiza el nombre, la asignatura y la fecha de tu evaluación"
+        editSubtitle: "Actualiza el nombre, la asignatura y la fecha de tu evaluación",
+        subjectSubtitle: "Añade el archivo del enunciado, o continúa sin él.",
+        chooseSubject: "Elegir el archivo del enunciado",
+        noSubject: "Sin enunciado",
+        analyzing: "Leyendo la primera página...",
+        analyzeError: "No se ha podido analizar el enunciado",
+        reviewSubtitle: "Revisa y completa los datos de la evaluación",
+        finish: "Terminar"
     },
     assessment: {
         loading: "Cargando evaluación...",
@@ -142,9 +150,22 @@ const es: I18nSchema = {
     },
     language: "Idioma",
     settings: {
-        title: "Configuración",
-        subtitle: "Configure sus preferencias y opciones del sistema",
-        general: "General",
+        title: "Mi cuenta",
+        subtitle: "Gestione su cuenta, preferencias y notificaciones",
+        credentials: "Identificadores",
+        name: "Nombre",
+        email: "Correo",
+        password: "Contraseña",
+        password_confirm: "Confirmar contraseña",
+        billing: "Facturación",
+        billing_empty: "Todavía no ha realizado ningún pago",
+        preferences: "Preferencias",
+        delete_account: "Eliminar la cuenta",
+        delete_account_title: "Eliminar la cuenta",
+        delete_account_confirm: "Esta acción es definitiva. Se eliminarán su cuenta y sus evaluaciones.",
+        delete_account_error: "No se pudo eliminar la cuenta.",
+        identity_error: "No se pudo guardar este cambio.",
+        password_mismatch: "Las contraseñas no coinciden.",
         country: "País",
         country_error: "No se pudo guardar el país.",
         debug_mode: "Modo de depuración",

@@ -10,7 +10,8 @@ const pt: I18nSchema = {
         assessments: "Avaliações",
         settings: "Configurações",
         login: "Entrar",
-        logout: "Sair"
+        logout: "Sair",
+        myAccount: "A minha conta"
     },
     assessmentList: {
         subtitle: "Gerencie suas avaliações",
@@ -31,7 +32,14 @@ const pt: I18nSchema = {
         title: "Criar avaliação",
         subtitle: "Introduza o nome, a disciplina e a data da sua avaliação",
         editTitle: "Editar avaliação",
-        editSubtitle: "Atualize o nome, a disciplina e a data da sua avaliação"
+        editSubtitle: "Atualize o nome, a disciplina e a data da sua avaliação",
+        subjectSubtitle: "Adicione o ficheiro do enunciado, ou continue sem ele.",
+        chooseSubject: "Escolher o ficheiro do enunciado",
+        noSubject: "Sem enunciado",
+        analyzing: "A ler a primeira página...",
+        analyzeError: "Não foi possível analisar o enunciado",
+        reviewSubtitle: "Verifique e complete os dados da avaliação",
+        finish: "Terminar"
     },
     assessment: {
         loading: "A carregar avaliação...",
@@ -142,9 +150,22 @@ const pt: I18nSchema = {
     },
     language: "Idioma",
     settings: {
-        title: "Configurações",
-        subtitle: "Configure as suas preferências e opções do sistema",
-        general: "Geral",
+        title: "A minha conta",
+        subtitle: "Gira a sua conta, preferências e notificações",
+        credentials: "Identificadores",
+        name: "Nome",
+        email: "E-mail",
+        password: "Palavra-passe",
+        password_confirm: "Confirmar palavra-passe",
+        billing: "Faturação",
+        billing_empty: "Ainda não efetuou nenhum pagamento",
+        preferences: "Preferências",
+        delete_account: "Eliminar conta",
+        delete_account_title: "Eliminar conta",
+        delete_account_confirm: "Esta ação é definitiva. A sua conta e as avaliações serão eliminadas.",
+        delete_account_error: "Não foi possível eliminar a conta.",
+        identity_error: "Não foi possível guardar esta alteração.",
+        password_mismatch: "As palavras-passe não coincidem.",
         country: "País",
         country_error: "Não foi possível guardar o país.",
         debug_mode: "Modo de depuração",

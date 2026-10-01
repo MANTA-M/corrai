@@ -10,7 +10,8 @@ const de: I18nSchema = {
         assessments: "Bewertungen",
         settings: "Einstellungen",
         login: "Anmelden",
-        logout: "Abmelden"
+        logout: "Abmelden",
+        myAccount: "Mein Konto"
     },
     assessmentList: {
         subtitle: "Verwalten Sie Ihre Bewertungen",
@@ -31,7 +32,14 @@ const de: I18nSchema = {
         title: "Bewertung erstellen",
         subtitle: "Geben Sie Name, Fach und Datum Ihrer Bewertung ein",
         editTitle: "Bewertung bearbeiten",
-        editSubtitle: "Aktualisieren Sie Name, Fach und Datum Ihrer Bewertung"
+        editSubtitle: "Aktualisieren Sie Name, Fach und Datum Ihrer Bewertung",
+        subjectSubtitle: "Fügen Sie die Aufgabenstellung hinzu, oder fahren Sie ohne sie fort.",
+        chooseSubject: "Aufgabenstellung auswählen",
+        noSubject: "Keine Aufgabenstellung",
+        analyzing: "Erste Seite wird gelesen...",
+        analyzeError: "Die Aufgabenstellung konnte nicht gelesen werden",
+        reviewSubtitle: "Prüfen und ergänzen Sie die Angaben zur Bewertung",
+        finish: "Fertig"
     },
     assessment: {
         loading: "Bewertung wird geladen...",
@@ -142,9 +150,22 @@ const de: I18nSchema = {
     },
     language: "Sprache",
     settings: {
-        title: "Einstellungen",
-        subtitle: "Konfigurieren Sie Ihre Einstellungen und Systemoptionen",
-        general: "Allgemein",
+        title: "Mein Konto",
+        subtitle: "Verwalten Sie Ihr Konto, Ihre Einstellungen und Benachrichtigungen",
+        credentials: "Zugangsdaten",
+        name: "Name",
+        email: "E-Mail",
+        password: "Passwort",
+        password_confirm: "Passwort bestätigen",
+        billing: "Abrechnung",
+        billing_empty: "Sie haben bisher keine Zahlung vorgenommen",
+        preferences: "Einstellungen",
+        delete_account: "Konto löschen",
+        delete_account_title: "Konto löschen",
+        delete_account_confirm: "Diese Aktion ist endgültig. Ihr Konto und Ihre Bewertungen werden gelöscht.",
+        delete_account_error: "Das Konto konnte nicht gelöscht werden.",
+        identity_error: "Diese Änderung konnte nicht gespeichert werden.",
+        password_mismatch: "Die Passwörter stimmen nicht überein.",
         country: "Land",
         country_error: "Das Land konnte nicht gespeichert werden.",
         debug_mode: "Debug-Modus",

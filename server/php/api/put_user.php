@@ -2,6 +2,7 @@
 
 use Corrai\Utils\JsonUtils;
 use Corrai\Utils\Request;
+use Corrai\Utils\WSException;
 use Corrai\Model\User;
 
 try {
@@ -20,6 +21,34 @@ try {
         Request::add_error_message('error', 'Invalid JSON in PUT request body');
         Request::output_all();
         exit();
+    }
+
+    if (array_key_exists('name', $body)) {
+        if (!is_string($body['name']) || trim($body['name']) === '') {
+            throw new WSException('User name is required', 400);
+        }
+        $user->name = trim($body['name']);
+    }
+
+    if (array_key_exists('email', $body)) {
+        if (!is_string($body['email'])) {
+            throw new WSException('User email is invalid', 400);
+        }
+        $email = strtolower(trim($body['email']));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new WSException('User email is invalid', 400);
+        }
+        if (User::emailInUse($email, $user->id)) {
+            throw new WSException('User email is already in use', 409);
+        }
+        $user->email = $email;
+    }
+
+    if (array_key_exists('password', $body)) {
+        if (!is_string($body['password'])) {
+            throw new WSException('Password cannot be empty', 400);
+        }
+        $user->setPassword($body['password']);
     }
 
     if (array_key_exists('country', $body)) {

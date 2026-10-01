@@ -27,6 +27,7 @@ test.describe('Assessments CRUD', () => {
       await page.getByTestId('assessment-create-button').click()
       await page.waitForURL('**/create_assessment', { timeout: 10000 })
 
+      await page.getByTestId('assessment-no-subject').click()
       await page.getByTestId('assessment-name').fill('Math Midterm')
       await page.getByTestId('assessment-subject').selectOption('Math')
       await page.getByTestId('assessment-date').fill('2026-10-15')
