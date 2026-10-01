@@ -6,7 +6,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      redirect: '/exam-list'
+      redirect: '/assessment-list'
     },
     {
       path: '/settings_page',
@@ -15,28 +15,28 @@ const router = createRouter({
       meta: { title: 'Settings', requiresAuth: true }
     },
     {
-      path: '/exam-list',
-      name: 'exam-list',
-      component: () => import('@/views/ExamList.vue'),
-      meta: { title: 'Exams', requiresAuth: true }
+      path: '/assessment-list',
+      name: 'assessment-list',
+      component: () => import('@/views/AssessmentList.vue'),
+      meta: { title: 'Assessments', requiresAuth: true }
     },
     {
-      path: '/create_exam',
-      name: 'create-exam',
-      component: () => import('@/views/CreateExamView.vue'),
-      meta: { title: 'Create Exam', requiresAuth: true }
+      path: '/create_assessment',
+      name: 'create-assessment',
+      component: () => import('@/views/CreateAssessmentView.vue'),
+      meta: { title: 'Create Assessment', requiresAuth: true }
     },
     {
-      path: '/exam/:id/edit',
-      name: 'exam-edit',
-      component: () => import('@/views/CreateExamView.vue'),
-      meta: { title: 'Edit Exam', requiresAuth: true }
+      path: '/assessment/:id/edit',
+      name: 'assessment-edit',
+      component: () => import('@/views/CreateAssessmentView.vue'),
+      meta: { title: 'Edit Assessment', requiresAuth: true }
     },
     {
-      path: '/exam/:id',
-      name: 'exam',
-      component: () => import('@/views/ExamView.vue'),
-      meta: { title: 'Exam', requiresAuth: true }
+      path: '/assessment/:id',
+      name: 'assessment',
+      component: () => import('@/views/AssessmentView.vue'),
+      meta: { title: 'Assessment', requiresAuth: true }
     },
     {
       path: '/share',

@@ -3,25 +3,25 @@
     <div class="card">
       <div class="header">
         <div>
-          <h1 data-testid="exams-heading">{{ $t('nav.exams') }}</h1>
-          <p class="muted">{{ $t('examList.subtitle') }}</p>
+          <h1 data-testid="assessments-heading">{{ $t('nav.assessments') }}</h1>
+          <p class="muted">{{ $t('assessmentList.subtitle') }}</p>
         </div>
-        <router-link to="/create_exam" class="create-button" data-testid="exam-create-button">
-          {{ $t('exam.createNew') }}
+        <router-link to="/create_assessment" class="create-button" data-testid="assessment-create-button">
+          {{ $t('assessment.createNew') }}
         </router-link>
       </div>
       <div class="content">
         <div v-if="isLoading" class="loading">
-          <p>{{ $t('exam.loading') }}</p>
+          <p>{{ $t('assessment.loading') }}</p>
         </div>
-        <div v-else class="exams-list">
-          <ExamListItem
-            v-for="exam in exams"
-            :key="exam.id || exam.name"
-            :exam="exam"
+        <div v-else class="assessments-list">
+          <AssessmentListItem
+            v-for="assessment in assessments"
+            :key="assessment.id || assessment.name"
+            :assessment="assessment"
           />
-          <p v-if="exams.length === 0" class="empty-message" data-testid="exams-empty">
-            {{ $t('examList.empty') }}
+          <p v-if="assessments.length === 0" class="empty-message" data-testid="assessments-empty">
+            {{ $t('assessmentList.empty') }}
           </p>
         </div>
       </div>
@@ -32,13 +32,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
-import ExamListItem from '@/components/ExamListItem.vue'
+import AssessmentListItem from '@/components/AssessmentListItem.vue'
 
 const sessionStore = useSessionStore()
 const isLoading = ref(false)
 
-const exams = computed(() => {
-  return [...sessionStore.own_exams].sort((a, b) => {
+const assessments = computed(() => {
+  return [...sessionStore.own_assessments].sort((a, b) => {
     const dateA = a.date || ''
     const dateB = b.date || ''
     return dateA.localeCompare(dateB)
@@ -48,7 +48,7 @@ const exams = computed(() => {
 onMounted(async () => {
   isLoading.value = true
   try {
-    await sessionStore.load_exams()
+    await sessionStore.load_assessments()
   } finally {
     isLoading.value = false
   }
@@ -93,7 +93,7 @@ onMounted(async () => {
   padding: 1rem 0;
 }
 
-.exams-list {
+.assessments-list {
   margin-top: 0;
 }
 

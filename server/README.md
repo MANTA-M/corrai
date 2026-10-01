@@ -8,7 +8,7 @@ PHP backend for the corrai application.
 
 - PHP >= 7.4 (Docker uses PHP 8.3)
 - Composer for dependency management
-- SeaweedFS (S3-compatible object store) for schools, users, exams, and files. Logs go to `/var/log/corrai`.
+- SeaweedFS (S3-compatible object store) for schools, users, assessments, and files. Logs go to `/var/log/corrai`.
 
 ### Installing dependencies
 
@@ -32,14 +32,14 @@ REST API endpoints are located in `php/api/`:
 | Endpoint | Description |
 |----------|-------------|
 | `post_user.php` | Create an Independent (IND) teacher profile |
-| `get_exam.php` | Retrieve exam information |
-| `get_exams.php` | List exams for the authenticated user |
+| `get_assessment.php` | Retrieve assessment information |
+| `get_assessments.php` | List assessments for the authenticated user |
 | `get_download.php` | Download file |
 | `get_health.php` | Health check |
-| `post_exam.php` | Create a new exam |
+| `post_assessment.php` | Create a new assessment |
 | `post_file.php` | Upload file |
-| `put_exam.php` | Update an existing exam |
-| `delete_exam.php` | Delete a exam |
+| `put_assessment.php` | Update an existing assessment |
+| `delete_assessment.php` | Delete an assessment |
 | `delete_file.php` | Delete file |
 | `options.php` | CORS preflight handler |
 
@@ -146,7 +146,7 @@ Debugging and testing back-doors should be disabled in production mode. Producti
 
 ## Overview
 
-The corrai API provides endpoints for managing users, exams, and files. Exam and file endpoints require authentication via the `Authorization` header with a Bearer token (7-character user id).
+The corrai API provides endpoints for managing users, assessments, and files. Assessment and file endpoints require authentication via the `Authorization` header with a Bearer token (7-character user id).
 
 ## Authentication
 
@@ -156,7 +156,7 @@ Most API endpoints require authentication using the `Authorization` header:
 Authorization: Bearer <user_id>
 ```
 
-The token is the 7-character alphanumeric user id returned by `POST /api/user` (and stored under `schools/IND/teachers/{userId}/` in S3). It identifies the request author and must be provided for exam and file operations.
+The token is the 7-character alphanumeric user id returned by `POST /api/user` (and stored under `schools/IND/teachers/{userId}/` in S3). It identifies the request author and must be provided for assessment and file operations.
 
 `POST /api/user` is unauthenticated and creates a new Independent-school teacher.
 
@@ -192,19 +192,19 @@ Content-Type: application/json
 
 ---
 
-### 1. Create Exam
+### 1. Create Assessment
 
-**POST** `/api/exam`
+**POST** `/api/assessment`
 
-Creates a new exam under the authenticated user's S3 prefix.
+Creates a new assessment under the authenticated user's S3 prefix.
 
 **Request Body:**
-- JSON object containing exam data (`name`, `subject`, `date`)
+- JSON object containing assessment data (`name`, `subject`, `date`)
 - The owning user is taken from the Authorization header
 
 **Response:**
-- **201 Created**: Exam created successfully
-  - Returns: `{"hash": "<exam_id>"}`
+- **201 Created**: Assessment created successfully
+  - Returns: `{"hash": "<assessment_id>"}`
 - **400 Bad Request**: Invalid request
   - Missing request body
   - Invalid JSON format
@@ -212,12 +212,12 @@ Creates a new exam under the authenticated user's S3 prefix.
 
 **Example:**
 ```json
-POST /api/exam
+POST /api/assessment
 Authorization: Bearer <user_id>
 Content-Type: application/json
 
 {
-  "name": "Exam Title",
+  "name": "Assessment Title",
   "subject": "Mathematics",
   "date": "2026-06-15"
 }
@@ -225,56 +225,56 @@ Content-Type: application/json
 
 ---
 
-### 2. Get Exam
+### 2. Get Assessment
 
-**GET** `/api/get_exam.php?hash=<exam_id>`
+**GET** `/api/get_assessment.php?hash=<assessment_id>`
 
-Retrieves a exam by its hash/ID.
+Retrieves an assessment by its hash/ID.
 
 **Query Parameters:**
-- `hash` (required): The exam ID/hash
+- `hash` (required): The assessment ID/hash
 
 **Response:**
-- **200 OK**: Exam retrieved successfully
-  - Returns: `{"exam": {...}, "files": [...]}`
+- **200 OK**: Assessment retrieved successfully
+  - Returns: `{"assessment": {...}, "files": [...]}`
 - **400 Bad Request**: Invalid request
   - Missing hash parameter
-  - Exam does not exist
+  - Assessment does not exist
 
 **Example:**
 ```
-GET /api/get_exam.php?hash=abc123...
+GET /api/get_assessment.php?hash=abc123...
 Authorization: Bearer <user_id>
 ```
 
 ---
 
-### 3. Update Exam
+### 3. Update Assessment
 
-**PUT** `/api/put_exam.php?hash=<exam_id>`
+**PUT** `/api/put_assessment.php?hash=<assessment_id>`
 
-Updates an existing exam. Only the exam author can update their exam.
+Updates an existing assessment. Only the assessment author can update their assessment.
 
 **Query Parameters:**
-- `hash` (required): The exam ID/hash
+- `hash` (required): The assessment ID/hash
 
 **Request Body:**
-- JSON object containing updated exam data
+- JSON object containing updated assessment data
 
 **Response:**
-- **200 OK**: Exam updated successfully
-  - Returns: `{"hash": "<exam_id>", "message": "Exam updated successfully"}`
+- **200 OK**: Assessment updated successfully
+  - Returns: `{"hash": "<assessment_id>", "message": "Assessment updated successfully"}`
 - **400 Bad Request**: Invalid request
   - Missing hash parameter
   - Missing request body
   - Invalid JSON format
-  - Exam does not exist
+  - Assessment does not exist
 - **403 Forbidden**: Not authorized
-  - Request author does not match the exam author
+  - Request author does not match the assessment author
 
 **Example:**
 ```json
-PUT /api/put_exam.php?hash=abc123...
+PUT /api/put_assessment.php?hash=abc123...
 Authorization: Bearer <user_id>
 Content-Type: application/json
 
@@ -286,59 +286,59 @@ Content-Type: application/json
 
 ---
 
-### 4. Delete Exam
+### 4. Delete Assessment
 
-**DELETE** `/api/delete_exam.php?hash=<exam_id>`
+**DELETE** `/api/delete_assessment.php?hash=<assessment_id>`
 
-Deletes a exam. Only the exam author can delete their exam, and the exam must not be locked or claimed.
+Deletes an assessment. Only the assessment author can delete their assessment, and the assessment must not be locked or claimed.
 
 **Query Parameters:**
-- `hash` (required): The exam ID/hash
+- `hash` (required): The assessment ID/hash
 
 **Response:**
-- **200 OK**: Exam deleted successfully
-  - Returns: `{"hash": "<exam_id>", "message": "File deleted successfully"}`
+- **200 OK**: Assessment deleted successfully
+  - Returns: `{"hash": "<assessment_id>", "message": "File deleted successfully"}`
 - **400 Bad Request**: Invalid request
   - Missing hash parameter
-  - Exam does not exist
+  - Assessment does not exist
   - Error deleting file
-- **436 Conflict**: Cannot delete exam
-  - Exam is locked or claimed
-- **437 Forbidden**: Cannot delete exam
-  - Request author is not the exam author
+- **436 Conflict**: Cannot delete assessment
+  - Assessment is locked or claimed
+- **437 Forbidden**: Cannot delete assessment
+  - Request author is not the assessment author
 
 **Example:**
 ```
-DELETE /api/delete_exam.php?hash=abc123...
+DELETE /api/delete_assessment.php?hash=abc123...
 Authorization: Bearer <user_id>
 ```
 
 ---
 
-### 5. Claim Exam
+### 5. Claim Assessment
 
-**POST** `/api/post_claim.php?hash=<exam_id>`
+**POST** `/api/post_claim.php?hash=<assessment_id>`
 
-Claims a exam by providing the correct secret. The exam must be locked by the request author and have tries remaining.
+Claims an assessment by providing the correct secret. The assessment must be locked by the request author and have tries remaining.
 
 **Query Parameters:**
-- `hash` (required): The exam ID/hash
+- `hash` (required): The assessment ID/hash
 
 **Request Body:**
 - JSON object with `claim_secret` field
 
 **Response:**
-- **200 OK**: Exam claimed successfully
-  - Returns: `{"hash": "<exam_id>", "message": "Exam claimed successfully"}`
+- **200 OK**: Assessment claimed successfully
+  - Returns: `{"hash": "<assessment_id>", "message": "Assessment claimed successfully"}`
 - **400 Bad Request**: Invalid request
   - Missing hash parameter
   - Missing claim_secret in request body
-- **432 Conflict**: Exam has already been claimed
+- **432 Conflict**: Assessment has already been claimed
 - **433 Forbidden**: Request author does not match the locker
-- **434 Forbidden**: No tries remaining for this exam
+- **434 Forbidden**: No tries remaining for this assessment
 - **435 Unprocessable Entity**: Invalid claim secret
   - Returns: `{"remaining_tries": <number>, "message": "Invalid claim secret"}`
-  - The exam's `tries_remaining` is decremented on invalid secret
+  - The assessment's `tries_remaining` is decremented on invalid secret
 
 **Example:**
 ```json
@@ -355,22 +355,22 @@ Content-Type: application/json
 
 ### 6. Upload File
 
-**POST** `/api/post_file.php?id=<exam_id>`
+**POST** `/api/post_file.php?id=<assessment_id>`
 
-Uploads a file to a exam. Uses multipart/form-data encoding.
+Uploads a file to an assessment. Uses multipart/form-data encoding.
 
 **Query Parameters:**
-- `id` (required): The exam ID/hash
+- `id` (required): The assessment ID/hash
 
 **Request Body:**
 - `multipart/form-data` with a `file` field
 
 **Response:**
 - **201 Created**: File uploaded successfully
-  - Returns: `{"filename": "<filename>", "path": "<exam_id>_files/<filename>", "files": [...]}`
+  - Returns: `{"filename": "<filename>", "path": "<assessment_id>_files/<filename>", "files": [...]}`
 - **400 Bad Request**: Invalid request
   - Missing id parameter
-  - Exam does not exist
+  - Assessment does not exist
   - No file uploaded
   - File too large
   - File upload was incomplete
@@ -394,21 +394,21 @@ file: <file_data>
 
 ### 7. Delete File
 
-**DELETE** `/api/file?id=<exam_id>&file=<file_id>`
+**DELETE** `/api/file?id=<assessment_id>&file=<file_id>`
 
-Deletes a file from an exam by file hash.
+Deletes a file from an assessment by file hash.
 
 **Query Parameters:**
-- `id` (required): The exam ID/hash
+- `id` (required): The assessment ID/hash
 - `file` (required): The file hash to delete
 
 **Response:**
 - **200 OK**: File deleted successfully
-  - Returns: `{"file": "<file_id>", "id": "<exam_id>", "message": "File deleted successfully", "files": [...], "students": [...]}`
+  - Returns: `{"file": "<file_id>", "id": "<assessment_id>", "message": "File deleted successfully", "files": [...], "students": [...]}`
 - **400 Bad Request**: Invalid request
   - Missing id parameter
   - Missing file parameter
-  - Exam does not exist
+  - Assessment does not exist
   - File does not exist
   - Error deleting file
 
@@ -420,21 +420,21 @@ Authorization: Bearer <user_id>
 
 ---
 
-### 8. Lock Exam
+### 8. Lock Assessment
 
-**PUT** `/api/put_lock.php?hash=<exam_id>`
+**PUT** `/api/put_lock.php?hash=<assessment_id>`
 
-Locks a exam. The request author becomes the locker.
+Locks an assessment. The request author becomes the locker.
 
 **Query Parameters:**
-- `hash` (required): The exam ID/hash
+- `hash` (required): The assessment ID/hash
 
 **Response:**
-- **200 OK**: Exam locked successfully
+- **200 OK**: Assessment locked successfully
   - Returns: Standard output format
 - **400 Bad Request**: Invalid request
   - Missing hash parameter
-  - Exam does not exist
+  - Assessment does not exist
 
 **Example:**
 ```
@@ -444,22 +444,22 @@ Authorization: Bearer <user_id>
 
 ---
 
-### 9. Unlock Exam
+### 9. Unlock Assessment
 
-**DELETE** `/api/delete_lock.php?hash=<exam_id>`
+**DELETE** `/api/delete_lock.php?hash=<assessment_id>`
 
-Unlocks a exam. Only the locker can unlock the exam.
+Unlocks an assessment. Only the locker can unlock the assessment.
 
 **Query Parameters:**
-- `hash` (required): The exam ID/hash
+- `hash` (required): The assessment ID/hash
 
 **Response:**
-- **200 OK**: Exam unlocked successfully
-  - Returns: `{"hash": "<exam_id>", "message": "Exam unlocked successfully"}`
+- **200 OK**: Assessment unlocked successfully
+  - Returns: `{"hash": "<assessment_id>", "message": "Assessment unlocked successfully"}`
 - **400 Bad Request**: Invalid request
   - Missing hash parameter
-  - Exam does not exist
-  - Exam is not locked
+  - Assessment does not exist
+  - Assessment is not locked
 - **433 Forbidden**: Request author does not match the locker
 
 **Example:**
@@ -497,12 +497,12 @@ Handles CORS preflight requests and sets appropriate CORS headers.
 
 | Code | Status | Description |
 |------|--------|-------------|
-| 432 | Conflict | Exam has already been claimed |
+| 432 | Conflict | Assessment has already been claimed |
 | 433 | Forbidden | Request author does not match the locker |
-| 434 | Forbidden | No tries remaining for this exam |
+| 434 | Forbidden | No tries remaining for this assessment |
 | 435 | Unprocessable Entity | Invalid claim secret (tries_remaining is decremented) |
-| 436 | Conflict | Cannot delete exam: exam is locked or claimed |
-| 437 | Forbidden | Cannot delete exam: request author is not the exam author |
+| 436 | Conflict | Cannot delete assessment: assessment is locked or claimed |
+| 437 | Forbidden | Cannot delete assessment: request author is not the assessment author |
 
 ### Error Response Format
 
@@ -535,9 +535,9 @@ All errors are returned in a consistent JSON format:
 - **"Invalid authorization header with no Bearer prefix"**: Authorization header missing "Bearer " prefix (401)
 - **"Invalid authorization header with no token"**: Authorization header missing token after "Bearer " (401)
 - **"Not authorized"**: Request author does not have permission for the operation (403)
-- **"Exam with hash <hash> does not exist"**: Specified exam ID not found
-- **"Exam with id <id> does not exist"**: Specified exam ID not found
-- **"Exam is not locked"**: Attempted to unlock a exam that is not locked
+- **"Assessment with hash <hash> does not exist"**: Specified assessment ID not found
+- **"Assessment with id <id> does not exist"**: Specified assessment ID not found
+- **"Assessment is not locked"**: Attempted to unlock an assessment that is not locked
 - **"No claim_secret in POST request body"**: Missing claim_secret field in claim request
 - **"Invalid file name"**: File name contains invalid characters (slashes/backslashes)
 - **"File too large"**: Uploaded file exceeds size limits
@@ -547,7 +547,7 @@ All errors are returned in a consistent JSON format:
 - **"Failed to write file to disk"**: Disk write error
 - **"File upload stopped by extension"**: Server extension blocked upload
 - **"Failed to save uploaded file"**: Error moving uploaded file to destination
-- **"File '<filename>' does not exist for exam <id>"**: Specified file not found for exam
+- **"File '<filename>' does not exist for assessment <id>"**: Specified file not found for assessment
 - **"Error deleting file with hash <hash>"**: File system error during deletion
 - **"Error deleting file '<filename>'"**: File system error during file deletion
 
@@ -562,7 +562,7 @@ Successful responses typically include an `output` object:
 ```json
 {
   "output": {
-    "hash": "<exam_id>",
+    "hash": "<assessment_id>",
     "message": "Operation successful",
     // Additional fields as needed
   }
@@ -591,11 +591,11 @@ Error responses include a `messages` array:
 
 ## Notes
 
-- Exam and file endpoints require the `Authorization: Bearer <user_id>` header
+- Assessment and file endpoints require the `Authorization: Bearer <user_id>` header
 - The user id is the 7-character hash returned by `POST /api/user`
-- Exam authors can only modify or delete their own exams
-- Only the locker can unlock a exam or claim it
+- Assessment authors can only modify or delete their own assessments
+- Only the locker can unlock an assessment or claim it
 - Invalid claim attempts decrement the `tries_remaining` counter
-- Exams cannot be deleted if they are locked or claimed
-- File operations are scoped to individual exams
+- Assessments cannot be deleted if they are locked or claimed
+- File operations are scoped to individual assessments
 - CORS is handled automatically for same-domain and localhost requests

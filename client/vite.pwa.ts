@@ -11,7 +11,7 @@ export function createPwaPlugin() {
     manifest: {
       name: 'Corrai',
       short_name: 'Corrai',
-      description: 'Corrai exam management',
+      description: 'Corrai assessment management',
       theme_color: '#ffffff',
       background_color: '#ffffff',
       display: 'standalone',

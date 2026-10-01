@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\Other;
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
@@ -28,11 +28,11 @@ class Pipeline
     /**
      * Transcribe literally, correct, then annotate a submission in any other subject.
      *
-     * @return array Updated exam file list
+     * @return array Updated assessment file list
      */
-    public function run(Exam $exam, string $fileId, string $language): array
+    public function run(Assessment $assessment, string $fileId, string $language): array
     {
-        $file = $exam->getFile($fileId);
+        $file = $assessment->getFile($fileId);
         $student = $file->student ?? '';
         $filename = $file->name;
         $languageName = trim($language) !== '' ? trim($language) : 'French';
@@ -42,11 +42,11 @@ class Pipeline
         $tmpPath = $store->downloadToTemp($file->contentKey());
 
         try {
-            $exam->deleteFilesOfType('debug', $student);
-            $exam->deleteFilesOfType('correction', $student);
+            $assessment->deleteFilesOfType('debug', $student);
+            $assessment->deleteFilesOfType('correction', $student);
 
             $transcription = $this->transcribe($tmpPath, $filename);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' transcription.txt',
                 $transcription,
                 'text/plain; charset=utf-8',
@@ -54,8 +54,8 @@ class Pipeline
                 $student
             );
 
-            $correction = $this->correct($exam, $transcription, $languageName);
-            $exam->createFile(
+            $correction = $this->correct($assessment, $transcription, $languageName);
+            $assessment->createFile(
                 $base . ' correction.txt',
                 $correction,
                 'text/plain; charset=utf-8',
@@ -65,7 +65,7 @@ class Pipeline
 
             $image = $this->annotate($tmpPath, $filename, $correction);
             $imageExt = self::extensionForMime($image['mime']);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' annotated.' . $imageExt,
                 $image['body'],
                 $image['mime'],
@@ -80,7 +80,7 @@ class Pipeline
             @unlink($tmpPath);
         }
 
-        return $exam->list_files();
+        return $assessment->list_files();
     }
 
     private function transcribe(string $tmpPath, string $filename): string
@@ -96,9 +96,9 @@ class Pipeline
         return $request->call_text();
     }
 
-    private function correct(Exam $exam, string $transcription, string $languageName): string
+    private function correct(Assessment $assessment, string $transcription, string $languageName): string
     {
-        $instructionText = $exam->instructionFilesText();
+        $instructionText = $assessment->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
             'You are a professor'
@@ -122,7 +122,7 @@ class Pipeline
         $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
         $request = LlmClientFactory::create($imageModel);
         $request->set_system_content(
-            'You annotate student exam papers. '
+            'You annotate student assessment papers. '
             . 'Using the correction text provided, annotate the source image accordingly. '
             . 'Return an annotated image.'
         );

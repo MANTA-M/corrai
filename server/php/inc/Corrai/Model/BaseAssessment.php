@@ -10,19 +10,19 @@ use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\Subject\Catalog;
 use Corrai\Subject\Dictation\Pipeline as Dictation;
-use Corrai\Subject\ExamFactory;
+use Corrai\Subject\AssessmentFactory;
 use Corrai\Subject\Law\Pipeline as Law;
 use Corrai\Subject\Math\Pipeline as MathPipeline;
 use Corrai\Subject\Other\Pipeline as Other;
 use Corrai\Subject\Physics\Pipeline as Physics;
 
 /**
- * Shared exam model. Subject packages provide a concrete Exam.
+ * Shared assessment model. Subject packages provide a concrete Assessment.
  */
-abstract class BaseExam
+abstract class BaseAssessment
 {
     /**
-     * The unique identifier of the exam (7-char hash).
+     * The unique identifier of the assessment (7-char hash).
      */
     public ?string $id = null;
 
@@ -37,27 +37,27 @@ abstract class BaseExam
     public string $user_id = '';
 
     /**
-     * The name of the exam.
+     * The name of the assessment.
      */
     public string $name = '';
 
     /**
-     * Pipeline name for this exam (MathPipeline, Physics, Dictation, Law, Other).
+     * Pipeline name for this assessment (MathPipeline, Physics, Dictation, Law, Other).
      */
     public string $subject = '';
 
     /**
-     * Optional country for this exam's subject. Null when not specified.
+     * Optional country for this assessment's subject. Null when not specified.
      */
     public ?string $country = null;
 
     /**
-     * Optional level for this exam's subject. Null when not specified.
+     * Optional level for this assessment's subject. Null when not specified.
      */
     public ?string $level = null;
 
     /**
-     * The date of the exam (YYYY-MM-DD).
+     * The date of the assessment (YYYY-MM-DD).
      */
     public string $date = '';
 
@@ -85,27 +85,27 @@ abstract class BaseExam
     ];
 
     /**
-     * Concrete File class for this exam's subject.
+     * Concrete File class for this assessment's subject.
      *
-     * Generic Exam instances resolve via ExamFactory so uploads still get the
-     * subject File even when the API loaded Corrai\Model\Exam.
+     * Generic Assessment instances resolve via AssessmentFactory so uploads still get the
+     * subject File even when the API loaded Corrai\Model\Assessment.
      *
      * @return class-string<File>
      */
     public function fileClass(): string
     {
-        $examClass = ExamFactory::examClass(
+        $assessmentClass = AssessmentFactory::assessmentClass(
             $this->subject,
             $this->country ?? '',
             $this->level ?? ''
         );
-        if ($examClass !== static::class) {
-            $method = new \ReflectionMethod($examClass, 'fileClass');
+        if ($assessmentClass !== static::class) {
+            $method = new \ReflectionMethod($assessmentClass, 'fileClass');
             if ($method->getDeclaringClass()->getName() !== self::class) {
-                /** @var BaseExam $subjectExam */
-                $subjectExam = new $examClass();
+                /** @var BaseAssessment $subjectAssessment */
+                $subjectAssessment = new $assessmentClass();
 
-                return $subjectExam->fileClass();
+                return $subjectAssessment->fileClass();
             }
         }
 
@@ -114,17 +114,17 @@ abstract class BaseExam
 
     public static function from_array(array $data): static
     {
-        $exam = new static();
-        $exam->id = $data['id'] ?? null;
-        $exam->school_id = $data['school_id'] ?? '';
-        $exam->user_id = $data['user_id'] ?? ($data['author'] ?? '');
-        $exam->name = $data['name'] ?? '';
-        $exam->subject = $data['subject'] ?? '';
-        $exam->country = self::optionalAttribute($data['country'] ?? null);
-        $exam->level = self::optionalAttribute($data['level'] ?? null);
-        $exam->date = $data['date'] ?? '';
-        $exam->created_at = $data['created_at'] ?? '';
-        return $exam;
+        $assessment = new static();
+        $assessment->id = $data['id'] ?? null;
+        $assessment->school_id = $data['school_id'] ?? '';
+        $assessment->user_id = $data['user_id'] ?? ($data['author'] ?? '');
+        $assessment->name = $data['name'] ?? '';
+        $assessment->subject = $data['subject'] ?? '';
+        $assessment->country = self::optionalAttribute($data['country'] ?? null);
+        $assessment->level = self::optionalAttribute($data['level'] ?? null);
+        $assessment->date = $data['date'] ?? '';
+        $assessment->created_at = $data['created_at'] ?? '';
+        return $assessment;
     }
 
     /**
@@ -145,70 +145,66 @@ abstract class BaseExam
     public function validate(): void
     {
         if (trim($this->school_id) === '') {
-            throw new WSException('Exam school_id is required', 400);
+            throw new WSException('Assessment school_id is required', 400);
         }
         if (trim($this->user_id) === '') {
-            throw new WSException('Exam user_id is required', 400);
-        }
-        if (trim($this->name) === '') {
-            throw new WSException('Exam name is required', 400);
+            throw new WSException('Assessment user_id is required', 400);
         }
         if (trim($this->subject) === '') {
-            throw new WSException('Exam subject is required', 400);
+            throw new WSException('Assessment subject is required', 400);
         }
-        if (trim($this->date) === '') {
-            throw new WSException('Exam date is required', 400);
-        }
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->date)) {
-            throw new WSException('Exam date must be YYYY-MM-DD', 400);
-        }
-        $parts = explode('-', $this->date);
-        if (!checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0])) {
-            throw new WSException('Exam date is not a valid calendar date', 400);
+        if (trim($this->date) !== '') {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->date)) {
+                throw new WSException('Assessment date must be YYYY-MM-DD', 400);
+            }
+            $parts = explode('-', $this->date);
+            if (!checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0])) {
+                throw new WSException('Assessment date is not a valid calendar date', 400);
+            }
         }
     }
 
     /**
-     * Load an Exam from its hash via the _id pointer.
+     * Load an Assessment from its hash via the _id pointer.
      */
     public static function from_hash(string $hash): static
     {
         $store = ObjectStore::getInstance();
         $prefix = $store->resolveIdPointer($hash);
         $parsed = ObjectStore::parseNodePrefix($prefix);
-        if ($parsed['kind'] !== 'exam') {
-            throw new Exception("Invalid exam path for hash $hash");
+        if ($parsed['kind'] !== 'assessment') {
+            throw new Exception("Invalid assessment path for hash $hash");
         }
         $schoolId = $parsed['school_id'];
         $userId = $parsed['teacher_id'];
-        $examId = $parsed['exam_id'];
-        $attrKey = ObjectStore::examAttrKey($schoolId, $userId, $examId);
+        $assessmentId = $parsed['assessment_id'];
+        $attrKey = ObjectStore::assessmentAttrKey($schoolId, $userId, $assessmentId);
 
         if (!$store->exists($attrKey)) {
-            throw new Exception("Exam with hash $hash does not exist");
+            throw new Exception("Assessment with hash $hash does not exist");
         }
 
         $loaded = $store->getJson($attrKey);
-        $exam = static::from_array($loaded['data']);
-        $exam->id = $examId;
-        $exam->school_id = $schoolId;
-        $exam->user_id = $userId;
-        return $exam;
+        $assessment = static::from_array($loaded['data']);
+        $assessment->id = $assessmentId;
+        $assessment->school_id = $schoolId;
+        $assessment->user_id = $userId;
+        return $assessment;
     }
 
     /**
-     * List all exams owned by the given user (teacher).
+     * List all assessments owned by the given user (teacher).
      *
-     * @return array Array of exam output arrays
+     * @return array Array of assessment output arrays
      */
     public static function list_for_author(string $userId): array
     {
         $user = User::from_hash($userId);
-        $exams = [];
-        foreach ($user->exams() as $exam) {
-            $exams[] = $exam->to_output();
+        $assessments = [];
+        foreach ($user->assessments() as $assessment) {
+            $assessments[] = $assessment->to_output();
         }
-        return $exams;
+        return $assessments;
     }
 
     public function to_output(): array
@@ -227,7 +223,7 @@ abstract class BaseExam
     }
 
     /**
-     * Persist exam attributes.json and register the _id pointer.
+     * Persist assessment attributes.json and register the _id pointer.
      */
     public function save(): void
     {
@@ -242,7 +238,7 @@ abstract class BaseExam
 
         $store = ObjectStore::getInstance();
         $store->putJson(
-            ObjectStore::examAttrKey($this->school_id, $this->user_id, $this->id),
+            ObjectStore::assessmentAttrKey($this->school_id, $this->user_id, $this->id),
             [
                 'name' => $this->name,
                 'subject' => $this->subject,
@@ -254,17 +250,17 @@ abstract class BaseExam
         );
         $store->setIdPointer(
             $this->id,
-            ObjectStore::examPrefix($this->school_id, $this->user_id, $this->id)
+            ObjectStore::assessmentPrefix($this->school_id, $this->user_id, $this->id)
         );
     }
 
     /**
-     * Delete the exam prefix and nested file/student id pointers.
+     * Delete the assessment prefix and nested file/student id pointers.
      */
     public function delete(): void
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
-            throw new Exception('Cannot delete exam without id, school_id and user_id');
+            throw new Exception('Cannot delete assessment without id, school_id and user_id');
         }
 
         $store = ObjectStore::getInstance();
@@ -279,16 +275,16 @@ abstract class BaseExam
             }
         }
 
-        $store->deletePrefix(ObjectStore::examPrefix($this->school_id, $this->user_id, $this->id));
+        $store->deletePrefix(ObjectStore::assessmentPrefix($this->school_id, $this->user_id, $this->id));
         $store->deleteIdPointer($this->id);
     }
 
     /**
-     * S3 content key for a file belonging to this exam.
+     * S3 content key for a file belonging to this assessment.
      */
     public function fileContentKey(string $fileId): string
     {
-        return ObjectStore::examFileContentKey(
+        return ObjectStore::assessmentFileContentKey(
             $this->school_id,
             $this->user_id,
             $this->id,
@@ -307,9 +303,9 @@ abstract class BaseExam
 
         $store = ObjectStore::getInstance();
         $files = [];
-        $prefix = ObjectStore::examFilesPrefix($this->school_id, $this->user_id, $this->id);
+        $prefix = ObjectStore::assessmentFilesPrefix($this->school_id, $this->user_id, $this->id);
         foreach ($store->listChildPrefixes($prefix) as $fileId) {
-            $attrKey = ObjectStore::examFileAttrKey($this->school_id, $this->user_id, $this->id, $fileId);
+            $attrKey = ObjectStore::assessmentFileAttrKey($this->school_id, $this->user_id, $this->id, $fileId);
             if (!$store->exists($attrKey)) {
                 continue;
             }
@@ -334,9 +330,9 @@ abstract class BaseExam
 
         $store = ObjectStore::getInstance();
         $students = [];
-        $prefix = ObjectStore::examStudentsPrefix($this->school_id, $this->user_id, $this->id);
+        $prefix = ObjectStore::assessmentStudentsPrefix($this->school_id, $this->user_id, $this->id);
         foreach ($store->listChildPrefixes($prefix) as $studentId) {
-            $attrKey = ObjectStore::examStudentAttrKey($this->school_id, $this->user_id, $this->id, $studentId);
+            $attrKey = ObjectStore::assessmentStudentAttrKey($this->school_id, $this->user_id, $this->id, $studentId);
             if (!$store->exists($attrKey)) {
                 continue;
             }
@@ -364,7 +360,7 @@ abstract class BaseExam
     }
 
     /**
-     * List all files for this exam.
+     * List all files for this assessment.
      *
      * @return array Array of file output arrays
      */
@@ -401,9 +397,9 @@ abstract class BaseExam
         if (
             $file->school_id !== $this->school_id
             || $file->user_id !== $this->user_id
-            || $file->exam_id !== $this->id
+            || $file->assessment_id !== $this->id
         ) {
-            throw new WSException("File '$fileId' does not belong to exam {$this->id}", 404);
+            throw new WSException("File '$fileId' does not belong to assessment {$this->id}", 404);
         }
         return $file;
     }
@@ -414,15 +410,15 @@ abstract class BaseExam
         if (
             $student->school_id !== $this->school_id
             || $student->user_id !== $this->user_id
-            || $student->exam_id !== $this->id
+            || $student->assessment_id !== $this->id
         ) {
-            throw new WSException("Student '$studentId' does not belong to exam {$this->id}", 404);
+            throw new WSException("Student '$studentId' does not belong to assessment {$this->id}", 404);
         }
         return $student;
     }
 
     /**
-     * Create or return an existing student with this display name on the exam.
+     * Create or return an existing student with this display name on the assessment.
      */
     public function findOrCreateStudentByName(string $name): Student
     {
@@ -444,7 +440,7 @@ abstract class BaseExam
         $student->id = HashId::create();
         $student->school_id = $this->school_id;
         $student->user_id = $this->user_id;
-        $student->exam_id = $this->id;
+        $student->assessment_id = $this->id;
         $student->name = trim($name);
         $student->status = $status;
         $student->mark = $mark;
@@ -529,7 +525,7 @@ abstract class BaseExam
         $file->id = HashId::create();
         $file->school_id = $this->school_id;
         $file->user_id = $this->user_id;
-        $file->exam_id = $this->id;
+        $file->assessment_id = $this->id;
         $file->name = $filename;
         $file->type = $type ?? '';
         $file->student = $studentHash;
@@ -580,7 +576,7 @@ abstract class BaseExam
         $file->id = HashId::create();
         $file->school_id = $this->school_id;
         $file->user_id = $this->user_id;
-        $file->exam_id = $this->id;
+        $file->assessment_id = $this->id;
         $file->name = $filename;
         $file->type = $type ?? '';
         $file->student = $studentHash;
@@ -601,7 +597,7 @@ abstract class BaseExam
     }
 
     /**
-     * Build a File model from S3 attribute payload for this exam.
+     * Build a File model from S3 attribute payload for this assessment.
      */
     public function fileFromAttributes(array $data, string $fileId, ?string $etag = null): File
     {
@@ -610,7 +606,7 @@ abstract class BaseExam
         $file->id = $fileId;
         $file->school_id = $this->school_id;
         $file->user_id = $this->user_id;
-        $file->exam_id = $this->id ?? '';
+        $file->assessment_id = $this->id ?? '';
         $file->etag = $etag;
         return $file;
     }
@@ -719,7 +715,7 @@ abstract class BaseExam
     }
 
     /**
-     * Answer exam questions from the attached files via the LLM client.
+     * Answer assessment questions from the attached files via the LLM client.
      *
      * @param array $questions List of question arrays with a 'text' key, or plain strings
      */
@@ -771,7 +767,7 @@ abstract class BaseExam
     }
 
     /**
-     * Pipeline class for this exam's subject. Unknown subjects use Other.
+     * Pipeline class for this assessment's subject. Unknown subjects use Other.
      *
      * @return class-string
      */
@@ -781,7 +777,7 @@ abstract class BaseExam
     }
 
     /**
-     * Grade a submission with the pipeline stored for the exam subject.
+     * Grade a submission with the pipeline stored for the assessment subject.
      *
      * When the file class implements on_correction_asked, correction runs
      * asynchronously through the Redis status machine instead of blocking
@@ -798,7 +794,7 @@ abstract class BaseExam
 
         $store = ObjectStore::getInstance();
         if (!$store->exists($file->contentKey())) {
-            throw new WSException("File '$fileId' does not exist for exam {$this->id}", 404);
+            throw new WSException("File '$fileId' does not exist for assessment {$this->id}", 404);
         }
 
         if (method_exists($file, 'on_correction_asked')) {

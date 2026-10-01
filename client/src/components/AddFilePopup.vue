@@ -6,7 +6,7 @@
   >
     <div class="popup-content add-file-popup">
       <div class="popup-header">
-        <h2>{{ t('exam.addFilesTitle') }}</h2>
+        <h2>{{ t('assessment.addFilesTitle') }}</h2>
         <button
           type="button"
           class="close-button"
@@ -19,20 +19,20 @@
       </div>
       <div class="popup-body">
         <label class="type-field" for="add-file-type">
-          {{ t('exam.fileUploadType') }}
+          {{ t('assessment.fileUploadType') }}
           <select
             id="add-file-type"
             v-model="fileType"
             data-testid="add-file-type"
             :disabled="isUploading"
           >
-            <option value="">{{ t('exam.fileTypeUnknown') }}</option>
-            <option value="subject">{{ t('exam.fileTypeSubject') }}</option>
-            <option value="solution">{{ t('exam.fileTypeSolution') }}</option>
-            <option value="submission">{{ t('exam.fileTypeSubmission') }}</option>
-            <option value="instructions">{{ t('exam.fileTypeInstructions') }}</option>
-            <option value="correction">{{ t('exam.fileTypeCorrection') }}</option>
-            <option value="debug">{{ t('exam.fileTypeDebug') }}</option>
+            <option value="">{{ t('assessment.fileTypeUnknown') }}</option>
+            <option value="subject">{{ t('assessment.fileTypeSubject') }}</option>
+            <option value="solution">{{ t('assessment.fileTypeSolution') }}</option>
+            <option value="submission">{{ t('assessment.fileTypeSubmission') }}</option>
+            <option value="instructions">{{ t('assessment.fileTypeInstructions') }}</option>
+            <option value="correction">{{ t('assessment.fileTypeCorrection') }}</option>
+            <option value="debug">{{ t('assessment.fileTypeDebug') }}</option>
           </select>
         </label>
         <div
@@ -45,8 +45,8 @@
           @dragleave.prevent="onDragLeave"
           @drop.prevent="onDrop"
         >
-          <p class="dropzone-hint">{{ t('exam.dropzoneHint') }}</p>
-          <p v-if="isUploading" class="dropzone-status">{{ t('exam.uploading') }}</p>
+          <p class="dropzone-hint">{{ t('assessment.dropzoneHint') }}</p>
+          <p v-if="isUploading" class="dropzone-status">{{ t('assessment.uploading') }}</p>
         </div>
         <input
           ref="fileInput"
@@ -88,15 +88,15 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import type { ExamFile } from '@/types/types'
+import type { AssessmentFile } from '@/types/types'
 
 const props = defineProps<{
-  examId: string
+  assessmentId: string
 }>()
 
 const emit = defineEmits<{
   close: []
-  uploaded: [files: ExamFile[]]
+  uploaded: [files: AssessmentFile[]]
 }>()
 
 const { t } = useI18n()
@@ -118,9 +118,9 @@ const uploadItems = ref<UploadItem[]>([])
 let dragCounter = 0
 
 const statusLabel = (item: UploadItem) => {
-  if (item.status === 'uploading') return t('exam.uploading')
-  if (item.status === 'done') return t('exam.uploadDone')
-  if (item.status === 'error') return item.error || t('exam.uploadError')
+  if (item.status === 'uploading') return t('assessment.uploading')
+  if (item.status === 'done') return t('assessment.uploadDone')
+  if (item.status === 'error') return item.error || t('assessment.uploadError')
   return ''
 }
 
@@ -166,7 +166,7 @@ const onFileInputChange = (event: Event) => {
 }
 
 const uploadFiles = async (files: File[]) => {
-  if (!props.examId || files.length === 0) return
+  if (!props.assessmentId || files.length === 0) return
 
   error.value = ''
   isUploading.value = true
@@ -177,7 +177,7 @@ const uploadFiles = async (files: File[]) => {
   }))
 
   const wsClient = sessionStore.getWsClient()
-  let latestFiles: ExamFile[] | null = null
+  let latestFiles: AssessmentFile[] | null = null
 
   try {
     for (let i = 0; i < files.length; i++) {
@@ -188,9 +188,9 @@ const uploadFiles = async (files: File[]) => {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const params: Record<string, string> = { id: props.examId }
+        const params: Record<string, string> = { id: props.assessmentId }
         if (fileType.value) params.type = fileType.value
-        const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+        const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
           'POST',
           '/file',
           params,
@@ -205,16 +205,16 @@ const uploadFiles = async (files: File[]) => {
       } catch (err) {
         console.error('Error uploading file:', err)
         item.status = 'error'
-        item.error = t('exam.uploadError')
-        error.value = t('exam.uploadError')
+        item.error = t('assessment.uploadError')
+        error.value = t('assessment.uploadError')
       }
     }
 
     if (latestFiles) {
-      const existingIndex = sessionStore.own_exams.findIndex(e => e.id === props.examId)
+      const existingIndex = sessionStore.own_assessments.findIndex(e => e.id === props.assessmentId)
       if (existingIndex !== -1) {
-        sessionStore.own_exams[existingIndex] = {
-          ...sessionStore.own_exams[existingIndex],
+        sessionStore.own_assessments[existingIndex] = {
+          ...sessionStore.own_assessments[existingIndex],
           files: latestFiles
         }
       }

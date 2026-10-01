@@ -1,4 +1,4 @@
-"""Redis consumer that OCRs exam files from S3 and hands them to PHP."""
+"""Redis consumer that OCRs assessment files from S3 and hands them to PHP."""
 
 from __future__ import annotations
 
@@ -213,6 +213,7 @@ def treat(
     recognize=recognize_bytes,
 ) -> None:
     """OCR one file path and enqueue it for the PHP consumer."""
+    logger.info("OCR starting for %s lang=%s", content_path, lang)
     attr_key = attributes_key(content_path)
     store.get_json(attr_key)
     try:

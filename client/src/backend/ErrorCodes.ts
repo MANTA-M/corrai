@@ -6,10 +6,10 @@
  */
 
 /**
- * Custom error code: Exam has already been claimed
+ * Custom error code: Assessment has already been claimed
  * Status: Conflict (432)
  */
-export const ERROR_EXAM_ALREADY_CLAIMED = 432;
+export const ERROR_ASSESSMENT_ALREADY_CLAIMED = 432;
 
 /**
  * Custom error code: Request author does not match the locker
@@ -18,7 +18,7 @@ export const ERROR_EXAM_ALREADY_CLAIMED = 432;
 export const ERROR_LOCKER_MISMATCH = 433;
 
 /**
- * Custom error code: No tries remaining for this exam
+ * Custom error code: No tries remaining for this assessment
  * Status: Forbidden (434)
  */
 export const ERROR_NO_TRIES_REMAINING = 434;
@@ -30,27 +30,27 @@ export const ERROR_NO_TRIES_REMAINING = 434;
 export const ERROR_INVALID_CLAIM_SECRET = 435;
 
 /**
- * Custom error code: Cannot delete exam - exam is locked or claimed
+ * Custom error code: Cannot delete assessment - assessment is locked or claimed
  * Status: Conflict (436)
  */
-export const ERROR_EXAM_LOCKED_OR_CLAIMED = 436;
+export const ERROR_ASSESSMENT_LOCKED_OR_CLAIMED = 436;
 
 /**
- * Custom error code: Cannot delete exam - request author is not the exam author
+ * Custom error code: Cannot delete assessment - request author is not the assessment author
  * Status: Forbidden (437)
  */
-export const ERROR_NOT_EXAM_AUTHOR = 437;
+export const ERROR_NOT_ASSESSMENT_AUTHOR = 437;
 
 /**
  * Type for all custom error codes
  */
 export type CustomErrorCode =
-  | typeof ERROR_EXAM_ALREADY_CLAIMED
+  | typeof ERROR_ASSESSMENT_ALREADY_CLAIMED
   | typeof ERROR_LOCKER_MISMATCH
   | typeof ERROR_NO_TRIES_REMAINING
   | typeof ERROR_INVALID_CLAIM_SECRET
-  | typeof ERROR_EXAM_LOCKED_OR_CLAIMED
-  | typeof ERROR_NOT_EXAM_AUTHOR;
+  | typeof ERROR_ASSESSMENT_LOCKED_OR_CLAIMED
+  | typeof ERROR_NOT_ASSESSMENT_AUTHOR;
 
 /**
  * Checks if a given status code is a custom error code

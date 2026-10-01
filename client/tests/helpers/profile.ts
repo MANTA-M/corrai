@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 
 /**
- * Create a new profile via the InitProfile UI and wait for the exams list.
+ * Create a new profile via the InitProfile UI and wait for the assessments list.
  * Creates an Independent (IND) school user on the server.
  */
 export async function initProfile(page: Page, userName: string): Promise<void> {
@@ -15,6 +15,6 @@ export async function initProfile(page: Page, userName: string): Promise<void> {
   const createButton = page.locator('button[type="submit"]:has-text("Créer le profil")')
   await createButton.click()
 
-  await page.waitForURL('**/exam-list', { timeout: 20000 })
-  await expect(page.getByTestId('exams-heading')).toHaveText('Examens')
+  await page.waitForURL('**/assessment-list', { timeout: 20000 })
+  await expect(page.getByTestId('assessments-heading')).toHaveText('Évaluations')
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\CsvStore;
 use Corrai\Utils\CsvTreeMigrator;
@@ -18,12 +18,12 @@ use PHPUnit\Framework\TestCase;
 use Redis;
 
 /**
- * Integration tests for exam CRUD and file attach/detach.
+ * Integration tests for assessment CRUD and file attach/detach.
  *
  * Uses the fixed "IND" (Independent) school and a disposable teacher user.
  * Requires SeaweedFS reachable via S3_* env (docker compose php + seaweedfs).
  */
-class ExamLifecycleTest extends TestCase
+class AssessmentLifecycleTest extends TestCase
 {
     private static School $indSchool;
     private User $user;
@@ -77,42 +77,42 @@ class ExamLifecycleTest extends TestCase
         }
     }
 
-    public function testExamCreateModifyListAddAndRemoveFileThenDelete(): void
+    public function testAssessmentCreateModifyListAddAndRemoveFileThenDelete(): void
     {
-        $exam = new Exam();
-        $exam->school_id = $this->user->school_id;
-        $exam->user_id = $this->user->id;
-        $exam->name = 'Math Exam';
-        $exam->subject = 'Mathematics';
-        $exam->date = '2026-06-15';
-        $exam->id = HashId::create();
-        $exam->save();
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'Math Assessment';
+        $assessment->subject = 'Mathematics';
+        $assessment->date = '2026-06-15';
+        $assessment->id = HashId::create();
+        $assessment->save();
 
-        $examId = $exam->id;
-        $this->assertNotNull($examId);
-        $this->assertTrue(HashId::isValid($examId));
+        $assessmentId = $assessment->id;
+        $this->assertNotNull($assessmentId);
+        $this->assertTrue(HashId::isValid($assessmentId));
 
-        $loaded = Exam::from_hash($examId);
-        $this->assertSame($examId, $loaded->id);
+        $loaded = Assessment::from_hash($assessmentId);
+        $this->assertSame($assessmentId, $loaded->id);
         $this->assertSame(School::IND_SCHOOL_ID, $loaded->school_id);
         $this->assertSame($this->user->id, $loaded->user_id);
-        $this->assertSame('Math Exam', $loaded->name);
+        $this->assertSame('Math Assessment', $loaded->name);
 
-        $listed = Exam::list_for_author($this->user->id);
+        $listed = Assessment::list_for_author($this->user->id);
         $this->assertCount(1, $listed);
-        $this->assertSame($examId, $listed[0]['id']);
+        $this->assertSame($assessmentId, $listed[0]['id']);
 
-        $viaUser = $this->user->exams();
+        $viaUser = $this->user->assessments();
         $this->assertCount(1, $viaUser);
-        $this->assertSame($examId, $viaUser[0]->id);
+        $this->assertSame($assessmentId, $viaUser[0]->id);
 
-        $loaded->name = 'Math Exam Updated';
+        $loaded->name = 'Math Assessment Updated';
         $loaded->subject = 'Algebra';
         $loaded->date = '2026-09-01';
         $loaded->save();
 
-        $updated = Exam::from_hash($examId);
-        $this->assertSame('Math Exam Updated', $updated->name);
+        $updated = Assessment::from_hash($assessmentId);
+        $this->assertSame('Math Assessment Updated', $updated->name);
         $this->assertSame('Algebra', $updated->subject);
 
         $store = ObjectStore::getInstance();
@@ -144,37 +144,37 @@ class ExamLifecycleTest extends TestCase
 
         $updated->delete();
 
-        $this->assertSame([], Exam::list_for_author($this->user->id));
+        $this->assertSame([], Assessment::list_for_author($this->user->id));
         $this->assertFalse(
-            ObjectStore::getInstance()->exists(ObjectStore::idIndexKey($examId))
+            ObjectStore::getInstance()->exists(ObjectStore::idIndexKey($assessmentId))
         );
 
         try {
-            Exam::from_hash($examId);
-            $this->fail('Expected Exam::from_hash to throw after delete');
+            Assessment::from_hash($assessmentId);
+            $this->fail('Expected Assessment::from_hash to throw after delete');
         } catch (\Exception $e) {
-            $this->assertStringContainsString($examId, $e->getMessage());
+            $this->assertStringContainsString($assessmentId, $e->getMessage());
         }
     }
 
-    public function testListingEmptyThenMultipleExams(): void
+    public function testListingEmptyThenMultipleAssessments(): void
     {
-        $this->assertSame([], Exam::list_for_author($this->user->id));
+        $this->assertSame([], Assessment::list_for_author($this->user->id));
 
         $ids = [];
         for ($i = 0; $i < 3; $i++) {
-            $exam = new Exam();
-            $exam->school_id = $this->user->school_id;
-            $exam->user_id = $this->user->id;
-            $exam->name = "Exam $i";
-            $exam->subject = 'History';
-            $exam->date = sprintf('2026-01-%02d', $i + 1);
-            $exam->id = HashId::create();
-            $exam->save();
-            $ids[] = $exam->id;
+            $assessment = new Assessment();
+            $assessment->school_id = $this->user->school_id;
+            $assessment->user_id = $this->user->id;
+            $assessment->name = "Assessment $i";
+            $assessment->subject = 'History';
+            $assessment->date = sprintf('2026-01-%02d', $i + 1);
+            $assessment->id = HashId::create();
+            $assessment->save();
+            $ids[] = $assessment->id;
         }
 
-        $listed = Exam::list_for_author($this->user->id);
+        $listed = Assessment::list_for_author($this->user->id);
         $this->assertCount(3, $listed);
         $listedIds = array_column($listed, 'id');
         sort($listedIds);
@@ -183,107 +183,107 @@ class ExamLifecycleTest extends TestCase
         $this->assertSame($expectedIds, $listedIds);
 
         foreach ($ids as $id) {
-            Exam::from_hash($id)->delete();
+            Assessment::from_hash($id)->delete();
         }
-        $this->assertSame([], Exam::list_for_author($this->user->id));
+        $this->assertSame([], Assessment::list_for_author($this->user->id));
     }
 
-    public function testAddAndRemoveFileOnExam(): void
+    public function testAddAndRemoveFileOnAssessment(): void
     {
-        $exam = new Exam();
-        $exam->school_id = $this->user->school_id;
-        $exam->user_id = $this->user->id;
-        $exam->name = 'File Ops Exam';
-        $exam->subject = 'Physics';
-        $exam->date = '2026-03-20';
-        $exam->id = HashId::create();
-        $exam->save();
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'File Ops Assessment';
+        $assessment->subject = 'Physics';
+        $assessment->date = '2026-03-20';
+        $assessment->id = HashId::create();
+        $assessment->save();
 
-        $this->assertSame([], $exam->list_files());
+        $this->assertSame([], $assessment->list_files());
 
         $tmp = $this->createRandomTempFile('unassigned_', '.pdf');
         $filename = basename($tmp);
-        $file = $exam->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
-        $files = $exam->list_files();
+        $file = $assessment->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
+        $files = $assessment->list_files();
         $this->assertCount(1, $files);
         $this->assertSame($filename, $files[0]['name']);
         $this->assertSame($file->id, $files[0]['id']);
         $this->assertGreaterThan(0, $files[0]['size']);
 
-        $exam->deleteFile($file->id);
-        $this->assertSame([], $exam->list_files());
+        $assessment->deleteFile($file->id);
+        $this->assertSame([], $assessment->list_files());
         $this->assertFalse(ObjectStore::getInstance()->exists($file->contentKey()));
 
-        $exam->delete();
+        $assessment->delete();
     }
 
     public function testFileTagsTypeAndStudent(): void
     {
-        $exam = new Exam();
-        $exam->school_id = $this->user->school_id;
-        $exam->user_id = $this->user->id;
-        $exam->name = 'Tagged Files Exam';
-        $exam->subject = 'Biology';
-        $exam->date = '2026-04-10';
-        $exam->id = HashId::create();
-        $exam->save();
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'Tagged Files Assessment';
+        $assessment->subject = 'Biology';
+        $assessment->date = '2026-04-10';
+        $assessment->id = HashId::create();
+        $assessment->save();
 
         $tmp = $this->createRandomTempFile('tagged_', '.pdf');
         $filename = basename($tmp);
-        $file = $exam->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
-        $alice = $exam->createStudent('Alice');
+        $file = $assessment->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
+        $alice = $assessment->createStudent('Alice');
 
-        $files = $exam->list_files();
+        $files = $assessment->list_files();
         $this->assertCount(1, $files);
         $this->assertSame('', $files[0]['type']);
         $this->assertNull($files[0]['student']);
 
-        $exam->setFileTags($file->id, 'submission', $alice->id);
-        $tagged = $exam->list_files();
+        $assessment->setFileTags($file->id, 'submission', $alice->id);
+        $tagged = $assessment->list_files();
         $this->assertSame('submission', $tagged[0]['type']);
         $this->assertSame($alice->id, $tagged[0]['student']);
         $this->assertSame('Alice', $tagged[0]['student_name']);
 
-        $exam->setFileTags($file->id, 'subject', null);
-        $retyped = $exam->list_files();
+        $assessment->setFileTags($file->id, 'subject', null);
+        $retyped = $assessment->list_files();
         $this->assertSame('subject', $retyped[0]['type']);
         $this->assertSame($alice->id, $retyped[0]['student']);
 
-        $exam->setFileTags($file->id, 'unknown', '');
-        $cleared = $exam->list_files();
+        $assessment->setFileTags($file->id, 'unknown', '');
+        $cleared = $assessment->list_files();
         $this->assertSame('', $cleared[0]['type']);
         $this->assertNull($cleared[0]['student']);
 
         try {
-            $exam->setFileTags($file->id, 'not-a-type', null);
+            $assessment->setFileTags($file->id, 'not-a-type', null);
             $this->fail('Expected invalid file type to throw');
         } catch (WSException $e) {
             $this->assertSame(400, $e->getCode());
         }
 
-        $exam->delete();
+        $assessment->delete();
     }
 
     public function testRenameFileUpdatesDisplayNameOnly(): void
     {
-        $exam = new Exam();
-        $exam->school_id = $this->user->school_id;
-        $exam->user_id = $this->user->id;
-        $exam->name = 'Rename File Exam';
-        $exam->subject = 'Chemistry';
-        $exam->date = '2026-07-12';
-        $exam->id = HashId::create();
-        $exam->save();
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'Rename File Assessment';
+        $assessment->subject = 'Chemistry';
+        $assessment->date = '2026-07-12';
+        $assessment->id = HashId::create();
+        $assessment->save();
 
         $tmp = $this->createRandomTempFile('rename_', '.png');
         $oldName = basename($tmp);
         $newName = 'renamed-scan.png';
-        $file = $exam->createFileFromPath($oldName, $tmp, 'image/png', null, null);
-        $bob = $exam->createStudent('Bob');
-        $exam->setFileTags($file->id, 'submission', $bob->id);
+        $file = $assessment->createFileFromPath($oldName, $tmp, 'image/png', null, null);
+        $bob = $assessment->createStudent('Bob');
+        $assessment->setFileTags($file->id, 'submission', $bob->id);
 
         $contentBefore = ObjectStore::getInstance()->getContents($file->contentKey());
-        $files = $exam->renameFile($file->id, $newName);
+        $files = $assessment->renameFile($file->id, $newName);
         $this->assertCount(1, $files);
         $this->assertSame($newName, $files[0]['name']);
         $this->assertSame($file->id, $files[0]['id']);
@@ -295,31 +295,31 @@ class ExamLifecycleTest extends TestCase
         );
 
         try {
-            $exam->renameFile($file->id, $newName . '/evil');
+            $assessment->renameFile($file->id, $newName . '/evil');
             $this->fail('Expected invalid renamed path to throw');
         } catch (WSException $e) {
             $this->assertSame(400, $e->getCode());
         }
 
-        $exam->delete();
+        $assessment->delete();
     }
 
     public function testWriteFileContentsOverwritesExistingFile(): void
     {
-        $exam = new Exam();
-        $exam->school_id = $this->user->school_id;
-        $exam->user_id = $this->user->id;
-        $exam->name = 'Instruction File Exam';
-        $exam->subject = 'Physics';
-        $exam->date = '2026-08-20';
-        $exam->id = HashId::create();
-        $exam->save();
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'Instruction File Assessment';
+        $assessment->subject = 'Physics';
+        $assessment->date = '2026-08-20';
+        $assessment->id = HashId::create();
+        $assessment->save();
 
         $tmp = $this->createRandomTempFile('consigne_', '.txt');
         $filename = basename($tmp);
-        $file = $exam->createFileFromPath($filename, $tmp, 'text/plain', 'instructions', null);
+        $file = $assessment->createFileFromPath($filename, $tmp, 'text/plain', 'instructions', null);
 
-        $files = $exam->writeFileContents($file->id, "Bring a calculator.\n");
+        $files = $assessment->writeFileContents($file->id, "Bring a calculator.\n");
         $this->assertCount(1, $files);
         $this->assertSame($filename, $files[0]['name']);
         $this->assertSame('instructions', $files[0]['type']);
@@ -329,34 +329,34 @@ class ExamLifecycleTest extends TestCase
         );
 
         try {
-            $exam->writeFileContents('missing1', 'nope');
+            $assessment->writeFileContents('missing1', 'nope');
             $this->fail('Expected missing file to throw');
         } catch (\Exception $e) {
             $this->assertTrue(true);
         }
 
-        $exam->delete();
+        $assessment->delete();
     }
 
     public function testCreateCorrectionFilesWithStudentHashAndUniqueNames(): void
     {
-        $exam = new Exam();
-        $exam->school_id = $this->user->school_id;
-        $exam->user_id = $this->user->id;
-        $exam->name = 'Correction Files Exam';
-        $exam->subject = 'History';
-        $exam->date = '2026-09-21';
-        $exam->id = HashId::create();
-        $exam->save();
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'Correction Files Assessment';
+        $assessment->subject = 'History';
+        $assessment->date = '2026-09-21';
+        $assessment->id = HashId::create();
+        $assessment->save();
 
         $tmp = $this->createRandomTempFile('copy_', '.png');
         $filename = basename($tmp);
-        $submission = $exam->createFileFromPath($filename, $tmp, 'image/png', 'submission', null);
-        $carol = $exam->createStudent('Carol');
-        $dan = $exam->createStudent('Dan');
-        $exam->setFileTags($submission->id, 'submission', $carol->id);
+        $submission = $assessment->createFileFromPath($filename, $tmp, 'image/png', 'submission', null);
+        $carol = $assessment->createStudent('Carol');
+        $dan = $assessment->createStudent('Dan');
+        $assessment->setFileTags($submission->id, 'submission', $carol->id);
 
-        $files = $exam->createFile(
+        $files = $assessment->createFile(
             'copy_correction.txt',
             "Mark: 14/20\nGood work.",
             'text/plain; charset=utf-8',
@@ -368,7 +368,7 @@ class ExamLifecycleTest extends TestCase
         $this->assertSame('correction', $text['type']);
         $this->assertSame($carol->id, $text['student']);
 
-        $again = $exam->createFile(
+        $again = $assessment->createFile(
             'copy_correction.txt',
             "Mark: 15/20",
             'text/plain; charset=utf-8',
@@ -379,14 +379,14 @@ class ExamLifecycleTest extends TestCase
         $this->assertContains('copy_correction.txt', $names);
         $this->assertContains('copy_correction_1.txt', $names);
 
-        $exam->createFile(
+        $assessment->createFile(
             'copy_directives.php',
             '<?php $GD_directives = [];',
             'text/plain; charset=utf-8',
             'debug',
             $carol->id
         );
-        $exam->createFile(
+        $assessment->createFile(
             'other_correction.txt',
             'other student',
             'text/plain; charset=utf-8',
@@ -394,8 +394,8 @@ class ExamLifecycleTest extends TestCase
             $dan->id
         );
 
-        $exam->deleteFilesOfType('correction', $carol->id);
-        $left = $exam->list_files();
+        $assessment->deleteFilesOfType('correction', $carol->id);
+        $left = $assessment->list_files();
         $leftNames = array_column($left, 'name');
         $this->assertNotContains('copy_correction.txt', $leftNames);
         $this->assertNotContains('copy_correction_1.txt', $leftNames);
@@ -403,15 +403,15 @@ class ExamLifecycleTest extends TestCase
         $this->assertContains('other_correction.txt', $leftNames);
         $this->assertContains($filename, $leftNames);
 
-        $exam->deleteFilesOfType('debug', $carol->id);
-        $afterDebug = array_column($exam->list_files(), 'name');
+        $assessment->deleteFilesOfType('debug', $carol->id);
+        $afterDebug = array_column($assessment->list_files(), 'name');
         $this->assertNotContains('copy_directives.php', $afterDebug);
         $this->assertContains('other_correction.txt', $afterDebug);
 
-        $exam->delete();
+        $assessment->delete();
     }
 
-    public function testAddIndependentUserCreatesS3DirectoryAndCanOwnExam(): void
+    public function testAddIndependentUserCreatesS3DirectoryAndCanOwnAssessment(): void
     {
         $user = School::addIndependentUser('Profile Teacher');
 
@@ -431,24 +431,24 @@ class ExamLifecycleTest extends TestCase
                 $store->resolveIdPointer($user->id)
             );
 
-            $exam = new Exam();
-            $exam->school_id = $user->school_id;
-            $exam->user_id = $user->id;
-            $exam->name = 'Independent Exam';
-            $exam->subject = 'Science';
-            $exam->date = '2026-05-01';
-            $exam->id = HashId::create();
-            $exam->save();
+            $assessment = new Assessment();
+            $assessment->school_id = $user->school_id;
+            $assessment->user_id = $user->id;
+            $assessment->name = 'Independent Assessment';
+            $assessment->subject = 'Science';
+            $assessment->date = '2026-05-01';
+            $assessment->id = HashId::create();
+            $assessment->save();
 
             $this->assertTrue(
-                $store->exists(ObjectStore::examAttrKey(School::IND_SCHOOL_ID, $user->id, $exam->id))
+                $store->exists(ObjectStore::assessmentAttrKey(School::IND_SCHOOL_ID, $user->id, $assessment->id))
             );
 
-            $listed = Exam::list_for_author($user->id);
+            $listed = Assessment::list_for_author($user->id);
             $this->assertCount(1, $listed);
-            $this->assertSame($exam->id, $listed[0]['id']);
+            $this->assertSame($assessment->id, $listed[0]['id']);
 
-            $exam->delete();
+            $assessment->delete();
         } finally {
             if ($user->id !== null) {
                 try {
@@ -477,7 +477,7 @@ class ExamLifecycleTest extends TestCase
 
         $this->expectException(WSException::class);
         $this->expectExceptionCode(401);
-        Exam::list_for_author($unknownId);
+        Assessment::list_for_author($unknownId);
     }
 
     public function testIfMatchConditionalPut(): void
@@ -514,7 +514,7 @@ class ExamLifecycleTest extends TestCase
         $suffix = bin2hex(random_bytes(3));
         $schoolId = 'Mig' . $suffix; // 9 chars; not under schools/
         $userId = HashId::create();
-        $examId = HashId::create();
+        $assessmentId = HashId::create();
 
         $store->putContents(
             ObjectStore::legacySchoolCsvKey($schoolId),
@@ -543,12 +543,12 @@ class ExamLifecycleTest extends TestCase
         $store->setIdPointer($userId, ObjectStore::legacyUserPrefix($schoolId, $userId));
 
         $store->putContents(
-            ObjectStore::legacyExamCsvKey($schoolId, $userId, $examId),
+            ObjectStore::legacyAssessmentCsvKey($schoolId, $userId, $assessmentId),
             CsvStore::encode([
-                'id' => $examId,
+                'id' => $assessmentId,
                 'school_id' => $schoolId,
                 'user_id' => $userId,
-                'name' => 'Mig Exam',
+                'name' => 'Mig Assessment',
                 'subject' => 'Other',
                 'country' => '',
                 'level' => '',
@@ -557,16 +557,16 @@ class ExamLifecycleTest extends TestCase
             ]),
             'text/csv'
         );
-        $store->setIdPointer($examId, ObjectStore::legacyExamPrefix($schoolId, $userId, $examId));
+        $store->setIdPointer($assessmentId, ObjectStore::legacyAssessmentPrefix($schoolId, $userId, $assessmentId));
 
         $filename = 'scan.pdf';
         $store->putContents(
-            ObjectStore::legacyExamFileKey($schoolId, $userId, $examId, $filename),
+            ObjectStore::legacyAssessmentFileKey($schoolId, $userId, $assessmentId, $filename),
             '%PDF-mig',
             'application/pdf'
         );
         $store->putContents(
-            ObjectStore::legacyExamFilesCsvKey($schoolId, $userId, $examId),
+            ObjectStore::legacyAssessmentFilesCsvKey($schoolId, $userId, $assessmentId),
             CsvStore::encodeRows([
                 ['name' => $filename, 'type' => 'submission', 'student' => 'Eve'],
             ]),
@@ -586,16 +586,16 @@ class ExamLifecycleTest extends TestCase
         $this->assertSame('Mig Teacher', $teacher->name);
         $this->assertSame($schoolId, $teacher->school_id);
 
-        $exam = Exam::from_hash($examId);
-        $this->assertSame('Mig Exam', $exam->name);
-        $files = $exam->list_files();
+        $assessment = Assessment::from_hash($assessmentId);
+        $this->assertSame('Mig Assessment', $assessment->name);
+        $files = $assessment->list_files();
         $this->assertCount(1, $files);
         $this->assertSame($filename, $files[0]['name']);
         $this->assertSame('submission', $files[0]['type']);
         $this->assertSame('Eve', $files[0]['student_name']);
         $this->assertNotEmpty($files[0]['student']);
 
-        $students = $exam->list_students();
+        $students = $assessment->list_students();
         $this->assertCount(1, $students);
         $this->assertSame('Eve', $students[0]['name']);
 

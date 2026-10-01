@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { WSClient, type ApiMessage } from '@/backend/WSClient'
-import type { Exam } from '@/types/types'
+import type { Assessment } from '@/types/types'
 
 import { DEFAULT_LOCALE, type AvailableLocale } from '@/i18n'
 
@@ -16,12 +16,12 @@ interface SessionState {
   locale: AvailableLocale
   keyPair: CryptoKeyPair | null
   user_id: string | null
-  own_exams: Exam[]
+  own_assessments: Assessment[]
   debugMode: boolean
 }
 
-/** Server exam payload (uses user_id; client Exam uses author). */
-interface ServerExam {
+/** Server assessment payload (uses user_id; client Assessment uses author). */
+interface ServerAssessment {
   id: string
   school_id?: string
   user_id?: string
@@ -32,8 +32,8 @@ interface ServerExam {
   level?: string | null
   date: string
   created_at?: string
-  files?: Exam['files']
-  students?: Exam['students']
+  files?: Assessment['files']
+  students?: Assessment['students']
 }
 
 const STORAGE_KEY = 'corrai-session'
@@ -45,7 +45,7 @@ const defaultState: SessionState = {
   locale: DEFAULT_LOCALE,
   keyPair: null,
   user_id: null,
-  own_exams: [],
+  own_assessments: [],
   debugMode: false,
 }
 
@@ -53,7 +53,7 @@ export function isValidUserId(id: string | null | undefined): id is string {
   return typeof id === 'string' && USER_ID_PATTERN.test(id)
 }
 
-function normalizeExam(raw: ServerExam): Exam {
+function normalizeAssessment(raw: ServerAssessment): Assessment {
   return {
     id: raw.id,
     author: raw.user_id ?? raw.author ?? '',
@@ -73,7 +73,7 @@ export const useSessionStore = defineStore('session', () => {
   const locale = ref<AvailableLocale>(defaultState.locale)
   const keyPair = ref<CryptoKeyPair | null>(defaultState.keyPair)
   const user_id = ref<string | null>(defaultState.user_id)
-  const own_exams = ref<Exam[]>(defaultState.own_exams)
+  const own_assessments = ref<Assessment[]>(defaultState.own_assessments)
   const debugMode = ref<boolean>(defaultState.debugMode)
 
   const hasValidUserId = computed(() => isValidUserId(user_id.value))
@@ -227,7 +227,7 @@ export const useSessionStore = defineStore('session', () => {
   function clearSession(): void {
     keyPair.value = null
     user_id.value = null
-    own_exams.value = []
+    own_assessments.value = []
   }
 
   const getWsClient = (noRedirect = false) => {
@@ -238,58 +238,58 @@ export const useSessionStore = defineStore('session', () => {
     return wsClient
   }
 
-  function get_exam(id: string): Exam | null {
-    return own_exams.value.find(e => e.id === id) ?? null
+  function get_assessment(id: string): Assessment | null {
+    return own_assessments.value.find(e => e.id === id) ?? null
   }
 
-  async function load_exams(): Promise<Exam[]> {
+  async function load_assessments(): Promise<Assessment[]> {
     try {
       const wsClient = getWsClient()
-      const response = await wsClient.queryWs<{ exams: ServerExam[] }>('GET', '/exams')
-      const exams = (response?.exams ?? []).map(normalizeExam)
-      own_exams.value = exams
-      return exams
+      const response = await wsClient.queryWs<{ assessments: ServerAssessment[] }>('GET', '/assessments')
+      const assessments = (response?.assessments ?? []).map(normalizeAssessment)
+      own_assessments.value = assessments
+      return assessments
     } catch (error) {
-      console.error('Error loading exams:', error)
+      console.error('Error loading assessments:', error)
       return []
     }
   }
 
-  async function load_exam(hash: string): Promise<Exam | null> {
+  async function load_assessment(hash: string): Promise<Assessment | null> {
     try {
       const wsClient = getWsClient()
       const response = await wsClient.queryWs<{
-        exam: ServerExam
-        files?: Exam['files']
-        students?: Exam['students']
-      }>('GET', '/exam', { hash })
+        assessment: ServerAssessment
+        files?: Assessment['files']
+        students?: Assessment['students']
+      }>('GET', '/assessment', { hash })
 
-      if (!response || !response.exam || !response.exam.id) {
-        console.error('Exam loaded but missing id')
+      if (!response || !response.assessment || !response.assessment.id) {
+        console.error('Assessment loaded but missing id')
         return null
       }
 
-      const exam = normalizeExam({
-        ...response.exam,
-        files: response.files ?? response.exam.files ?? [],
-        students: response.students ?? response.exam.students ?? [],
+      const assessment = normalizeAssessment({
+        ...response.assessment,
+        files: response.files ?? response.assessment.files ?? [],
+        students: response.students ?? response.assessment.students ?? [],
       })
-      const existingIndex = own_exams.value.findIndex(e => e.id === exam.id)
+      const existingIndex = own_assessments.value.findIndex(e => e.id === assessment.id)
       if (existingIndex !== -1) {
-        own_exams.value[existingIndex] = exam
+        own_assessments.value[existingIndex] = assessment
       } else {
-        own_exams.value.push(exam)
+        own_assessments.value.push(assessment)
       }
 
-      return exam
+      return assessment
     } catch (error) {
-      console.error('Error loading exam:', error)
+      console.error('Error loading assessment:', error)
       return null
     }
   }
 
-  function remove_exam(id: string): void {
-    own_exams.value = own_exams.value.filter(e => e.id !== id)
+  function remove_assessment(id: string): void {
+    own_assessments.value = own_assessments.value.filter(e => e.id !== id)
   }
 
   return {
@@ -298,7 +298,7 @@ export const useSessionStore = defineStore('session', () => {
     locale,
     keyPair,
     user_id,
-    own_exams,
+    own_assessments,
     debugMode,
     hasValidUserId,
     isAuthenticated,
@@ -319,10 +319,10 @@ export const useSessionStore = defineStore('session', () => {
     getCryptoKeys,
     clearSession,
     getWsClient,
-    get_exam,
-    load_exams,
-    load_exam,
-    remove_exam,
+    get_assessment,
+    load_assessments,
+    load_assessment,
+    remove_assessment,
   }
 }, {
   persist: {

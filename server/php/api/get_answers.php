@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\Request;
 
 try {
@@ -12,8 +12,8 @@ try {
         exit();
     }
 
-    $exam = Exam::from_hash($hash);
-    $answers = $exam->verify();
+    $assessment = Assessment::from_hash($hash);
+    $answers = $assessment->verify();
 
     Request::add_output("answers", $answers);
 } catch (\Throwable $th) {

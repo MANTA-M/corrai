@@ -1,7 +1,7 @@
 <template>
-  <section class="files-section" data-testid="exam-files-section">
+  <section class="files-section" data-testid="assessment-files-section">
     <div class="files-header">
-      <h2>{{ t('exam.files') }}</h2>
+      <h2>{{ t('assessment.files') }}</h2>
       <div class="files-header-actions">
         <div
           v-if="visibleFiles.length"
@@ -18,7 +18,7 @@
             :aria-selected="viewMode === 'type'"
             @click="viewMode = 'type'"
           >
-            {{ t('exam.viewByType') }}
+            {{ t('assessment.viewByType') }}
           </button>
           <button
             type="button"
@@ -29,16 +29,16 @@
             :aria-selected="viewMode === 'student'"
             @click="viewMode = 'student'"
           >
-            {{ t('exam.viewByStudent') }}
+            {{ t('assessment.viewByStudent') }}
           </button>
         </div>
         <button
           type="button"
           class="button add-file-button"
-          data-testid="exam-add-file"
+          data-testid="assessment-add-file"
           @click="showAddFilePopup = true"
         >
-          {{ t('exam.addFiles') }}
+          {{ t('assessment.addFiles') }}
         </button>
       </div>
     </div>
@@ -59,21 +59,21 @@
             type="button"
             class="add-instruction-button"
             :data-testid="zone === 'instructions' ? 'add-instruction' : 'add-solution'"
-            :aria-label="zone === 'instructions' ? t('exam.addInstruction') : t('exam.addSolution')"
+            :aria-label="zone === 'instructions' ? t('assessment.addInstruction') : t('assessment.addSolution')"
             @click="openCreateTextFile(zone)"
           >
             +
           </button>
         </div>
         <p v-if="!filesInZone(zone).length" class="zone-empty">
-          {{ t('exam.fileZoneEmpty') }}
+          {{ t('assessment.fileZoneEmpty') }}
         </p>
         <ul v-else class="file-list">
           <li v-for="file in filesInZone(zone)" :key="file.name">
             <button
               type="button"
               class="file-item"
-              data-testid="exam-file-item"
+              data-testid="assessment-file-item"
               @click="openMenu($event, file)"
             >
               <span class="file-name">{{ file.name }}</span>
@@ -81,8 +81,8 @@
                   <span
                   v-if="sessionStore.debugMode && file.status"
                   class="file-status"
-                  data-testid="exam-file-status"
-                  :title="t('exam.fileStatus')"
+                  data-testid="assessment-file-status"
+                  :title="t('assessment.fileStatus')"
                 >{{ file.status }}</span>
                 {{ formatFileSize(file.size) }}
               </span>
@@ -95,7 +95,7 @@
     <div v-else-if="visibleFiles.length" class="student-view" data-testid="file-student-view">
       <template v-if="selectedStudent === null">
         <p v-if="!studentEntries.length" class="empty-files" data-testid="file-students-empty">
-          {{ t('exam.fileStudentsEmpty') }}
+          {{ t('assessment.fileStudentsEmpty') }}
         </p>
         <ul v-else class="student-list" data-testid="file-student-list">
           <li v-for="entry in studentEntries" :key="entry.id">
@@ -119,19 +119,19 @@
             data-testid="file-student-back"
             @click="selectedStudent = null"
           >
-            {{ t('exam.fileStudentBack') }}
+            {{ t('assessment.fileStudentBack') }}
           </button>
           <h3>{{ selectedStudentLabel }}</h3>
         </div>
         <p v-if="!filesForSelectedStudent.length" class="zone-empty">
-          {{ t('exam.fileZoneEmpty') }}
+          {{ t('assessment.fileZoneEmpty') }}
         </p>
         <ul v-else class="file-list">
           <li v-for="file in filesForSelectedStudent" :key="file.name">
             <button
               type="button"
               class="file-item"
-              data-testid="exam-file-item"
+              data-testid="assessment-file-item"
               @click="openMenu($event, file)"
             >
               <span class="file-name">{{ file.name }}</span>
@@ -139,8 +139,8 @@
                   <span
                   v-if="sessionStore.debugMode && file.status"
                   class="file-status"
-                  data-testid="exam-file-status"
-                  :title="t('exam.fileStatus')"
+                  data-testid="assessment-file-status"
+                  :title="t('assessment.fileStatus')"
                 >{{ file.status }}</span>
                 {{ formatFileSize(file.size) }}
               </span>
@@ -152,15 +152,15 @@
   </section>
 
   <AddFilePopup
-    v-if="showAddFilePopup && examId"
-    :exam-id="examId"
+    v-if="showAddFilePopup && assessmentId"
+    :assessment-id="assessmentId"
     @close="showAddFilePopup = false"
     @uploaded="onFilesUploaded"
   />
 
   <InstructionEditorPopup
-    v-if="showInstructionEditor && examId"
-    :exam-id="examId"
+    v-if="showInstructionEditor && assessmentId"
+    :assessment-id="assessmentId"
     :files="files"
     :existing-file="instructionEditorFile"
     :kind="textFileKind"
@@ -194,7 +194,7 @@
             role="menuitem"
             @click="closeMenu"
           >
-            {{ t('exam.fileView') }}
+            {{ t('assessment.fileView') }}
           </a>
           <button
             v-if="fileZone(menu.file) === 'instructions' || fileZone(menu.file) === 'solution'"
@@ -204,7 +204,7 @@
             role="menuitem"
             @click="startEditTextFile"
           >
-            {{ t('exam.fileEdit') }}
+            {{ t('assessment.fileEdit') }}
           </button>
           <button
             v-if="fileZone(menu.file) === 'submission'"
@@ -215,7 +215,7 @@
             :disabled="isUpdating"
             @click="correctSubmission"
           >
-            {{ isUpdating ? t('exam.fileCorrecting') : t('exam.fileCorrect') }}
+            {{ isUpdating ? t('assessment.fileCorrecting') : t('assessment.fileCorrect') }}
           </button>
           <button
             type="button"
@@ -224,7 +224,7 @@
             role="menuitem"
             @click="startRename"
           >
-            {{ t('exam.fileRename') }}
+            {{ t('assessment.fileRename') }}
           </button>
           <button
             type="button"
@@ -233,7 +233,7 @@
             role="menuitem"
             @click="startDelete"
           >
-            {{ t('exam.fileDelete') }}
+            {{ t('assessment.fileDelete') }}
           </button>
           <button
             type="button"
@@ -242,7 +242,7 @@
             role="menuitem"
             @click="menu.mode = 'type'"
           >
-            {{ t('exam.fileChangeType') }}
+            {{ t('assessment.fileChangeType') }}
           </button>
           <button
             type="button"
@@ -251,7 +251,7 @@
             role="menuitem"
             @click="startSetStudent"
           >
-            {{ t('exam.fileSetStudent') }}
+            {{ t('assessment.fileSetStudent') }}
           </button>
           <template v-if="sessionStore.debugMode">
             <button
@@ -261,10 +261,10 @@
               role="menuitem"
               @click="menu.mode = 'history'"
             >
-              {{ t('exam.fileHistory') }}
+              {{ t('assessment.fileHistory') }}
             </button>
             <p class="file-menu-section" data-testid="file-menu-annexes">
-              {{ t('exam.fileAnnexes') }}
+              {{ t('assessment.fileAnnexes') }}
             </p>
             <p v-if="debugInfoLoading" class="file-menu-hint">…</p>
             <p
@@ -272,7 +272,7 @@
               class="file-menu-hint"
               data-testid="file-menu-annexes-empty"
             >
-              {{ t('exam.fileAnnexesEmpty') }}
+              {{ t('assessment.fileAnnexesEmpty') }}
             </p>
             <a
               v-for="name in annexes"
@@ -329,7 +329,7 @@
             class="file-menu-hint"
             data-testid="file-menu-history-empty"
           >
-            {{ t('exam.fileHistoryEmpty') }}
+            {{ t('assessment.fileHistoryEmpty') }}
           </p>
           <a
             v-for="event in debugEvents"
@@ -361,7 +361,7 @@
               type="text"
               class="file-student-input"
               data-testid="file-student-input"
-              :placeholder="t('exam.fileStudentPlaceholder')"
+              :placeholder="t('assessment.fileStudentPlaceholder')"
               :disabled="isUpdating"
             />
             <button
@@ -370,7 +370,7 @@
               data-testid="file-student-save"
               :disabled="isUpdating"
             >
-              {{ t('exam.fileStudentSave') }}
+              {{ t('assessment.fileStudentSave') }}
             </button>
           </form>
         </template>
@@ -386,7 +386,7 @@
   >
     <div class="popup-content file-action-popup">
       <div class="popup-header">
-        <h2>{{ t('exam.fileRenameTitle') }}</h2>
+        <h2>{{ t('assessment.fileRenameTitle') }}</h2>
         <button
           type="button"
           class="close-button"
@@ -399,7 +399,7 @@
       </div>
       <div class="popup-body">
         <form @submit.prevent="submitRename">
-          <label class="file-action-label" for="rename-file-input">{{ t('exam.fileRenamePlaceholder') }}</label>
+          <label class="file-action-label" for="rename-file-input">{{ t('assessment.fileRenamePlaceholder') }}</label>
           <input
             id="rename-file-input"
             ref="renameInput"
@@ -429,7 +429,7 @@
           :disabled="isUpdating || !renameDraft.trim()"
           @click="submitRename"
         >
-          {{ isUpdating ? t('exam.fileRenaming') : t('exam.fileRenameSave') }}
+          {{ isUpdating ? t('assessment.fileRenaming') : t('assessment.fileRenameSave') }}
         </button>
       </div>
     </div>
@@ -443,7 +443,7 @@
   >
     <div class="popup-content file-action-popup">
       <div class="popup-header">
-        <h2>{{ t('exam.fileDeleteTitle') }}</h2>
+        <h2>{{ t('assessment.fileDeleteTitle') }}</h2>
         <button
           type="button"
           class="close-button"
@@ -456,7 +456,7 @@
       </div>
       <div class="popup-body">
         <p data-testid="delete-file-confirm">
-          {{ t('exam.fileDeleteConfirm', { name: deleteTarget.name }) }}
+          {{ t('assessment.fileDeleteConfirm', { name: deleteTarget.name }) }}
         </p>
         <p v-if="actionError" class="error-message" data-testid="delete-file-error">{{ actionError }}</p>
       </div>
@@ -477,7 +477,7 @@
           :disabled="isUpdating"
           @click="submitDelete"
         >
-          {{ isUpdating ? t('exam.fileDeleting') : t('exam.fileDelete') }}
+          {{ isUpdating ? t('assessment.fileDeleting') : t('assessment.fileDelete') }}
         </button>
       </div>
     </div>
@@ -491,21 +491,21 @@ import AddFilePopup from '@/components/AddFilePopup.vue'
 import InstructionEditorPopup from '@/components/InstructionEditorPopup.vue'
 import { useSessionStore } from '@/stores/session'
 import {
-  EXAM_FILE_TYPES,
-  EXAM_FILE_TYPE_ZONES,
-  type ExamFile,
-  type ExamFileTypeZone,
-  type ExamStudent,
+  ASSESSMENT_FILE_TYPES,
+  ASSESSMENT_FILE_TYPE_ZONES,
+  type AssessmentFile,
+  type AssessmentFileTypeZone,
+  type AssessmentStudent,
 } from '@/types/types'
 
 const props = defineProps<{
-  examId: string
-  files: ExamFile[]
-  students?: ExamStudent[]
+  assessmentId: string
+  files: AssessmentFile[]
+  students?: AssessmentStudent[]
 }>()
 
 const emit = defineEmits<{
-  updated: [payload: { files: ExamFile[]; students?: ExamStudent[] }]
+  updated: [payload: { files: AssessmentFile[]; students?: AssessmentStudent[] }]
 }>()
 
 const { t, locale } = useI18n()
@@ -513,14 +513,14 @@ const sessionStore = useSessionStore()
 
 const typeZones = computed(() =>
   sessionStore.debugMode
-    ? EXAM_FILE_TYPE_ZONES
-    : EXAM_FILE_TYPE_ZONES.filter((zone) => zone !== 'debug')
+    ? ASSESSMENT_FILE_TYPE_ZONES
+    : ASSESSMENT_FILE_TYPE_ZONES.filter((zone) => zone !== 'debug')
 )
 
-const fileZone = (file: ExamFile): ExamFileTypeZone => {
+const fileZone = (file: AssessmentFile): AssessmentFileTypeZone => {
   const type = file.type ?? ''
-  return (EXAM_FILE_TYPES as readonly string[]).includes(type)
-    ? (type as ExamFileTypeZone)
+  return (ASSESSMENT_FILE_TYPES as readonly string[]).includes(type)
+    ? (type as AssessmentFileTypeZone)
     : 'unknown'
 }
 
@@ -534,19 +534,19 @@ const viewMode = ref<'type' | 'student'>('type')
 const selectedStudent = ref<string | null>(null)
 const showAddFilePopup = ref(false)
 const showInstructionEditor = ref(false)
-const instructionEditorFile = ref<ExamFile | null>(null)
+const instructionEditorFile = ref<AssessmentFile | null>(null)
 const textFileKind = ref<'instructions' | 'solution'>('instructions')
 const error = ref('')
 const actionError = ref('')
 const isUpdating = ref(false)
 const studentDraft = ref('')
-const renameTarget = ref<ExamFile | null>(null)
+const renameTarget = ref<AssessmentFile | null>(null)
 const renameDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
-const deleteTarget = ref<ExamFile | null>(null)
+const deleteTarget = ref<AssessmentFile | null>(null)
 
 interface FileMenu {
-  file: ExamFile
+  file: AssessmentFile
   x: number
   y: number
   mode: 'root' | 'type' | 'student' | 'history'
@@ -571,26 +571,26 @@ let debugLoadSeq = 0
 const annexes = computed(() => debugInfo.value?.annexes ?? [])
 const debugEvents = computed(() => debugInfo.value?.events ?? [])
 
-const typeZoneLabel = (zone: ExamFileTypeZone) => {
-  const keys: Record<ExamFileTypeZone, string> = {
-    subject: 'exam.fileTypeSubject',
-    solution: 'exam.fileTypeSolution',
-    submission: 'exam.fileTypeSubmission',
-    instructions: 'exam.fileTypeInstructions',
-    correction: 'exam.fileTypeCorrection',
-    debug: 'exam.fileTypeDebug',
-    unknown: 'exam.fileTypeUnknown',
+const typeZoneLabel = (zone: AssessmentFileTypeZone) => {
+  const keys: Record<AssessmentFileTypeZone, string> = {
+    subject: 'assessment.fileTypeSubject',
+    solution: 'assessment.fileTypeSolution',
+    submission: 'assessment.fileTypeSubmission',
+    instructions: 'assessment.fileTypeInstructions',
+    correction: 'assessment.fileTypeCorrection',
+    debug: 'assessment.fileTypeDebug',
+    unknown: 'assessment.fileTypeUnknown',
   }
   return t(keys[zone])
 }
 
-const filesInZone = (zone: ExamFileTypeZone) =>
+const filesInZone = (zone: AssessmentFileTypeZone) =>
   visibleFiles.value.filter((file) => fileZone(file) === zone)
 
-const studentKey = (file: ExamFile) => (file.student ?? '').trim()
+const studentKey = (file: AssessmentFile) => (file.student ?? '').trim()
 
 const studentLabelForId = (id: string) => {
-  if (id === '') return t('exam.fileStudentUnknown')
+  if (id === '') return t('assessment.fileStudentUnknown')
   const fromFile = visibleFiles.value.find((file) => studentKey(file) === id)?.student_name
   if (fromFile && fromFile.trim() !== '') return fromFile
   const fromList = (props.students ?? []).find((student) => student.id === id)
@@ -640,7 +640,7 @@ const formatFileSize = (size: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const openMenu = (event: MouseEvent, file: ExamFile) => {
+const openMenu = (event: MouseEvent, file: AssessmentFile) => {
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
   const maxLeft = Math.max(8, window.innerWidth - 240)
@@ -661,7 +661,7 @@ const openMenu = (event: MouseEvent, file: ExamFile) => {
   }
 }
 
-const loadFileDebug = async (file: ExamFile) => {
+const loadFileDebug = async (file: AssessmentFile) => {
   const seq = ++debugLoadSeq
   debugInfo.value = null
   debugInfoLoading.value = true
@@ -669,7 +669,7 @@ const loadFileDebug = async (file: ExamFile) => {
     const data = await sessionStore.getWsClient().queryWs<FileDebugInfo>(
       'GET',
       '/file_annexes',
-      { id: props.examId, file: file.id }
+      { id: props.assessmentId, file: file.id }
     )
     if (seq !== debugLoadSeq || menu.value?.file.id !== file.id) return
     debugInfo.value = {
@@ -692,22 +692,22 @@ const closeMenu = () => {
   menu.value = null
 }
 
-const fileViewUrl = (file: ExamFile) =>
+const fileViewUrl = (file: AssessmentFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.examId,
+    id: props.assessmentId,
     file: file.id,
   })
 
 const annexUrl = (name: string) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.examId,
+    id: props.assessmentId,
     file: menu.value?.file.id ?? '',
     annex: name,
   })
 
 const eventUrl = (eventId: string) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.examId,
+    id: props.assessmentId,
     file: menu.value?.file.id ?? '',
     event: eventId,
   })
@@ -802,10 +802,10 @@ const correctSubmission = async () => {
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'POST',
       '/correction',
-      { id: props.examId, file: file.id },
+      { id: props.assessmentId, file: file.id },
       { language: uiLanguageName() }
     )
     if (response?.files) {
@@ -814,38 +814,38 @@ const correctSubmission = async () => {
     closeMenu()
   } catch (err) {
     console.error('Error correcting submission:', err)
-    error.value = t('exam.fileCorrectError')
+    error.value = t('assessment.fileCorrectError')
     closeMenu()
   } finally {
     isUpdating.value = false
   }
 }
 
-const applyUpdatedFiles = (files: ExamFile[], students?: ExamStudent[]) => {
+const applyUpdatedFiles = (files: AssessmentFile[], students?: AssessmentStudent[]) => {
   emit('updated', { files, students })
-  const existingIndex = sessionStore.own_exams.findIndex((e) => e.id === props.examId)
+  const existingIndex = sessionStore.own_assessments.findIndex((e) => e.id === props.assessmentId)
   if (existingIndex !== -1) {
-    sessionStore.own_exams[existingIndex] = {
-      ...sessionStore.own_exams[existingIndex],
+    sessionStore.own_assessments[existingIndex] = {
+      ...sessionStore.own_assessments[existingIndex],
       files,
-      students: students ?? sessionStore.own_exams[existingIndex].students,
+      students: students ?? sessionStore.own_assessments[existingIndex].students,
     }
   }
 }
 
-const onFilesUploaded = (updatedFiles: ExamFile[]) => {
+const onFilesUploaded = (updatedFiles: AssessmentFile[]) => {
   applyUpdatedFiles(updatedFiles)
 }
 
-const updateTags = async (file: ExamFile, patch: { type?: string; student?: string }) => {
+const updateTags = async (file: AssessmentFile, patch: { type?: string; student?: string }) => {
   error.value = ''
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'PUT',
       '/file',
-      { id: props.examId, file: file.id },
+      { id: props.assessmentId, file: file.id },
       patch
     )
     if (response?.files) {
@@ -854,13 +854,13 @@ const updateTags = async (file: ExamFile, patch: { type?: string; student?: stri
     closeMenu()
   } catch (err) {
     console.error('Error updating file tags:', err)
-    error.value = t('exam.fileUpdateError')
+    error.value = t('assessment.fileUpdateError')
   } finally {
     isUpdating.value = false
   }
 }
 
-const changeType = async (zone: ExamFileTypeZone) => {
+const changeType = async (zone: AssessmentFileTypeZone) => {
   if (!menu.value) return
   await updateTags(menu.value.file, { type: zone === 'unknown' ? '' : zone })
 }
@@ -884,10 +884,10 @@ const saveStudent = async () => {
 
     if (!studentId) {
       const created = await wsClient.queryWs<{
-        student?: ExamStudent
-        students?: ExamStudent[]
-        files?: ExamFile[]
-      }>('POST', '/student', { id: props.examId }, { name })
+        student?: AssessmentStudent
+        students?: AssessmentStudent[]
+        files?: AssessmentFile[]
+      }>('POST', '/student', { id: props.assessmentId }, { name })
       studentId = created?.student?.id ?? null
       students = created?.students ?? students
       if (!studentId) {
@@ -895,10 +895,10 @@ const saveStudent = async () => {
       }
     }
 
-    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'PUT',
       '/file',
-      { id: props.examId, file: menu.value.file.id },
+      { id: props.assessmentId, file: menu.value.file.id },
       { student: studentId }
     )
     if (response?.files) {
@@ -907,7 +907,7 @@ const saveStudent = async () => {
     closeMenu()
   } catch (err) {
     console.error('Error assigning student:', err)
-    error.value = t('exam.fileUpdateError')
+    error.value = t('assessment.fileUpdateError')
   } finally {
     isUpdating.value = false
   }
@@ -923,10 +923,10 @@ const submitRename = async () => {
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'PUT',
       '/file',
-      { id: props.examId, file: renameTarget.value.id },
+      { id: props.assessmentId, file: renameTarget.value.id },
       { name: newName }
     )
     if (response?.files) {
@@ -935,7 +935,7 @@ const submitRename = async () => {
     renameTarget.value = null
   } catch (err) {
     console.error('Error renaming file:', err)
-    actionError.value = t('exam.fileRenameError')
+    actionError.value = t('assessment.fileRenameError')
   } finally {
     isUpdating.value = false
   }
@@ -949,10 +949,10 @@ const submitDelete = async () => {
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'DELETE',
       '/file',
-      { id: props.examId, file: deleteTarget.value.id }
+      { id: props.assessmentId, file: deleteTarget.value.id }
     )
     if (response?.files) {
       applyUpdatedFiles(response.files, response.students)
@@ -962,7 +962,7 @@ const submitDelete = async () => {
     deleteTarget.value = null
   } catch (err) {
     console.error('Error deleting file:', err)
-    actionError.value = t('exam.fileDeleteError')
+    actionError.value = t('assessment.fileDeleteError')
   } finally {
     isUpdating.value = false
   }

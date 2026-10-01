@@ -9,8 +9,8 @@ export interface CryptoAddress {
   public_key: string,
 }
 
-/** Stored exam subject values. These are pipeline names, not display labels. */
-export const EXAM_SUBJECTS = [
+/** Stored assessment subject values. These are pipeline names, not display labels. */
+export const ASSESSMENT_SUBJECTS = [
   'MathPipeline',
   'Physics',
   'Dictation',
@@ -21,19 +21,19 @@ export const EXAM_SUBJECTS = [
   'Law',
   'Other',
 ] as const
-export type ExamSubject = (typeof EXAM_SUBJECTS)[number]
+export type AssessmentSubject = (typeof ASSESSMENT_SUBJECTS)[number]
 
-export function isExamSubject(value: string): value is ExamSubject {
-  return (EXAM_SUBJECTS as readonly string[]).includes(value)
+export function isAssessmentSubject(value: string): value is AssessmentSubject {
+  return (ASSESSMENT_SUBJECTS as readonly string[]).includes(value)
 }
 
-export const EXAM_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'] as const
-export type ExamFileType = (typeof EXAM_FILE_TYPES)[number]
+export const ASSESSMENT_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'] as const
+export type AssessmentFileType = (typeof ASSESSMENT_FILE_TYPES)[number]
 
-export const EXAM_FILE_TYPE_ZONES = [...EXAM_FILE_TYPES, 'unknown'] as const
-export type ExamFileTypeZone = (typeof EXAM_FILE_TYPE_ZONES)[number]
+export const ASSESSMENT_FILE_TYPE_ZONES = [...ASSESSMENT_FILE_TYPES, 'unknown'] as const
+export type AssessmentFileTypeZone = (typeof ASSESSMENT_FILE_TYPE_ZONES)[number]
 
-export interface ExamFile {
+export interface AssessmentFile {
   id: string
   name: string
   size: number
@@ -46,14 +46,14 @@ export interface ExamFile {
   content_type?: string
 }
 
-export interface ExamStudent {
+export interface AssessmentStudent {
   id: string
   name: string
   status?: string
   mark?: number | null
 }
 
-export interface ExamQuestion {
+export interface AssessmentQuestion {
   text: string
   answer: boolean | null
   explanation: string | null
@@ -77,7 +77,7 @@ export interface SubjectNode {
   levels: SubjectLevelNode[]
 }
 
-export interface Exam {
+export interface Assessment {
   id: string | null
   author: string
   name: string
@@ -88,7 +88,7 @@ export interface Exam {
   verified?: string
   verifier?: string
   locked_by?: string | null
-  questions?: ExamQuestion[]
-  files?: ExamFile[]
-  students?: ExamStudent[]
+  questions?: AssessmentQuestion[]
+  files?: AssessmentFile[]
+  students?: AssessmentStudent[]
 }

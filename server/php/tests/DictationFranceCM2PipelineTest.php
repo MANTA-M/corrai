@@ -174,14 +174,14 @@ class DictationFranceCM2PipelineTest extends TestCase
         $mockClient = new CapturedClaudeSonnetClient();
         $pipeline = new TestablePipeline($mockClient);
 
-        $exam = $this->createMock(\Corrai\Model\Exam::class);
-        $exam->method('instructionFilesText')->willReturn('Exam instructions');
+        $assessment = $this->createMock(\Corrai\Model\Assessment::class);
+        $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
 
         $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
         copy($this->tempImagePath, $solutionPath);
 
         try {
-            $pipeline->callFindErrors($exam, $this->tempImagePath, 'copy.png', $solutionPath, 'sol.png', 'French');
+            $pipeline->callFindErrors($assessment, $this->tempImagePath, 'copy.png', $solutionPath, 'sol.png', 'French');
 
             $schema = $mockClient->responseFormat()['json_schema']['schema'];
             $this->assertSame(['errors'], $schema['required']);
@@ -206,15 +206,15 @@ class DictationFranceCM2PipelineTest extends TestCase
         $mockClient = new CapturedClaudeSonnetClient();
         $pipeline = new TestablePipeline($mockClient);
 
-        $exam = $this->createMock(\Corrai\Model\Exam::class);
-        $exam->method('instructionFilesText')->willReturn('Exam instructions');
+        $assessment = $this->createMock(\Corrai\Model\Assessment::class);
+        $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
 
         $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
         copy($this->tempImagePath, $solutionPath);
 
         try {
             $pipeline->callFindErrors(
-                $exam,
+                $assessment,
                 $this->tempImagePath,
                 'copy.png',
                 $solutionPath,
@@ -266,7 +266,7 @@ class TestablePipeline extends Pipeline
     }
 
     public function callFindErrors(
-        \Corrai\Model\BaseExam $exam,
+        \Corrai\Model\BaseAssessment $assessment,
         string $copyPath,
         string $copyName,
         string $solutionPath,
@@ -274,7 +274,7 @@ class TestablePipeline extends Pipeline
         string $languageName,
         array $ocrWords = []
     ): string {
-        return $this->findErrors($exam, $copyPath, $copyName, $solutionPath, $solutionName, $languageName, $ocrWords);
+        return $this->findErrors($assessment, $copyPath, $copyName, $solutionPath, $solutionName, $languageName, $ocrWords);
     }
 
     public function callGdDirectives(string $copyPath, string $copyName, string $correction): string

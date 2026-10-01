@@ -12,14 +12,14 @@ use Exception;
  * Tree layout:
  *   schools/<schoolId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/attributes.json
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/attributes.json
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/attributes.json
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/content
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/ocr_result.json
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/found_errors.json
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/markup_directives.php
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/events/<eventId>.json
- *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/students/<studentId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/content
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/ocr_result.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/found_errors.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/markup_directives.php
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/events/<eventId>.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
  *   _id/{hash}  — pointer to node prefix for O(1) from_hash
  *
  * Legacy CSV keys (school.csv, user.csv, exam.csv, files.csv) remain for migration only.
@@ -126,126 +126,126 @@ class ObjectStore
         return self::teacherPrefix($schoolId, $teacherId) . self::ATTR_FILE;
     }
 
-    public static function examsPrefix(string $schoolId, string $teacherId): string
+    public static function assessmentsPrefix(string $schoolId, string $teacherId): string
     {
-        return self::teacherPrefix($schoolId, $teacherId) . 'exams/';
+        return self::teacherPrefix($schoolId, $teacherId) . 'assessments/';
     }
 
-    public static function examPrefix(string $schoolId, string $teacherId, string $examId): string
+    public static function assessmentPrefix(string $schoolId, string $teacherId, string $assessmentId): string
     {
-        return self::examsPrefix($schoolId, $teacherId) . $examId . '/';
+        return self::assessmentsPrefix($schoolId, $teacherId) . $assessmentId . '/';
     }
 
-    public static function examAttrKey(string $schoolId, string $teacherId, string $examId): string
+    public static function assessmentAttrKey(string $schoolId, string $teacherId, string $assessmentId): string
     {
-        return self::examPrefix($schoolId, $teacherId, $examId) . self::ATTR_FILE;
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . self::ATTR_FILE;
     }
 
-    public static function examFilesPrefix(string $schoolId, string $teacherId, string $examId): string
+    public static function assessmentFilesPrefix(string $schoolId, string $teacherId, string $assessmentId): string
     {
-        return self::examPrefix($schoolId, $teacherId, $examId) . 'files/';
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'files/';
     }
 
-    public static function examFilePrefix(
+    public static function assessmentFilePrefix(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilesPrefix($schoolId, $teacherId, $examId) . $fileId . '/';
+        return self::assessmentFilesPrefix($schoolId, $teacherId, $assessmentId) . $fileId . '/';
     }
 
-    public static function examFileAttrKey(
+    public static function assessmentFileAttrKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::ATTR_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::ATTR_FILE;
     }
 
-    public static function examFileContentKey(
+    public static function assessmentFileContentKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::CONTENT_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::CONTENT_FILE;
     }
 
-    public static function examFileOcrResultKey(
+    public static function assessmentFileOcrResultKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::OCR_RESULT_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::OCR_RESULT_FILE;
     }
 
-    public static function examFileFoundErrorsKey(
+    public static function assessmentFileFoundErrorsKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::FOUND_ERRORS_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::FOUND_ERRORS_FILE;
     }
 
-    public static function examFileMarkupDirectivesKey(
+    public static function assessmentFileMarkupDirectivesKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::MARKUP_DIRECTIVES_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::MARKUP_DIRECTIVES_FILE;
     }
 
-    public static function examFileEventsPrefix(
+    public static function assessmentFileEventsPrefix(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId
     ): string {
-        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . 'events/';
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . 'events/';
     }
 
-    public static function examFileEventKey(
+    public static function assessmentFileEventKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $fileId,
         string $eventId
     ): string {
-        return self::examFileEventsPrefix($schoolId, $teacherId, $examId, $fileId) . $eventId . '.json';
+        return self::assessmentFileEventsPrefix($schoolId, $teacherId, $assessmentId, $fileId) . $eventId . '.json';
     }
 
-    public static function examStudentsPrefix(string $schoolId, string $teacherId, string $examId): string
+    public static function assessmentStudentsPrefix(string $schoolId, string $teacherId, string $assessmentId): string
     {
-        return self::examPrefix($schoolId, $teacherId, $examId) . 'students/';
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'students/';
     }
 
-    public static function examStudentPrefix(
+    public static function assessmentStudentPrefix(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $studentId
     ): string {
-        return self::examStudentsPrefix($schoolId, $teacherId, $examId) . $studentId . '/';
+        return self::assessmentStudentsPrefix($schoolId, $teacherId, $assessmentId) . $studentId . '/';
     }
 
-    public static function examStudentAttrKey(
+    public static function assessmentStudentAttrKey(
         string $schoolId,
         string $teacherId,
-        string $examId,
+        string $assessmentId,
         string $studentId
     ): string {
-        return self::examStudentPrefix($schoolId, $teacherId, $examId, $studentId) . self::ATTR_FILE;
+        return self::assessmentStudentPrefix($schoolId, $teacherId, $assessmentId, $studentId) . self::ATTR_FILE;
     }
 
     /**
      * Parse a schools/... node prefix into path segments.
      *
-     * @return array{kind: string, school_id: string, teacher_id?: string, exam_id?: string, file_id?: string, student_id?: string}
+     * @return array{kind: string, school_id: string, teacher_id?: string, assessment_id?: string, file_id?: string, student_id?: string}
      */
     public static function parseNodePrefix(string $prefix): array
     {
@@ -267,16 +267,16 @@ class ObjectStore
             return ['kind' => 'teacher', 'school_id' => $schoolId, 'teacher_id' => $teacherId];
         }
 
-        if (($parts[4] ?? '') !== 'exams' || !isset($parts[5])) {
-            throw new Exception('Invalid exam path in prefix: ' . $prefix);
+        if (($parts[4] ?? '') !== 'assessments' || !isset($parts[5])) {
+            throw new Exception('Invalid assessment path in prefix: ' . $prefix);
         }
-        $examId = $parts[5];
+        $assessmentId = $parts[5];
         if (count($parts) === 6) {
             return [
-                'kind' => 'exam',
+                'kind' => 'assessment',
                 'school_id' => $schoolId,
                 'teacher_id' => $teacherId,
-                'exam_id' => $examId,
+                'assessment_id' => $assessmentId,
             ];
         }
 
@@ -285,7 +285,7 @@ class ObjectStore
                 'kind' => 'file',
                 'school_id' => $schoolId,
                 'teacher_id' => $teacherId,
-                'exam_id' => $examId,
+                'assessment_id' => $assessmentId,
                 'file_id' => $parts[7],
             ];
         }
@@ -295,7 +295,7 @@ class ObjectStore
                 'kind' => 'student',
                 'school_id' => $schoolId,
                 'teacher_id' => $teacherId,
-                'exam_id' => $examId,
+                'assessment_id' => $assessmentId,
                 'student_id' => $parts[7],
             ];
         }
@@ -327,43 +327,43 @@ class ObjectStore
         return $schoolId . '/' . $userId . '/user.csv';
     }
 
-    public static function legacyExamPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyAssessmentPrefix(string $schoolId, string $userId, string $assessmentId): string
     {
-        return $schoolId . '/' . $userId . '/' . $examId . '/';
+        return $schoolId . '/' . $userId . '/' . $assessmentId . '/';
     }
 
-    public static function legacyExamCsvKey(string $schoolId, string $userId, string $examId): string
+    public static function legacyAssessmentCsvKey(string $schoolId, string $userId, string $assessmentId): string
     {
-        return $schoolId . '/' . $userId . '/' . $examId . '/exam.csv';
+        return $schoolId . '/' . $userId . '/' . $assessmentId . '/exam.csv';
     }
 
-    public static function legacyExamFilesCsvKey(string $schoolId, string $userId, string $examId): string
+    public static function legacyAssessmentFilesCsvKey(string $schoolId, string $userId, string $assessmentId): string
     {
-        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'files.csv';
+        return self::legacyAssessmentPrefix($schoolId, $userId, $assessmentId) . 'files.csv';
     }
 
-    public static function legacyExamFilesPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyAssessmentFilesPrefix(string $schoolId, string $userId, string $assessmentId): string
     {
-        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'files/';
+        return self::legacyAssessmentPrefix($schoolId, $userId, $assessmentId) . 'files/';
     }
 
-    public static function legacyExamFileKey(
+    public static function legacyAssessmentFileKey(
         string $schoolId,
         string $userId,
-        string $examId,
+        string $assessmentId,
         string $filename
     ): string {
-        return self::legacyExamFilesPrefix($schoolId, $userId, $examId) . $filename;
+        return self::legacyAssessmentFilesPrefix($schoolId, $userId, $assessmentId) . $filename;
     }
 
-    public static function legacyExamUnassignedPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyAssessmentUnassignedPrefix(string $schoolId, string $userId, string $assessmentId): string
     {
-        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'unassigned/';
+        return self::legacyAssessmentPrefix($schoolId, $userId, $assessmentId) . 'unassigned/';
     }
 
-    public static function legacyExamSubjectPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyAssessmentSubjectPrefix(string $schoolId, string $userId, string $assessmentId): string
     {
-        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'subject/';
+        return self::legacyAssessmentPrefix($schoolId, $userId, $assessmentId) . 'subject/';
     }
 
     // -------------------------------------------------------------------------

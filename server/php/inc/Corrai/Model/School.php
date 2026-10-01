@@ -107,7 +107,7 @@ class School
     }
 
     /**
-     * Delete the school prefix and its _id pointer (cascades teachers/exams in S3).
+     * Delete the school prefix and its _id pointer (cascades teachers/assessments in S3).
      */
     public function delete(): void
     {
@@ -118,8 +118,8 @@ class School
         $store = ObjectStore::getInstance();
 
         foreach ($this->users() as $user) {
-            foreach ($user->exams() as $exam) {
-                $exam->delete();
+            foreach ($user->assessments() as $assessment) {
+                $assessment->delete();
             }
             if ($user->id !== null) {
                 $store->deleteIdPointer($user->id);

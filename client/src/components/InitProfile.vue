@@ -181,7 +181,7 @@ const handleCreateProfile = async () => {
     sessionStore.setUserName(userName || response.user?.name || '')
 
     if (router.currentRoute.value.name !== 'share') {
-      router.push('/exam-list')
+      router.push('/assessment-list')
     }
   } catch (error) {
     console.error('Error creating profile:', error)

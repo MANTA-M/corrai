@@ -1,6 +1,6 @@
 # Corrai
 
-The Corrai application repository - An Exam paper correction AI.
+The Corrai application repository - An Assessment paper correction AI.
 
 ## Directory structure
 
@@ -54,7 +54,7 @@ The PHP backend will be available at `http://localhost:80`
     - Nginx config mounted from `docker/php/nginx-default.conf`
   - Starts after **php-consumer** and **ocr-consumer** so a plain `docker compose up` brings up the full worker stack
 - **php-consumer**: PHP Redis file-status worker (`server/php/cli/redis_consumer.php`)
-  - Consumes `corrai:files`, loads exam/file attributes from SeaweedFS, dispatches `on_{status}`
+  - Consumes `corrai:files`, loads assessment/file attributes from SeaweedFS, dispatches `on_{status}`
   - `restart: unless-stopped`
 - **ocr-consumer**: Python OCR worker (`python -m pycorrai.consumer`)
   - Consumes `corrai:ocr`, writes OCR results to S3, enqueues work for the PHP consumer
@@ -62,7 +62,7 @@ The PHP backend will be available at `http://localhost:80`
 - **redis**: Redis 7
   - Port: 6379
   - Reachable from the PHP container as `redis:6379` (`REDIS_HOST`, `REDIS_PORT`)
-- **seaweedfs**: S3-compatible object store for schools, users, exams, and files
+- **seaweedfs**: S3-compatible object store for schools, users, assessments, and files
   - Ports: 8333 (S3 API), 8888 (filer UI)
   - Volume: `./docker/storage` → `/data`
   - Existing MinIO data in that volume is not compatible; clear `docker/storage` before the first SeaweedFS start
@@ -88,7 +88,7 @@ See [server/readme.md](server/readme.md) for setup, API documentation, and devel
 
 ## Application Overview
 
-Corrai is an Exam paper correction application. See `doc/corrai.md` for detailed use cases and technical specifications.
+Corrai is an Assessment paper correction application. See `doc/corrai.md` for detailed use cases and technical specifications.
 
 ## License
 

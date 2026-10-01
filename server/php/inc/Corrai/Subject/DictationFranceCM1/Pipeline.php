@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\DictationFranceCM1;
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
@@ -49,11 +49,11 @@ class Pipeline
     /**
      * Compare a dictation copy to the corrigé, then draw the errors with GD.
      *
-     * @return array Updated exam file list
+     * @return array Updated assessment file list
      */
-    public function run(Exam $exam, string $fileId, string $language): array
+    public function run(Assessment $assessment, string $fileId, string $language): array
     {
-        $file = $exam->getFile($fileId);
+        $file = $assessment->getFile($fileId);
         $student = $file->student ?? '';
         $filename = $file->name;
         $languageName = trim($language) !== '' ? trim($language) : 'French';
@@ -64,21 +64,21 @@ class Pipeline
         $solutionPath = null;
 
         try {
-            $exam->deleteFilesOfType('debug', $student);
-            $exam->deleteFilesOfType('correction', $student);
+            $assessment->deleteFilesOfType('debug', $student);
+            $assessment->deleteFilesOfType('correction', $student);
 
-            $solution = $this->firstSolutionFile($exam);
-            $solutionPath = $store->downloadToTemp($exam->fileContentKey($solution['id']));
+            $solution = $this->firstSolutionFile($assessment);
+            $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
 
             $correction = $this->findErrors(
-                $exam,
+                $assessment,
                 $tmpPath,
                 $filename,
                 $solutionPath,
                 $solution['name'],
                 $languageName
             );
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' correction.txt',
                 $correction,
                 'text/plain; charset=utf-8',
@@ -87,7 +87,7 @@ class Pipeline
             );
 
             $directivesPhp = $this->gdDirectives($tmpPath, $filename, $correction);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' directives.php',
                 $directivesPhp,
                 'text/plain; charset=utf-8',
@@ -96,7 +96,7 @@ class Pipeline
             );
 
             $png = $this->renderCorrection($tmpPath, $directivesPhp);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' correction.png',
                 $png,
                 'image/png',
@@ -114,24 +114,24 @@ class Pipeline
             }
         }
 
-        return $exam->list_files();
+        return $assessment->list_files();
     }
 
     /**
      * @return array{id: string, name: string, type: string, student: ?string}
      */
-    private function firstSolutionFile(Exam $exam): array
+    private function firstSolutionFile(Assessment $assessment): array
     {
-        foreach ($exam->list_files() as $file) {
+        foreach ($assessment->list_files() as $file) {
             if (($file['type'] ?? '') === 'solution') {
                 return $file;
             }
         }
-        throw new WSException('No corrigé file on this exam', 400);
+        throw new WSException('No corrigé file on this assessment', 400);
     }
 
     protected function findErrors(
-        Exam $exam,
+        Assessment $assessment,
         string $copyPath,
         string $copyName,
         string $solutionPath,
@@ -146,7 +146,7 @@ class Pipeline
             throw new WSException('The source file is not an image GD can annotate', 400);
         }
 
-        $instructionText = $exam->instructionFilesText();
+        $instructionText = $assessment->instructionFilesText();
         $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
             'First, give the OCR image cropping coordinates. Put 0 if no cropping was done. '
@@ -161,7 +161,7 @@ class Pipeline
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
             . 'Write text fields in ' . $languageName . '. '
             . 'All coordinates are pixels of the original image, origin top-left. '
-            . "Follow these exam-specific instructions:\n"
+            . "Follow these assessment-specific instructions:\n"
             . $instructionText
         );
         $request->set_json_response('dictation_errors', [

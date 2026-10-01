@@ -67,9 +67,9 @@ class DictationFranceGeminiPipelineTest extends TestCase
                 $gridClient->responseFormat()['json_schema']['schema']['required']
             );
 
-            $exam = $this->createMock(\Corrai\Model\Exam::class);
-            $exam->method('instructionFilesText')->willReturn('');
-            $pipeline->callFindErrors($exam, $path, 'copy.png', $path, 'sol.png', 'French');
+            $assessment = $this->createMock(\Corrai\Model\Assessment::class);
+            $assessment->method('instructionFilesText')->willReturn('');
+            $pipeline->callFindErrors($assessment, $path, 'copy.png', $path, 'sol.png', 'French');
             $this->assertStringContainsString('first horizontal line y=20', $claude->systemContent());
             $this->assertStringContainsString('first vertical line x=40', $claude->systemContent());
             $this->assertStringContainsString('vertical step between main horizontal lines=30', $claude->systemContent());
@@ -198,14 +198,14 @@ class TestableGeminiPipeline extends Pipeline
     }
 
     public function callFindErrors(
-        \Corrai\Model\Exam $exam,
+        \Corrai\Model\Assessment $assessment,
         string $copyPath,
         string $copyName,
         string $solutionPath,
         string $solutionName,
         string $languageName
     ): string {
-        return $this->findErrors($exam, $copyPath, $copyName, $solutionPath, $solutionName, $languageName);
+        return $this->findErrors($assessment, $copyPath, $copyName, $solutionPath, $solutionName, $languageName);
     }
 }
 

@@ -5,10 +5,10 @@
  * Routes requests to the appropriate PHP file based on HTTP method and path
  * 
  * Examples:
- * - GET /api/exam -> includes get_exam.php
- * - POST /api/exam -> includes post_exam.php
- * - PUT /api/exam -> includes put_exam.php
- * - DELETE /api/exam -> includes delete_exam.php
+ * - GET /api/assessment -> includes get_assessment.php
+ * - POST /api/assessment -> includes post_assessment.php
+ * - PUT /api/assessment -> includes put_assessment.php
+ * - DELETE /api/assessment -> includes delete_assessment.php
  * - OPTIONS /api/* -> includes options.php
  */
 

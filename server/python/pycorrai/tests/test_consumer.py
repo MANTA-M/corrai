@@ -24,7 +24,7 @@ from pycorrai.consumer import (
 )
 
 
-CONTENT_PATH = "schools/s1/teachers/t1/exams/e1/files/f1/content"
+CONTENT_PATH = "schools/s1/teachers/t1/assessments/e1/files/f1/content"
 
 
 class ParseTicketTest(unittest.TestCase):
@@ -65,24 +65,24 @@ class KeyDerivationTest(unittest.TestCase):
     def test_file_prefix(self) -> None:
         self.assertEqual(
             file_prefix(CONTENT_PATH),
-            "schools/s1/teachers/t1/exams/e1/files/f1/",
+            "schools/s1/teachers/t1/assessments/e1/files/f1/",
         )
 
     def test_attributes_key(self) -> None:
         self.assertEqual(
             attributes_key(CONTENT_PATH),
-            "schools/s1/teachers/t1/exams/e1/files/f1/attributes.json",
+            "schools/s1/teachers/t1/assessments/e1/files/f1/attributes.json",
         )
 
     def test_ocr_json_key(self) -> None:
         self.assertEqual(
             ocr_json_key(CONTENT_PATH),
-            "schools/s1/teachers/t1/exams/e1/files/f1/ocr_result.json",
+            "schools/s1/teachers/t1/assessments/e1/files/f1/ocr_result.json",
         )
 
     def test_event_key_shape(self) -> None:
         key = event_key(CONTENT_PATH, timestamp=1700000000)
-        prefix = "schools/s1/teachers/t1/exams/e1/files/f1/events/"
+        prefix = "schools/s1/teachers/t1/assessments/e1/files/f1/events/"
         self.assertTrue(key.startswith(prefix))
         self.assertTrue(key.endswith(".json"))
         event_id = key[len(prefix) : -len(".json")]
@@ -134,8 +134,8 @@ class TreatTest(unittest.TestCase):
 
         with patch("pycorrai.consumer.event_key") as mock_event_key:
             mock_event_key.side_effect = [
-                "schools/s1/teachers/t1/exams/e1/files/f1/events/1-aaaaaaaa.json",
-                "schools/s1/teachers/t1/exams/e1/files/f1/events/2-bbbbbbbb.json",
+                "schools/s1/teachers/t1/assessments/e1/files/f1/events/1-aaaaaaaa.json",
+                "schools/s1/teachers/t1/assessments/e1/files/f1/events/2-bbbbbbbb.json",
             ]
             treat(
                 CONTENT_PATH,
@@ -149,10 +149,10 @@ class TreatTest(unittest.TestCase):
         self.assertEqual(
             put_keys,
             [
-                "schools/s1/teachers/t1/exams/e1/files/f1/events/1-aaaaaaaa.json",
-                "schools/s1/teachers/t1/exams/e1/files/f1/ocr_result.json",
-                "schools/s1/teachers/t1/exams/e1/files/f1/events/2-bbbbbbbb.json",
-                "schools/s1/teachers/t1/exams/e1/files/f1/attributes.json",
+                "schools/s1/teachers/t1/assessments/e1/files/f1/events/1-aaaaaaaa.json",
+                "schools/s1/teachers/t1/assessments/e1/files/f1/ocr_result.json",
+                "schools/s1/teachers/t1/assessments/e1/files/f1/events/2-bbbbbbbb.json",
+                "schools/s1/teachers/t1/assessments/e1/files/f1/attributes.json",
             ],
         )
 

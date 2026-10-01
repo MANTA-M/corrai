@@ -4,13 +4,13 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-test.describe('Exams CRUD', () => {
-  test('list, create, edit, upload file, and delete an exam', async ({ page }) => {
+test.describe('Assessments CRUD', () => {
+  test('list, create, edit, upload file, and delete an assessment', async ({ page }) => {
     await test.step('List shows empty state after profile init', async () => {
-      await initProfile(page, 'Exam Tester')
-      await expect(page.getByTestId('exams-heading')).toHaveText('Examens')
-      await expect(page.getByTestId('exams-empty')).toBeVisible({ timeout: 15000 })
-      await expect(page.getByTestId('exams-empty')).toHaveText('Aucun examen pour le moment.')
+      await initProfile(page, 'Assessment Tester')
+      await expect(page.getByTestId('assessments-heading')).toHaveText('Évaluations')
+      await expect(page.getByTestId('assessments-empty')).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId('assessments-empty')).toHaveText('Aucune évaluation pour le moment.')
 
       const session = await page.evaluate(() => {
         const raw = localStorage.getItem('corrai-session')
@@ -19,26 +19,26 @@ test.describe('Exams CRUD', () => {
       expect(session?.user_id).toBeTruthy()
       expect(typeof session.user_id).toBe('string')
       expect(session.user_id.length).toBe(7)
-      // Exam list must not be persisted in localStorage (S3 is source of truth)
-      expect(session.own_exams).toBeUndefined()
+      // Assessment list must not be persisted in localStorage (S3 is source of truth)
+      expect(session.own_assessments).toBeUndefined()
     })
 
-    await test.step('Create an exam', async () => {
-      await page.getByTestId('exam-create-button').click()
-      await page.waitForURL('**/create_exam', { timeout: 10000 })
+    await test.step('Create an assessment', async () => {
+      await page.getByTestId('assessment-create-button').click()
+      await page.waitForURL('**/create_assessment', { timeout: 10000 })
 
-      await page.getByTestId('exam-name').fill('Math Midterm')
-      await page.getByTestId('exam-subject').selectOption('Math')
-      await page.getByTestId('exam-date').fill('2026-10-15')
-      await page.getByTestId('exam-submit').click()
+      await page.getByTestId('assessment-name').fill('Math Midterm')
+      await page.getByTestId('assessment-subject').selectOption('Math')
+      await page.getByTestId('assessment-date').fill('2026-10-15')
+      await page.getByTestId('assessment-submit').click()
 
-      await page.waitForURL(/\/exam\/[^/]+$/, { timeout: 15000 })
-      await expect(page.getByTestId('exam-details-heading')).toContainText('Math Midterm')
-      await expect(page.getByTestId('exam-name-value')).toHaveText('Math Midterm')
-      await expect(page.getByTestId('exam-subject-value')).toHaveText('Math')
-      await expect(page.getByTestId('exam-date-value')).toHaveText('2026-10-15')
-      await expect(page.getByTestId('exam-save')).toHaveCount(0)
-      await expect(page.getByTestId('exam-name')).toHaveCount(0)
+      await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
+      await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Midterm')
+      await expect(page.getByTestId('assessment-name-value')).toHaveText('Math Midterm')
+      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Math')
+      await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-10-15')
+      await expect(page.getByTestId('assessment-save')).toHaveCount(0)
+      await expect(page.getByTestId('assessment-name')).toHaveCount(0)
       await expect(page.getByTestId('files-view-type')).toHaveCount(0)
       await expect(page.getByTestId('files-view-student')).toHaveCount(0)
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
@@ -47,68 +47,68 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('add-solution')).toBeVisible()
       await expect(page.getByTestId('file-student-view')).toHaveCount(0)
 
-      await page.goto('/exam-list')
-      await expect(page.getByTestId('exam-item')).toHaveCount(1)
-      await expect(page.getByTestId('exam-item')).toContainText('Math Midterm')
-      await expect(page.getByTestId('exam-item')).toContainText('Math')
-      await expect(page.getByTestId('exam-item')).toContainText('2026-10-15')
+      await page.goto('/assessment-list')
+      await expect(page.getByTestId('assessment-item')).toHaveCount(1)
+      await expect(page.getByTestId('assessment-item')).toContainText('Math Midterm')
+      await expect(page.getByTestId('assessment-item')).toContainText('Math')
+      await expect(page.getByTestId('assessment-item')).toContainText('2026-10-15')
 
-      // After create, localStorage still must not hold exam records
+      // After create, localStorage still must not hold assessment records
       const sessionAfterCreate = await page.evaluate(() => {
         const raw = localStorage.getItem('corrai-session')
         return raw ? JSON.parse(raw) : null
       })
-      expect(sessionAfterCreate?.own_exams).toBeUndefined()
+      expect(sessionAfterCreate?.own_assessments).toBeUndefined()
       expect(sessionAfterCreate?.user_id).toBeTruthy()
 
-      // Reload: exams come from S3 via GET /exams, not localStorage
+      // Reload: assessments come from S3 via GET /assessments, not localStorage
       await page.reload()
-      await expect(page.getByTestId('exam-item')).toHaveCount(1, { timeout: 15000 })
-      await expect(page.getByTestId('exam-item')).toContainText('Math Midterm')
+      await expect(page.getByTestId('assessment-item')).toHaveCount(1, { timeout: 15000 })
+      await expect(page.getByTestId('assessment-item')).toContainText('Math Midterm')
     })
 
-    await test.step('Edit the exam via Edit button', async () => {
-      await page.getByTestId('exam-item').click()
-      await page.waitForURL(/\/exam\/[^/]+$/, { timeout: 10000 })
+    await test.step('Edit the assessment via Edit button', async () => {
+      await page.getByTestId('assessment-item').click()
+      await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
 
-      await page.getByTestId('exam-edit').click()
-      await page.waitForURL(/\/exam\/[^/]+\/edit$/, { timeout: 10000 })
+      await page.getByTestId('assessment-edit').click()
+      await page.waitForURL(/\/assessment\/[^/]+\/edit$/, { timeout: 10000 })
 
-      await page.getByTestId('exam-name').fill('Math Final')
-      await page.getByTestId('exam-subject').selectOption('Physics')
-      await page.getByTestId('exam-date').fill('2026-12-01')
-      await page.getByTestId('exam-save').click()
+      await page.getByTestId('assessment-name').fill('Math Final')
+      await page.getByTestId('assessment-subject').selectOption('Physics')
+      await page.getByTestId('assessment-date').fill('2026-12-01')
+      await page.getByTestId('assessment-save').click()
 
-      await page.waitForURL(/\/exam\/[^/]+$/, { timeout: 15000 })
-      await expect(page.getByTestId('exam-details-heading')).toContainText('Math Final')
-      await expect(page.getByTestId('exam-name-value')).toHaveText('Math Final')
-      await expect(page.getByTestId('exam-subject-value')).toHaveText('Physique')
-      await expect(page.getByTestId('exam-date-value')).toHaveText('2026-12-01')
+      await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
+      await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Final')
+      await expect(page.getByTestId('assessment-name-value')).toHaveText('Math Final')
+      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
+      await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
 
       await page.reload()
-      await expect(page.getByTestId('exam-name-value')).toHaveText('Math Final')
-      await expect(page.getByTestId('exam-subject-value')).toHaveText('Physique')
-      await expect(page.getByTestId('exam-date-value')).toHaveText('2026-12-01')
+      await expect(page.getByTestId('assessment-name-value')).toHaveText('Math Final')
+      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
+      await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
 
-      await page.goto('/exam-list')
-      await expect(page.getByTestId('exam-item')).toContainText('Math Final')
-      await expect(page.getByTestId('exam-item')).toContainText('Physique')
-      await expect(page.getByTestId('exam-item')).toContainText('2026-12-01')
+      await page.goto('/assessment-list')
+      await expect(page.getByTestId('assessment-item')).toContainText('Math Final')
+      await expect(page.getByTestId('assessment-item')).toContainText('Physique')
+      await expect(page.getByTestId('assessment-item')).toContainText('2026-12-01')
     })
 
-    await test.step('Upload a file to the exam', async () => {
-      await page.getByTestId('exam-item').click()
-      await page.waitForURL(/\/exam\/[^/]+$/, { timeout: 10000 })
+    await test.step('Upload a file to the assessment', async () => {
+      await page.getByTestId('assessment-item').click()
+      await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
 
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'corrai-exam-'))
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'corrai-assessment-'))
       const uploadPath = path.join(tmpDir, 'sample-scan.txt')
-      fs.writeFileSync(uploadPath, 'Sample exam scan content')
+      fs.writeFileSync(uploadPath, 'Sample assessment scan content')
 
-      await page.getByTestId('exam-add-file').click()
+      await page.getByTestId('assessment-add-file').click()
       await expect(page.getByTestId('add-file-popup')).toBeVisible()
       await page.getByTestId('add-file-input').setInputFiles(uploadPath)
 
-      await expect(page.getByTestId('exam-file-item')).toContainText('sample-scan.txt', {
+      await expect(page.getByTestId('assessment-file-item')).toContainText('sample-scan.txt', {
         timeout: 15000
       })
       await expect(page.getByTestId('files-view-type')).toBeVisible()
@@ -117,13 +117,13 @@ test.describe('Exams CRUD', () => {
 
       await page.getByTestId('add-file-cancel').click()
       await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
-      await expect(page.getByTestId('exam-file-item')).toContainText('sample-scan.txt')
+      await expect(page.getByTestId('assessment-file-item')).toContainText('sample-scan.txt')
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
 
     await test.step('Group files by type and student', async () => {
-      await expect(page.getByTestId('file-zone-unknown').getByTestId('exam-file-item')).toContainText(
+      await expect(page.getByTestId('file-zone-unknown').getByTestId('assessment-file-item')).toContainText(
         'sample-scan.txt'
       )
       await expect(page.getByTestId('file-zone-subject')).toBeVisible()
@@ -132,27 +132,27 @@ test.describe('Exams CRUD', () => {
       await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
       await expect(page.getByTestId('file-zone-correction')).toBeVisible()
 
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       await expect(page.getByTestId('file-menu')).toBeVisible()
       await page.getByTestId('file-menu-change-type').click()
       await page.getByTestId('file-menu-type-submission').click()
       await expect(
-        page.getByTestId('file-zone-submission').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-submission').getByTestId('assessment-file-item')
       ).toContainText('sample-scan.txt', { timeout: 15000 })
 
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       await expect(page.getByTestId('file-menu-correct')).toBeVisible()
       await page.getByTestId('file-menu-change-type').click()
       await page.getByTestId('file-menu-type-subject').click()
 
       await expect(
-        page.getByTestId('file-zone-subject').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-subject').getByTestId('assessment-file-item')
       ).toContainText('sample-scan.txt', { timeout: 15000 })
       await expect(
-        page.getByTestId('file-zone-unknown').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-unknown').getByTestId('assessment-file-item')
       ).toHaveCount(0)
 
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       await page.getByTestId('file-menu-set-student').click()
       await page.getByTestId('file-student-input').fill('Alice')
       await page.getByTestId('file-student-save').click()
@@ -161,7 +161,7 @@ test.describe('Exams CRUD', () => {
       await page.getByTestId('files-view-student').click()
       await expect(page.getByTestId('file-student-item')).toContainText('Alice')
       await page.getByTestId('file-student-item').click()
-      await expect(page.getByTestId('exam-file-item')).toContainText('sample-scan.txt')
+      await expect(page.getByTestId('assessment-file-item')).toContainText('sample-scan.txt')
       await page.getByTestId('file-student-back').click()
       await expect(page.getByTestId('file-student-item')).toContainText('Alice')
 
@@ -170,7 +170,7 @@ test.describe('Exams CRUD', () => {
     })
 
     await test.step('View, rename, and delete a file', async () => {
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       const viewLink = page.getByTestId('file-menu-view')
       await expect(viewLink).toHaveAttribute('href', /\/file\?/)
       await expect(viewLink).toHaveAttribute('target', '_blank')
@@ -180,30 +180,30 @@ test.describe('Exams CRUD', () => {
       const popup = await popupPromise
       await popup.waitForLoadState()
       expect(popup.url()).toMatch(/\/file\?/)
-      await expect(popup.locator('body')).toContainText('Sample exam scan content')
+      await expect(popup.locator('body')).toContainText('Sample assessment scan content')
       await popup.close()
 
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       await page.getByTestId('file-menu-rename').click()
       await expect(page.getByTestId('rename-file-popup')).toBeVisible()
       await expect(page.getByTestId('rename-file-input')).toHaveValue('sample-scan.txt')
       await page.getByTestId('rename-file-input').fill('renamed-scan.txt')
       await page.getByTestId('rename-file-save').click()
       await expect(page.getByTestId('rename-file-popup')).toHaveCount(0, { timeout: 15000 })
-      await expect(page.getByTestId('exam-file-item')).toContainText('renamed-scan.txt')
+      await expect(page.getByTestId('assessment-file-item')).toContainText('renamed-scan.txt')
 
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       await page.getByTestId('file-menu-delete').click()
       await expect(page.getByTestId('delete-file-popup')).toBeVisible()
       await expect(page.getByTestId('delete-file-confirm')).toContainText('renamed-scan.txt')
       await page.getByTestId('delete-file-cancel').click()
       await expect(page.getByTestId('delete-file-popup')).toHaveCount(0)
-      await expect(page.getByTestId('exam-file-item')).toContainText('renamed-scan.txt')
+      await expect(page.getByTestId('assessment-file-item')).toContainText('renamed-scan.txt')
 
-      await page.getByTestId('exam-file-item').click()
+      await page.getByTestId('assessment-file-item').click()
       await page.getByTestId('file-menu-delete').click()
       await page.getByTestId('delete-file-confirm-button').click()
-      await expect(page.getByTestId('exam-file-item')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('assessment-file-item')).toHaveCount(0, { timeout: 15000 })
       await expect(page.getByTestId('files-view-type')).toHaveCount(0)
       await expect(page.getByTestId('files-view-student')).toHaveCount(0)
       await expect(page.getByTestId('file-type-zones')).toBeVisible()
@@ -220,24 +220,24 @@ test.describe('Exams CRUD', () => {
       await page.getByTestId('instruction-editor-save').click()
       await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(
-        page.getByTestId('file-zone-instructions').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item')
       ).toContainText('Instruction 1.txt')
 
-      await page.getByTestId('file-zone-instructions').getByTestId('exam-file-item').click()
+      await page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item').click()
       await expect(page.getByTestId('file-menu-edit')).toBeVisible()
       await page.getByTestId('file-menu-edit').click()
       await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
       await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 1')
       await expect(page.getByTestId('instruction-body')).toHaveValue('Bring a calculator.')
       await page.getByTestId('instruction-title').fill('Instruction 2')
-      await page.getByTestId('instruction-body').fill('No phones during the exam.')
+      await page.getByTestId('instruction-body').fill('No phones during the assessment.')
       await page.getByTestId('instruction-editor-save').click()
       await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(
-        page.getByTestId('file-zone-instructions').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item')
       ).toContainText('Instruction 2.txt')
       await expect(
-        page.getByTestId('file-zone-instructions').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item')
       ).not.toContainText('Instruction 1.txt')
 
       await page.getByTestId('add-instruction').click()
@@ -253,10 +253,10 @@ test.describe('Exams CRUD', () => {
       await page.getByTestId('instruction-editor-save').click()
       await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(
-        page.getByTestId('file-zone-solution').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-solution').getByTestId('assessment-file-item')
       ).toContainText('Corrigé 1.txt')
 
-      await page.getByTestId('file-zone-solution').getByTestId('exam-file-item').click()
+      await page.getByTestId('file-zone-solution').getByTestId('assessment-file-item').click()
       await expect(page.getByTestId('file-menu-edit')).toBeVisible()
       await page.getByTestId('file-menu-edit').click()
       await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
@@ -267,20 +267,20 @@ test.describe('Exams CRUD', () => {
       await page.getByTestId('instruction-editor-save').click()
       await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(
-        page.getByTestId('file-zone-solution').getByTestId('exam-file-item')
+        page.getByTestId('file-zone-solution').getByTestId('assessment-file-item')
       ).toContainText('Corrigé 2.txt')
     })
 
-    await test.step('Delete the exam', async () => {
+    await test.step('Delete the assessment', async () => {
       page.once('dialog', async (dialog) => {
         expect(dialog.message()).toContain('Are you sure')
         await dialog.accept()
       })
 
-      await page.getByTestId('exam-delete').click()
-      await page.waitForURL('**/exam-list', { timeout: 15000 })
-      await expect(page.getByTestId('exams-empty')).toBeVisible()
-      await expect(page.getByTestId('exam-item')).toHaveCount(0)
+      await page.getByTestId('assessment-delete').click()
+      await page.waitForURL('**/assessment-list', { timeout: 15000 })
+      await expect(page.getByTestId('assessments-empty')).toBeVisible()
+      await expect(page.getByTestId('assessment-item')).toHaveCount(0)
     })
   })
 
@@ -288,10 +288,10 @@ test.describe('Exams CRUD', () => {
     const publicKey =
       'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEO2M68bVhh9hununNXtZsqFnJeMjxIC+Vk5l7ncoMlXCrfFxkMp6OFEffvL/aiOyL1ND+rJZY+sfvEM1qaxNPug=='
 
-    const examAuthHeaders: string[] = []
+    const assessmentAuthHeaders: string[] = []
     page.on('request', (request) => {
-      if (request.url().includes('/api/exams') && request.method() === 'GET') {
-        examAuthHeaders.push(request.headers()['authorization'] ?? '')
+      if (request.url().includes('/api/assessments') && request.method() === 'GET') {
+        assessmentAuthHeaders.push(request.headers()['authorization'] ?? '')
       }
     })
 
@@ -307,9 +307,9 @@ test.describe('Exams CRUD', () => {
       )
     }, publicKey)
 
-    await page.goto('/exam-list')
-    await expect(page.getByTestId('exams-heading')).toHaveText('Exams', { timeout: 20000 })
-    await expect(page.getByTestId('exams-empty')).toBeVisible({ timeout: 15000 })
+    await page.goto('/assessment-list')
+    await expect(page.getByTestId('assessments-heading')).toHaveText('Assessments', { timeout: 20000 })
+    await expect(page.getByTestId('assessments-empty')).toBeVisible({ timeout: 15000 })
 
     const session = await page.evaluate(() => {
       const raw = localStorage.getItem('corrai-session')
@@ -318,8 +318,8 @@ test.describe('Exams CRUD', () => {
     expect(session?.user_id).toMatch(/^[0-9a-zA-Z]{7}$/)
     expect(session.user_id).not.toBe(publicKey)
 
-    expect(examAuthHeaders.length).toBeGreaterThan(0)
-    for (const header of examAuthHeaders) {
+    expect(assessmentAuthHeaders.length).toBeGreaterThan(0)
+    for (const header of assessmentAuthHeaders) {
       expect(header).toMatch(/^Bearer [0-9a-zA-Z]{7}$/)
     }
   })

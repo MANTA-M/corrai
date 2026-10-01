@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\Request;
 use Corrai\Utils\WSException;
 
@@ -12,16 +12,16 @@ try {
         exit();
     }
 
-    $exam = Exam::from_hash($hash);
+    $assessment = Assessment::from_hash($hash);
     $request_user = Request::get_mandatory_author();
 
-    if ($exam->user_id !== $request_user) {
+    if ($assessment->user_id !== $request_user) {
         throw new WSException("Not authorized", 403);
     }
 
-    Request::add_output("exam", $exam->to_output());
-    Request::add_output("files", $exam->list_files());
-    Request::add_output("students", $exam->list_students());
+    Request::add_output("assessment", $assessment->to_output());
+    Request::add_output("files", $assessment->list_files());
+    Request::add_output("students", $assessment->list_students());
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

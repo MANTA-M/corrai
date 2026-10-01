@@ -3,11 +3,11 @@ import { test, expect, chromium, BrowserContext, Page } from '@playwright/test';
 /**
  * Test scenario:
  * 1. Initialize profile 1
- * 2. Create exam with text
+ * 2. Create assessment with text
  * 3. Open another browser with another user and initialize user 2
  */
 
-test.describe('Multi-User Exam Scenario', () => {
+test.describe('Multi-User Assessment Scenario', () => {
   let context1: BrowserContext;
   let context2: BrowserContext;
   let page1: Page;
@@ -31,7 +31,7 @@ test.describe('Multi-User Exam Scenario', () => {
     await browser.close();
   });
 
-  test('Initialize profile 1, create exam with text, then initialize user 2', async () => {
+  test('Initialize profile 1, create assessment with text, then initialize user 2', async () => {
     // Step 1: Initialize Profile 1
     await test.step('Initialize Profile 1', async () => {
       await page1.goto('/');
@@ -57,17 +57,17 @@ test.describe('Multi-User Exam Scenario', () => {
       await expect(page1.locator('main h1')).toContainText('Send');
     });
 
-    // Step 2: Create Exam with Text
-    await test.step('Create New Exam with Text', async () => {
-      // Click "Create Exam" button
-      await page1.click('a:has-text("Create Exam")');
+    // Step 2: Create Assessment with Text
+    await test.step('Create New Assessment with Text', async () => {
+      // Click "Create Assessment" button
+      await page1.click('a:has-text("Create Assessment")');
       
-      // Wait for the exam creation form
-      await page1.waitForSelector('h1:has-text("Create New Exam")', { timeout: 10000 });
+      // Wait for the assessment creation form
+      await page1.waitForSelector('h1:has-text("Create New Assessment")', { timeout: 10000 });
       
-      // Fill in exam name
-      const examNameInput = page1.locator('input[id="name"]');
-      await examNameInput.fill('Test Exam with Text');
+      // Fill in assessment name
+      const assessmentNameInput = page1.locator('input[id="name"]');
+      await assessmentNameInput.fill('Test Assessment with Text');
       
       // Select "text" as payload type
       const payloadTypeSelect = page1.locator('select[id="payload_type"]');
@@ -78,11 +78,11 @@ test.describe('Multi-User Exam Scenario', () => {
       
       // Fill in confidential text
       const confidentialTextArea = page1.locator('textarea[id="confidential_text"]');
-      await confidentialTextArea.fill('This is a confidential message for the exam');
+      await confidentialTextArea.fill('This is a confidential message for the assessment');
       
       // Fill in public instructions (optional)
       const instructionsTextArea = page1.locator('textarea[id="instructions"]');
-      await instructionsTextArea.fill('Public instructions for this exam');
+      await instructionsTextArea.fill('Public instructions for this assessment');
       
       // Set expiration date (24 hours from now)
       const expiresOnInput = page1.locator('input[id="expires_on"]');
@@ -92,16 +92,16 @@ test.describe('Multi-User Exam Scenario', () => {
       await expiresOnInput.fill(dateTimeString);
       
       // Submit the form
-      const submitButton = page1.locator('button[type="submit"]:has-text("Create Exam")');
+      const submitButton = page1.locator('button[type="submit"]:has-text("Create Assessment")');
       await submitButton.click();
       
-      // Wait for the exam to be created and navigate to exam view
-      await page1.waitForURL(/\/exam\/[^/]+$/, { timeout: 10000 });
+      // Wait for the assessment to be created and navigate to assessment view
+      await page1.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 });
       
-      // Verify the exam was created successfully
-      await expect(page1.locator('h1')).toContainText('Test Exam with Text');
+      // Verify the assessment was created successfully
+      await expect(page1.locator('h1')).toContainText('Test Assessment with Text');
       
-      // Verify the exam type is text
+      // Verify the assessment type is text
       const prizeValue = page1.locator('.info-row:has(.label:has-text("Prize:")) .value');
       console.log('prizeValue', await prizeValue.textContent());
       await expect(prizeValue).toContainText('text');

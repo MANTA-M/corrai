@@ -1,13 +1,13 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\Request;
 use Corrai\Utils\Utils;
 
 try {
-    $examId = Request::getStringParam("id");
-    if (!$examId) {
+    $assessmentId = Request::getStringParam("id");
+    if (!$assessmentId) {
         http_response_code(400);
         exit('No id parameter provided.');
     }
@@ -19,17 +19,17 @@ try {
     }
 
     try {
-        $exam = Exam::from_hash($examId);
+        $assessment = Assessment::from_hash($assessmentId);
     } catch (\Exception $e) {
         http_response_code(404);
-        exit("Exam with id $examId does not exist.");
+        exit("Assessment with id $assessmentId does not exist.");
     }
 
     try {
-        $file = $exam->getFile($fileId);
+        $file = $assessment->getFile($fileId);
     } catch (\Exception $e) {
         http_response_code(404);
-        exit("File '$fileId' does not exist for exam $examId.");
+        exit("File '$fileId' does not exist for assessment $assessmentId.");
     }
 
     $store = ObjectStore::getInstance();
@@ -65,7 +65,7 @@ try {
 
     if (!$store->exists($key)) {
         http_response_code(404);
-        exit("File '$fileId' does not exist for exam $examId.");
+        exit("File '$fileId' does not exist for assessment $assessmentId.");
     }
 
     $object = $store->get($key);

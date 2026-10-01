@@ -2,9 +2,9 @@
 
 namespace Corrai\Subject\DictationFranceGemini;
 
-use Corrai\Model\BaseExam;
+use Corrai\Model\BaseAssessment;
 
-class Exam extends BaseExam
+class Assessment extends BaseAssessment
 {
     public string $subject = 'Dictation';
     public ?string $country = 'fr';

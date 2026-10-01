@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Model\Exam as GenericExam;
+use Corrai\Model\Assessment as GenericAssessment;
 use Corrai\Model\File;
 use Corrai\Queue\RedisConsumer;
-use Corrai\Subject\Dictation\Exam as DictationExam;
-use Corrai\Subject\DictationFranceCM1\Exam as DictationFranceCM1Exam;
-use Corrai\Subject\DictationFranceCM2\Exam as DictationFranceCM2Exam;
+use Corrai\Subject\Dictation\Assessment as DictationAssessment;
+use Corrai\Subject\DictationFranceCM1\Assessment as DictationFranceCM1Assessment;
+use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
 use Corrai\Subject\DictationFranceCM2\File as DictationFranceCM2File;
-use Corrai\Subject\ExamFactory;
-use Corrai\Subject\Math\Exam as MathExam;
+use Corrai\Subject\AssessmentFactory;
+use Corrai\Subject\Math\Assessment as MathAssessment;
 use PHPUnit\Framework\TestCase;
 
 class RedisFileConsumerTest extends TestCase
 {
     public function testFactorySelectsDictationFranceCM1(): void
     {
-        $class = ExamFactory::examClass('Dictation', 'fr', 'CM1');
-        $this->assertSame(DictationFranceCM1Exam::class, $class);
+        $class = AssessmentFactory::assessmentClass('Dictation', 'fr', 'CM1');
+        $this->assertSame(DictationFranceCM1Assessment::class, $class);
 
-        $exam = ExamFactory::fromAttributes(
+        $assessment = AssessmentFactory::fromAttributes(
             [
                 'name' => 'Test',
                 'subject' => 'Dictation',
@@ -33,28 +33,28 @@ class RedisFileConsumerTest extends TestCase
             ],
             'school1',
             'teacher1',
-            'exam1'
+            'assessment1'
         );
 
-        $this->assertInstanceOf(DictationFranceCM1Exam::class, $exam);
-        $this->assertSame('exam1', $exam->id);
-        $this->assertSame('school1', $exam->school_id);
-        $this->assertSame('teacher1', $exam->user_id);
-        $this->assertSame('Dictation', $exam->subject);
-        $this->assertSame('fr', $exam->country);
-        $this->assertSame('CM1', $exam->level);
+        $this->assertInstanceOf(DictationFranceCM1Assessment::class, $assessment);
+        $this->assertSame('assessment1', $assessment->id);
+        $this->assertSame('school1', $assessment->school_id);
+        $this->assertSame('teacher1', $assessment->user_id);
+        $this->assertSame('Dictation', $assessment->subject);
+        $this->assertSame('fr', $assessment->country);
+        $this->assertSame('CM1', $assessment->level);
     }
 
     public function testFactoryFallsBackToBareSubjectThenGeneric(): void
     {
-        $this->assertSame(DictationExam::class, ExamFactory::examClass('Dictation', '', ''));
-        $this->assertSame(MathExam::class, ExamFactory::examClass('Math', '', ''));
-        $this->assertSame(GenericExam::class, ExamFactory::examClass('UnknownSubject', '', ''));
+        $this->assertSame(DictationAssessment::class, AssessmentFactory::assessmentClass('Dictation', '', ''));
+        $this->assertSame(MathAssessment::class, AssessmentFactory::assessmentClass('Math', '', ''));
+        $this->assertSame(GenericAssessment::class, AssessmentFactory::assessmentClass('UnknownSubject', '', ''));
     }
 
     public function testFileFromAttributesCopiesStatusAndIds(): void
     {
-        $exam = ExamFactory::fromAttributes(
+        $assessment = AssessmentFactory::fromAttributes(
             [
                 'name' => 'Test',
                 'subject' => 'Math',
@@ -63,10 +63,10 @@ class RedisFileConsumerTest extends TestCase
             ],
             'school1',
             'teacher1',
-            'exam1'
+            'assessment1'
         );
 
-        $file = $exam->fileFromAttributes(
+        $file = $assessment->fileFromAttributes(
             [
                 'name' => 'copy.png',
                 'type' => 'submission',
@@ -84,7 +84,7 @@ class RedisFileConsumerTest extends TestCase
         $this->assertSame('file1', $file->id);
         $this->assertSame('school1', $file->school_id);
         $this->assertSame('teacher1', $file->user_id);
-        $this->assertSame('exam1', $file->exam_id);
+        $this->assertSame('assessment1', $file->assessment_id);
         $this->assertSame('loaded', $file->status);
         $this->assertSame('copy.png', $file->name);
         $this->assertSame('"etag-1"', $file->etag);
@@ -92,7 +92,7 @@ class RedisFileConsumerTest extends TestCase
 
     public function testFileFromAttributesUsesDictationFranceCM2File(): void
     {
-        $exam = ExamFactory::fromAttributes(
+        $assessment = AssessmentFactory::fromAttributes(
             [
                 'name' => 'Test',
                 'subject' => 'Dictation',
@@ -103,13 +103,13 @@ class RedisFileConsumerTest extends TestCase
             ],
             'school1',
             'teacher1',
-            'exam1'
+            'assessment1'
         );
 
-        $this->assertInstanceOf(DictationFranceCM2Exam::class, $exam);
-        $this->assertSame(DictationFranceCM2File::class, $exam->fileClass());
+        $this->assertInstanceOf(DictationFranceCM2Assessment::class, $assessment);
+        $this->assertSame(DictationFranceCM2File::class, $assessment->fileClass());
 
-        $file = $exam->fileFromAttributes(
+        $file = $assessment->fileFromAttributes(
             [
                 'name' => 'copy.png',
                 'type' => 'submission',
@@ -123,16 +123,16 @@ class RedisFileConsumerTest extends TestCase
         $this->assertInstanceOf(DictationFranceCM2File::class, $file);
     }
 
-    public function testGenericExamResolvesDictationFranceCM2FileClass(): void
+    public function testGenericAssessmentResolvesDictationFranceCM2FileClass(): void
     {
-        $exam = new GenericExam();
-        $exam->subject = 'Dictation';
-        $exam->country = 'fr';
-        $exam->level = 'CM2';
+        $assessment = new GenericAssessment();
+        $assessment->subject = 'Dictation';
+        $assessment->country = 'fr';
+        $assessment->level = 'CM2';
 
-        $this->assertSame(DictationFranceCM2File::class, $exam->fileClass());
+        $this->assertSame(DictationFranceCM2File::class, $assessment->fileClass());
 
-        $file = $exam->fileFromAttributes(
+        $file = $assessment->fileFromAttributes(
             [
                 'name' => 'copy.png',
                 'type' => 'submission',
@@ -148,7 +148,7 @@ class RedisFileConsumerTest extends TestCase
 
     public function testDispatchCallsOnLoadedWhenDefined(): void
     {
-        $exam = new class extends GenericExam {
+        $assessment = new class extends GenericAssessment {
             public ?File $seen = null;
 
             public function on_loaded(File $file): void
@@ -156,11 +156,11 @@ class RedisFileConsumerTest extends TestCase
                 $this->seen = $file;
             }
         };
-        $exam->id = 'exam1';
-        $exam->school_id = 'school1';
-        $exam->user_id = 'teacher1';
+        $assessment->id = 'assessment1';
+        $assessment->school_id = 'school1';
+        $assessment->user_id = 'teacher1';
 
-        $file = $exam->fileFromAttributes(
+        $file = $assessment->fileFromAttributes(
             [
                 'name' => 'a.txt',
                 'status' => 'loaded',
@@ -170,23 +170,23 @@ class RedisFileConsumerTest extends TestCase
             'file1'
         );
 
-        RedisConsumer::dispatch($exam, $file);
-        $this->assertSame($file, $exam->seen);
+        RedisConsumer::dispatch($assessment, $file);
+        $this->assertSame($file, $assessment->seen);
     }
 
-    public function testDispatchCallsFileHandlerBeforeExam(): void
+    public function testDispatchCallsFileHandlerBeforeAssessment(): void
     {
-        $exam = new class extends GenericExam {
-            public bool $examCalled = false;
+        $assessment = new class extends GenericAssessment {
+            public bool $assessmentCalled = false;
 
             public function on_ocr_done(File $file): void
             {
-                $this->examCalled = true;
+                $this->assessmentCalled = true;
             }
         };
-        $exam->id = 'exam1';
-        $exam->school_id = 'school1';
-        $exam->user_id = 'teacher1';
+        $assessment->id = 'assessment1';
+        $assessment->school_id = 'school1';
+        $assessment->user_id = 'teacher1';
 
         $file = new class extends File {
             public bool $fileCalled = false;
@@ -199,25 +199,25 @@ class RedisFileConsumerTest extends TestCase
         $file->id = 'file1';
         $file->school_id = 'school1';
         $file->user_id = 'teacher1';
-        $file->exam_id = 'exam1';
+        $file->assessment_id = 'assessment1';
         $file->name = 'a.txt';
         $file->status = 'ocr_done';
         $file->size = 1;
         $file->created = 1;
 
-        RedisConsumer::dispatch($exam, $file);
+        RedisConsumer::dispatch($assessment, $file);
         $this->assertTrue($file->fileCalled);
-        $this->assertFalse($exam->examCalled);
+        $this->assertFalse($assessment->assessmentCalled);
     }
 
     public function testDispatchLogsWhenMethodMissing(): void
     {
-        $exam = new GenericExam();
-        $exam->id = 'exam1';
-        $exam->school_id = 'school1';
-        $exam->user_id = 'teacher1';
+        $assessment = new GenericAssessment();
+        $assessment->id = 'assessment1';
+        $assessment->school_id = 'school1';
+        $assessment->user_id = 'teacher1';
 
-        $file = $exam->fileFromAttributes(
+        $file = $assessment->fileFromAttributes(
             [
                 'name' => 'a.txt',
                 'status' => 'loaded',
@@ -231,7 +231,7 @@ class RedisFileConsumerTest extends TestCase
         $this->assertNotFalse($log);
         $previous = ini_set('error_log', $log);
         try {
-            RedisConsumer::dispatch($exam, $file);
+            RedisConsumer::dispatch($assessment, $file);
         } finally {
             if ($previous === false) {
                 ini_restore('error_log');
@@ -243,7 +243,7 @@ class RedisFileConsumerTest extends TestCase
         $contents = (string) file_get_contents($log);
         @unlink($log);
         $this->assertStringContainsString('No method on_loaded', $contents);
-        $this->assertStringContainsString(GenericExam::class, $contents);
+        $this->assertStringContainsString(GenericAssessment::class, $contents);
         $this->assertStringContainsString('file1', $contents);
         $this->assertStringContainsString('status=loaded', $contents);
     }

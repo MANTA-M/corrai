@@ -4,7 +4,7 @@ namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\File as BaseFile;
 use Corrai\Queue\RedisQueue;
-use Corrai\Subject\ExamFactory;
+use Corrai\Subject\AssessmentFactory;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
@@ -35,8 +35,8 @@ class File extends BaseFile
             return;
         }
 
-        $exam = $this->loadExam();
-        $exam->deleteFilesOfType('debug', $this->student ?? '');
+        $assessment = $this->loadAssessment();
+        $assessment->deleteFilesOfType('debug', $this->student ?? '');
 
         $this->appendEvent('OCR queued');
         RedisQueue::getInstance()->enqueueOcr($this->contentKey(), self::OCR_LANG);
@@ -51,7 +51,7 @@ class File extends BaseFile
         $copyPath = null;
         $solutionPath = null;
         try {
-            $exam = $this->loadExam();
+            $assessment = $this->loadAssessment();
             $store = ObjectStore::getInstance();
             $ocrKey = $this->ocrResultKey();
             if (!$store->exists($ocrKey)) {
@@ -64,12 +64,12 @@ class File extends BaseFile
             }
 
             $copyPath = $store->downloadToTemp($this->contentKey());
-            $solution = $this->firstSolutionFile($exam);
-            $solutionPath = $store->downloadToTemp($exam->fileContentKey($solution['id']));
+            $solution = $this->firstSolutionFile($assessment);
+            $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
 
             $pipeline = new Pipeline();
             $correction = $pipeline->findErrors(
-                $exam,
+                $assessment,
                 $copyPath,
                 $this->name,
                 $solutionPath,
@@ -146,7 +146,7 @@ class File extends BaseFile
 
         $copyPath = null;
         try {
-            $exam = $this->loadExam();
+            $assessment = $this->loadAssessment();
             $store = ObjectStore::getInstance();
             $directivesKey = $this->markupDirectivesKey();
             if (!$store->exists($directivesKey)) {
@@ -159,9 +159,9 @@ class File extends BaseFile
             $png = $pipeline->renderCorrection($copyPath, $directivesPhp);
 
             $student = $this->student ?? '';
-            $exam->deleteFilesOfType('correction', $student);
+            $assessment->deleteFilesOfType('correction', $student);
             $base = pathinfo($this->name, PATHINFO_FILENAME);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' correction.png',
                 $png,
                 'image/png',
@@ -181,34 +181,34 @@ class File extends BaseFile
         }
     }
 
-    private function loadExam(): \Corrai\Model\BaseExam
+    private function loadAssessment(): \Corrai\Model\BaseAssessment
     {
         $store = ObjectStore::getInstance();
-        $examAttrKey = ObjectStore::examAttrKey($this->school_id, $this->user_id, $this->exam_id);
-        if (!$store->exists($examAttrKey)) {
-            throw new WSException('Exam does not exist for this file', 404);
+        $assessmentAttrKey = ObjectStore::assessmentAttrKey($this->school_id, $this->user_id, $this->assessment_id);
+        if (!$store->exists($assessmentAttrKey)) {
+            throw new WSException('Assessment does not exist for this file', 404);
         }
-        $loaded = $store->getJson($examAttrKey);
+        $loaded = $store->getJson($assessmentAttrKey);
 
-        return ExamFactory::fromAttributes(
+        return AssessmentFactory::fromAttributes(
             $loaded['data'],
             $this->school_id,
             $this->user_id,
-            $this->exam_id
+            $this->assessment_id
         );
     }
 
     /**
      * @return array{id: string, name: string, type: string, student: ?string}
      */
-    private function firstSolutionFile(\Corrai\Model\BaseExam $exam): array
+    private function firstSolutionFile(\Corrai\Model\BaseAssessment $assessment): array
     {
-        foreach ($exam->list_files() as $file) {
+        foreach ($assessment->list_files() as $file) {
             if (($file['type'] ?? '') === 'solution') {
                 return $file;
             }
         }
-        throw new WSException('No corrigé file on this exam', 400);
+        throw new WSException('No corrigé file on this assessment', 400);
     }
 
     private function failCorrection(Throwable $th): void

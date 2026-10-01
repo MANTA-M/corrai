@@ -19,7 +19,7 @@
         </button>
       </div>
       <div class="popup-body">
-        <label class="instruction-label" for="instruction-title">{{ t('exam.instructionTitle') }}</label>
+        <label class="instruction-label" for="instruction-title">{{ t('assessment.instructionTitle') }}</label>
         <input
           id="instruction-title"
           v-model="title"
@@ -28,7 +28,7 @@
           data-testid="instruction-title"
           :disabled="isSaving || isLoading"
         />
-        <label class="instruction-label" for="instruction-body">{{ t('exam.instructionBody') }}</label>
+        <label class="instruction-label" for="instruction-body">{{ t('assessment.instructionBody') }}</label>
         <textarea
           id="instruction-body"
           v-model="body"
@@ -55,7 +55,7 @@
           :disabled="isSaving || isLoading || !title.trim()"
           @click="save"
         >
-          {{ isSaving ? t('exam.instructionSaving') : t('exam.instructionSave') }}
+          {{ isSaving ? t('assessment.instructionSaving') : t('assessment.instructionSave') }}
         </button>
       </div>
     </div>
@@ -67,18 +67,18 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import { EXAM_FILE_TYPES, type ExamFile, type ExamFileTypeZone } from '@/types/types'
+import { ASSESSMENT_FILE_TYPES, type AssessmentFile, type AssessmentFileTypeZone } from '@/types/types'
 
 const props = defineProps<{
-  examId: string
-  files: ExamFile[]
-  existingFile: ExamFile | null
+  assessmentId: string
+  files: AssessmentFile[]
+  existingFile: AssessmentFile | null
   kind: 'instructions' | 'solution'
 }>()
 
 const emit = defineEmits<{
   close: []
-  saved: [files: ExamFile[]]
+  saved: [files: AssessmentFile[]]
 }>()
 
 const { t } = useI18n()
@@ -87,18 +87,18 @@ const sessionStore = useSessionStore()
 const labels = computed(() =>
   props.kind === 'solution'
     ? {
-        createTitle: t('exam.solutionCreateTitle'),
-        editTitle: t('exam.solutionEditTitle'),
-        prefix: t('exam.solutionTitlePrefix'),
-        saveError: t('exam.solutionSaveError'),
-        loadError: t('exam.solutionLoadError'),
+        createTitle: t('assessment.solutionCreateTitle'),
+        editTitle: t('assessment.solutionEditTitle'),
+        prefix: t('assessment.solutionTitlePrefix'),
+        saveError: t('assessment.solutionSaveError'),
+        loadError: t('assessment.solutionLoadError'),
       }
     : {
-        createTitle: t('exam.instructionCreateTitle'),
-        editTitle: t('exam.instructionEditTitle'),
-        prefix: t('exam.instructionTitlePrefix'),
-        saveError: t('exam.instructionSaveError'),
-        loadError: t('exam.instructionLoadError'),
+        createTitle: t('assessment.instructionCreateTitle'),
+        editTitle: t('assessment.instructionEditTitle'),
+        prefix: t('assessment.instructionTitlePrefix'),
+        saveError: t('assessment.instructionSaveError'),
+        loadError: t('assessment.instructionLoadError'),
       }
 )
 
@@ -108,10 +108,10 @@ const error = ref('')
 const isSaving = ref(false)
 const isLoading = ref(false)
 
-const fileZone = (file: ExamFile): ExamFileTypeZone => {
+const fileZone = (file: AssessmentFile): AssessmentFileTypeZone => {
   const type = file.type ?? ''
-  return (EXAM_FILE_TYPES as readonly string[]).includes(type)
-    ? (type as ExamFileTypeZone)
+  return (ASSESSMENT_FILE_TYPES as readonly string[]).includes(type)
+    ? (type as AssessmentFileTypeZone)
     : 'unknown'
 }
 
@@ -146,9 +146,9 @@ const nextInstructionTitle = () => {
   return candidate
 }
 
-const fileViewUrl = (file: ExamFile) =>
+const fileViewUrl = (file: AssessmentFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.examId,
+    id: props.assessmentId,
     file: file.id,
   })
 
@@ -184,7 +184,7 @@ const save = async () => {
 
   try {
     const wsClient = sessionStore.getWsClient()
-    let files: ExamFile[] | undefined
+    let files: AssessmentFile[] | undefined
 
     if (!props.existingFile) {
       if (props.files.some((file) => file.name === filename)) {
@@ -196,10 +196,10 @@ const save = async () => {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', props.kind)
-      const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+      const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: props.examId },
+        { id: props.assessmentId },
         formData,
         'form'
       )
@@ -209,10 +209,10 @@ const save = async () => {
       if (filename !== props.existingFile.name) {
         patch.name = filename
       }
-      const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+      const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
-        { id: props.examId, file: props.existingFile.id },
+        { id: props.assessmentId, file: props.existingFile.id },
         patch
       )
       files = response?.files

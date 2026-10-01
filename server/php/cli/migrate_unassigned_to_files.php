@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /**
- * Move exam binaries from {schoolId}/{userId}/{examId}/unassigned/{filename}
- * to {schoolId}/{userId}/{examId}/files/{filename}.
+ * Move assessment binaries from {schoolId}/{userId}/{assessmentId}/unassigned/{filename}
+ * to {schoolId}/{userId}/{assessmentId}/files/{filename}.
  *
  * Idempotent. A source whose destination already exists with the same size is
  * deleted. A size mismatch is left in place and reported.

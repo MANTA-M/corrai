@@ -70,7 +70,7 @@ const openInCorraiUrl = computed(() => {
   if (teacherName) {
     params.set('name', teacherName)
   }
-  return `/corrai_test/exam-list?${params.toString()}`
+  return `/corrai_test/assessment-list?${params.toString()}`
 })
 
 const loadTeacher = async (id: string) => {

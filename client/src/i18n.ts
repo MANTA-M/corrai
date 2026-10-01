@@ -36,12 +36,12 @@ export interface I18nSchema {
     }
     title: string
     nav: {
-        exams: string
+        assessments: string
         settings: string
         login: string
         logout: string
     }
-    examList: {
+    assessmentList: {
         subtitle: string
         empty: string
     }
@@ -50,19 +50,19 @@ export interface I18nSchema {
         subtitle: string
         filesHeading: string
         noFiles: string
-        chooseExam: string
-        noExams: string
+        chooseAssessment: string
+        noAssessments: string
         uploading: string
         uploadError: string
         loadError: string
     }
-    createExam: {
+    createAssessment: {
         title: string
         subtitle: string
         editTitle: string
         editSubtitle: string
     }
-    exam: {
+    assessment: {
         loading: string
         error: string
         back: string
@@ -76,6 +76,8 @@ export interface I18nSchema {
         countryPlaceholder: string
         level: string
         levelPlaceholder: string
+        autoDetect: string
+        optional: string
         notSpecified: string
         subjects: {
             MathPipeline: string

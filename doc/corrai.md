@@ -1,12 +1,12 @@
 # Corrai
 
-Corrai is an application designed to automate a significant portion of student exam paper grading.
+Corrai is an application designed to automate a significant portion of student assessment paper grading.
 
 # The Model
 
 School
     Teacher
-        Exam
+        Assessment
             Subject
             Answer Key
             Grading Guidelines
@@ -24,16 +24,16 @@ School
 
 The system is based on SeaweedFS (S3-compatible object storage).
 
-Every school, teacher, exam, file, and student is identified by a short alphanumeric hash (schools may use a fixed id such as `IND`). These hashes form a tree in the bucket:
+Every school, teacher, assessment, file, and student is identified by a short alphanumeric hash (schools may use a fixed id such as `IND`). These hashes form a tree in the bucket:
 
 ```
 schools/<schoolId>/attributes.json
 schools/<schoolId>/teachers/<teacherId>/attributes.json
-schools/<schoolId>/teachers/<teacherId>/exams/<examId>/attributes.json
-schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/attributes.json
-schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/content
-schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/events/<eventId>.json
-schools/<schoolId>/teachers/<teacherId>/exams/<examId>/students/<studentId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/content
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/events/<eventId>.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
 _id/{hash}                              (pointer to the node prefix)
 ```
 
@@ -51,12 +51,12 @@ Each school has an admin user/teacher who can add and modify teachers for that s
 
 The user is a teacher identified by an email address. Authentication uses a standard email and password login.
 
-## Exam Creation
+## Assessment Creation
 
-When logged in as a teacher, users can add, edit, or delete exams.
+When logged in as a teacher, users can add, edit, or delete assessments.
 
-## Exam Management
+## Assessment Management
 
 ### Adding Files
 
-The UI allows users to add files, which are then stored in the exam's "Unassigned" section.
+The UI allows users to add files, which are then stored in the assessment's "Unassigned" section.

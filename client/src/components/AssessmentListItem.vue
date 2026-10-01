@@ -1,12 +1,12 @@
 <template>
   <router-link
-    :to="exam.id ? `/exam/${exam.id}` : '#'"
-    class="exam-item"
-    data-testid="exam-item"
+    :to="assessment.id ? `/assessment/${assessment.id}` : '#'"
+    class="assessment-item"
+    data-testid="assessment-item"
   >
-    <div class="exam-name">{{ exam.name || '—' }}</div>
-    <div class="exam-subject">{{ subjectLabel(exam.subject) }}</div>
-    <div class="exam-date">{{ exam.date || '—' }}</div>
+    <div class="assessment-name">{{ assessment.name || '—' }}</div>
+    <div class="assessment-subject">{{ subjectLabel(assessment.subject) }}</div>
+    <div class="assessment-date">{{ assessment.date || '—' }}</div>
   </router-link>
 </template>
 
@@ -14,10 +14,10 @@
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
-import { isExamSubject, type Exam } from '@/types/types'
+import { isAssessmentSubject, type Assessment } from '@/types/types'
 
 defineProps<{
-  exam: Exam
+  assessment: Assessment
 }>()
 
 const { t } = useI18n()
@@ -26,7 +26,7 @@ const { subjects, load } = useSubjectCatalog()
 const subjectLabel = (subject: string) => {
   const node = subjects.value.find(item => item.subject === subject)
   if (node?.name) return node.name
-  if (isExamSubject(subject)) return t(`exam.subjects.${subject}`)
+  if (isAssessmentSubject(subject)) return t(`assessment.subjects.${subject}`)
   return subject || '—'
 }
 
@@ -36,7 +36,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.exam-item {
+.assessment-item {
   display: grid;
   grid-template-columns: 1fr 1fr 120px;
   gap: 1rem;
@@ -52,27 +52,27 @@ onMounted(() => {
   color: inherit;
 }
 
-.exam-item:hover {
+.assessment-item:hover {
   background-color: var(--white);
   border-color: var(--hover-border);
   box-shadow: var(--shadow-2);
   transform: translateY(-2px);
 }
 
-.exam-name {
+.assessment-name {
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--navy);
 }
 
-.exam-subject,
-.exam-date {
+.assessment-subject,
+.assessment-date {
   color: var(--text-muted);
   font-size: 0.95rem;
 }
 
 @media (max-width: 600px) {
-  .exam-item {
+  .assessment-item {
     grid-template-columns: 1fr;
     gap: 0.25rem;
   }

@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\HashId;
 use Corrai\Utils\Request;
 use Corrai\Model\User;
@@ -16,8 +16,8 @@ try {
         exit();
     }
 
-    $exam_data = JsonUtils::decodeStrict($post_data);
-    if ($exam_data === null) {
+    $assessment_data = JsonUtils::decodeStrict($post_data);
+    if ($assessment_data === null) {
         Request::add_error_message("error", "Invalid JSON in POST request body");
         Request::output_all();
         exit();
@@ -30,14 +30,14 @@ try {
         throw new WSException("User with hash $userId does not exist", 401);
     }
 
-    $exam = Exam::from_array($exam_data);
-    $exam->school_id = $user->school_id;
-    $exam->user_id = $user->id;
-    $exam->validate();
+    $assessment = Assessment::from_array($assessment_data);
+    $assessment->school_id = $user->school_id;
+    $assessment->user_id = $user->id;
+    $assessment->validate();
 
     $hash = HashId::create();
-    $exam->id = $hash;
-    $exam->save();
+    $assessment->id = $hash;
+    $assessment->save();
 
     Request::add_output("hash", $hash);
     if (!headers_sent()) {

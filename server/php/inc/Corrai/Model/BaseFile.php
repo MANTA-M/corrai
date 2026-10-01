@@ -9,14 +9,14 @@ use Corrai\Utils\StoreConflictException;
 use Corrai\Utils\WSException;
 
 /**
- * Shared exam file model. Subject packages may provide a concrete File.
+ * Shared assessment file model. Subject packages may provide a concrete File.
  */
 class BaseFile
 {
     public ?string $id = null;
     public string $school_id = '';
     public string $user_id = '';
-    public string $exam_id = '';
+    public string $assessment_id = '';
 
     public string $name = '';
 
@@ -28,7 +28,7 @@ class BaseFile
     public int $created = 0;
 
     /**
-     * One of BaseExam::FILE_TYPES, or an empty string when unset.
+     * One of BaseAssessment::FILE_TYPES, or an empty string when unset.
      */
     public string $type = '';
 
@@ -50,7 +50,7 @@ class BaseFile
         $file->id = $data['id'] ?? null;
         $file->school_id = $data['school_id'] ?? '';
         $file->user_id = $data['user_id'] ?? '';
-        $file->exam_id = $data['exam_id'] ?? '';
+        $file->assessment_id = $data['assessment_id'] ?? '';
         $file->name = (string) ($data['name'] ?? '');
         $file->size = (int) ($data['size'] ?? 0);
         $file->created = (int) ($data['created'] ?? 0);
@@ -68,13 +68,13 @@ class BaseFile
 
     public function validate(): void
     {
-        if (trim($this->school_id) === '' || trim($this->user_id) === '' || trim($this->exam_id) === '') {
-            throw new WSException('File school_id, user_id and exam_id are required', 400);
+        if (trim($this->school_id) === '' || trim($this->user_id) === '' || trim($this->assessment_id) === '') {
+            throw new WSException('File school_id, user_id and assessment_id are required', 400);
         }
         if (trim($this->name) === '' || preg_match('/[\/\\\\]/', $this->name)) {
             throw new WSException('Invalid file name', 400);
         }
-        if ($this->type !== '' && !in_array($this->type, BaseExam::FILE_TYPES, true)) {
+        if ($this->type !== '' && !in_array($this->type, BaseAssessment::FILE_TYPES, true)) {
             throw new WSException('Invalid file type', 400);
         }
     }
@@ -88,10 +88,10 @@ class BaseFile
             throw new Exception("Hash $hash does not point to a file");
         }
 
-        $attrKey = ObjectStore::examFileAttrKey(
+        $attrKey = ObjectStore::assessmentFileAttrKey(
             $parsed['school_id'],
             $parsed['teacher_id'],
-            $parsed['exam_id'],
+            $parsed['assessment_id'],
             $parsed['file_id']
         );
         if (!$store->exists($attrKey)) {
@@ -103,67 +103,67 @@ class BaseFile
         $file->id = $parsed['file_id'];
         $file->school_id = $parsed['school_id'];
         $file->user_id = $parsed['teacher_id'];
-        $file->exam_id = $parsed['exam_id'];
+        $file->assessment_id = $parsed['assessment_id'];
         $file->etag = $loaded['etag'];
         return $file;
     }
 
     public function attrKey(): string
     {
-        return ObjectStore::examFileAttrKey(
+        return ObjectStore::assessmentFileAttrKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
 
     public function contentKey(): string
     {
-        return ObjectStore::examFileContentKey(
+        return ObjectStore::assessmentFileContentKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
 
     public function ocrResultKey(): string
     {
-        return ObjectStore::examFileOcrResultKey(
+        return ObjectStore::assessmentFileOcrResultKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
 
     public function foundErrorsKey(): string
     {
-        return ObjectStore::examFileFoundErrorsKey(
+        return ObjectStore::assessmentFileFoundErrorsKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
 
     public function markupDirectivesKey(): string
     {
-        return ObjectStore::examFileMarkupDirectivesKey(
+        return ObjectStore::assessmentFileMarkupDirectivesKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
 
     public function prefix(): string
     {
-        return ObjectStore::examFilePrefix(
+        return ObjectStore::assessmentFilePrefix(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
@@ -207,7 +207,7 @@ class BaseFile
     }
 
     /**
-     * Files stored next to this exam file, excluding attributes and the main content blob.
+     * Files stored next to this assessment file, excluding attributes and the main content blob.
      *
      * @return string[]
      */
@@ -231,10 +231,10 @@ class BaseFile
     public function listEvents(): array
     {
         $store = ObjectStore::getInstance();
-        $prefix = ObjectStore::examFileEventsPrefix(
+        $prefix = ObjectStore::assessmentFileEventsPrefix(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             (string) $this->id
         );
         $events = [];
@@ -281,10 +281,10 @@ class BaseFile
         }
         $timestamp = $timestamp ?? time();
         $eventId = sprintf('%d-%s', $timestamp, bin2hex(random_bytes(4)));
-        $key = ObjectStore::examFileEventKey(
+        $key = ObjectStore::assessmentFileEventKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id,
             $eventId
         );

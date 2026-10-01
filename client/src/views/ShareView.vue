@@ -28,27 +28,27 @@
           {{ t('share.uploading') }}
         </p>
 
-        <section class="exam-picker">
-          <h2>{{ t('share.chooseExam') }}</h2>
-          <div v-if="isLoadingExams" class="loading">
-            <p>{{ t('exam.loading') }}</p>
+        <section class="assessment-picker">
+          <h2>{{ t('share.chooseAssessment') }}</h2>
+          <div v-if="isLoadingAssessments" class="loading">
+            <p>{{ t('assessment.loading') }}</p>
           </div>
           <template v-else>
-            <p v-if="exams.length === 0" class="empty-message" data-testid="share-exams-empty">
-              {{ t('share.noExams') }}
+            <p v-if="assessments.length === 0" class="empty-message" data-testid="share-assessments-empty">
+              {{ t('share.noAssessments') }}
             </p>
-            <ul v-else class="exams-list" data-testid="share-exam-list">
-              <li v-for="exam in exams" :key="exam.id || exam.name">
+            <ul v-else class="assessments-list" data-testid="share-assessment-list">
+              <li v-for="assessment in assessments" :key="assessment.id || assessment.name">
                 <button
                   type="button"
-                  class="exam-item"
-                  data-testid="share-exam-item"
+                  class="assessment-item"
+                  data-testid="share-assessment-item"
                   :disabled="!canUpload || isUploading"
-                  @click="uploadToExam(exam.id!)"
+                  @click="uploadToAssessment(assessment.id!)"
                 >
-                  <span class="exam-name">{{ exam.name || '—' }}</span>
-                  <span class="exam-subject">{{ subjectLabel(exam.subject) }}</span>
-                  <span class="exam-date">{{ exam.date || '—' }}</span>
+                  <span class="assessment-name">{{ assessment.name || '—' }}</span>
+                  <span class="assessment-subject">{{ subjectLabel(assessment.subject) }}</span>
+                  <span class="assessment-date">{{ assessment.date || '—' }}</span>
                 </button>
               </li>
             </ul>
@@ -66,7 +66,7 @@ import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { clearSharedFiles, loadSharedFiles } from '@/services/shareTarget'
-import { isExamSubject, type ExamFile } from '@/types/types'
+import { isAssessmentSubject, type AssessmentFile } from '@/types/types'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -75,13 +75,13 @@ const { subjects, load: loadSubjects } = useSubjectCatalog()
 
 const sharedFiles = ref<File[]>([])
 const isLoadingFiles = ref(true)
-const isLoadingExams = ref(false)
+const isLoadingAssessments = ref(false)
 const isUploading = ref(false)
 const error = ref('')
 
-const exams = computed(() => {
-  return [...sessionStore.own_exams]
-    .filter((exam) => !!exam.id)
+const assessments = computed(() => {
+  return [...sessionStore.own_assessments]
+    .filter((assessment) => !!assessment.id)
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
 })
 
@@ -92,7 +92,7 @@ const canUpload = computed(
 const subjectLabel = (subject: string) => {
   const node = subjects.value.find((item) => item.subject === subject)
   if (node?.name) return node.name
-  if (isExamSubject(subject)) return t(`exam.subjects.${subject}`)
+  if (isAssessmentSubject(subject)) return t(`assessment.subjects.${subject}`)
   return subject || '—'
 }
 
@@ -102,22 +102,22 @@ const formatFileSize = (size: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const uploadToExam = async (examId: string) => {
-  if (!canUpload.value || !examId) return
+const uploadToAssessment = async (assessmentId: string) => {
+  if (!canUpload.value || !assessmentId) return
 
   error.value = ''
   isUploading.value = true
   const wsClient = sessionStore.getWsClient()
-  let latestFiles: ExamFile[] | null = null
+  let latestFiles: AssessmentFile[] | null = null
 
   try {
     for (const file of sharedFiles.value) {
       const formData = new FormData()
       formData.append('file', file)
-      const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+      const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: examId },
+        { id: assessmentId },
         formData,
         'form'
       )
@@ -127,10 +127,10 @@ const uploadToExam = async (examId: string) => {
     }
 
     if (latestFiles) {
-      const existingIndex = sessionStore.own_exams.findIndex((e) => e.id === examId)
+      const existingIndex = sessionStore.own_assessments.findIndex((e) => e.id === assessmentId)
       if (existingIndex !== -1) {
-        sessionStore.own_exams[existingIndex] = {
-          ...sessionStore.own_exams[existingIndex],
+        sessionStore.own_assessments[existingIndex] = {
+          ...sessionStore.own_assessments[existingIndex],
           files: latestFiles,
         }
       }
@@ -138,7 +138,7 @@ const uploadToExam = async (examId: string) => {
 
     await clearSharedFiles()
     sharedFiles.value = []
-    await router.push(`/exam/${examId}`)
+    await router.push(`/assessment/${assessmentId}`)
   } catch (err) {
     console.error('Error uploading shared files:', err)
     error.value = t('share.uploadError')
@@ -149,16 +149,16 @@ const uploadToExam = async (examId: string) => {
 
 onMounted(async () => {
   isLoadingFiles.value = true
-  isLoadingExams.value = true
+  isLoadingAssessments.value = true
   try {
-    await Promise.all([loadSubjects(), sessionStore.load_exams()])
+    await Promise.all([loadSubjects(), sessionStore.load_assessments()])
     sharedFiles.value = await loadSharedFiles()
   } catch (err) {
     console.error('Error loading share target data:', err)
     error.value = t('share.loadError')
   } finally {
     isLoadingFiles.value = false
-    isLoadingExams.value = false
+    isLoadingAssessments.value = false
   }
 })
 </script>
@@ -185,7 +185,7 @@ onMounted(async () => {
 }
 
 .shared-files h2,
-.exam-picker h2 {
+.assessment-picker h2 {
   margin: 0 0 0.75rem 0;
   font-size: 1.1rem;
 }
@@ -218,13 +218,13 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.exams-list {
+.assessments-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.exam-item {
+.assessment-item {
   display: grid;
   grid-template-columns: 1fr 1fr 120px;
   gap: 1rem;
@@ -242,25 +242,25 @@ onMounted(async () => {
   font: inherit;
 }
 
-.exam-item:hover:not(:disabled) {
+.assessment-item:hover:not(:disabled) {
   border-color: var(--hover-border);
   box-shadow: var(--shadow-2);
   transform: translateY(-2px);
 }
 
-.exam-item:disabled {
+.assessment-item:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.exam-name {
+.assessment-name {
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--navy);
 }
 
-.exam-subject,
-.exam-date {
+.assessment-subject,
+.assessment-date {
   color: var(--text-muted);
   font-size: 0.95rem;
 }
@@ -278,7 +278,7 @@ onMounted(async () => {
 }
 
 @media (max-width: 600px) {
-  .exam-item {
+  .assessment-item {
     grid-template-columns: 1fr;
     gap: 0.25rem;
   }

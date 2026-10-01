@@ -1,21 +1,21 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\Request;
 use Corrai\Utils\WSException;
 
 try {
-    $examId = Request::getStringParam("id");
-    if (!$examId) {
+    $assessmentId = Request::getStringParam("id");
+    if (!$assessmentId) {
         Request::add_error_message("error", "No id parameter provided");
         Request::output_all();
         exit();
     }
 
     try {
-        $exam = Exam::from_hash($examId);
+        $assessment = Assessment::from_hash($assessmentId);
     } catch (\Exception $e) {
-        Request::add_error_message("error", "Exam with id $examId does not exist");
+        Request::add_error_message("error", "Assessment with id $assessmentId does not exist");
         Request::output_all();
         exit();
     }
@@ -61,7 +61,7 @@ try {
     }
 
     $type = Request::getStringParam("type");
-    if ($type !== null && $type !== '' && $type !== 'unknown' && !in_array($type, Exam::FILE_TYPES, true)) {
+    if ($type !== null && $type !== '' && $type !== 'unknown' && !in_array($type, Assessment::FILE_TYPES, true)) {
         Request::add_error_message("error", "Invalid file type");
         Request::output_all();
         exit();
@@ -71,7 +71,7 @@ try {
     $contentType = $uploadedFile['type'] ?? null;
 
     try {
-        $file = $exam->createFileFromPath(
+        $file = $assessment->createFileFromPath(
             $fileName,
             $tmpPath,
             $contentType,
@@ -86,9 +86,9 @@ try {
 
     Request::add_output("file", $file->id);
     Request::add_output("filename", $file->name);
-    Request::add_output("id", $examId);
-    Request::add_output("files", $exam->list_files());
-    Request::add_output("students", $exam->list_students());
+    Request::add_output("id", $assessmentId);
+    Request::add_output("files", $assessment->list_files());
+    Request::add_output("students", $assessment->list_students());
     if (!headers_sent()) {
         http_response_code(201);
     }

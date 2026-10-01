@@ -203,7 +203,7 @@ class User
     }
 
     /**
-     * Delete the user prefix and its _id pointer (cascades exams in S3).
+     * Delete the user prefix and its _id pointer (cascades assessments in S3).
      */
     public function delete(): void
     {
@@ -211,8 +211,8 @@ class User
             throw new Exception('Cannot delete user without id and school_id');
         }
 
-        foreach ($this->exams() as $exam) {
-            $exam->delete();
+        foreach ($this->assessments() as $assessment) {
+            $assessment->delete();
         }
 
         $store = ObjectStore::getInstance();
@@ -221,33 +221,33 @@ class User
     }
 
     /**
-     * List exams belonging to this user.
+     * List assessments belonging to this user.
      *
-     * @return Exam[]
+     * @return Assessment[]
      */
-    public function exams(): array
+    public function assessments(): array
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '') {
             return [];
         }
 
         $store = ObjectStore::getInstance();
-        $exams = [];
-        $prefix = ObjectStore::examsPrefix($this->school_id, $this->id);
+        $assessments = [];
+        $prefix = ObjectStore::assessmentsPrefix($this->school_id, $this->id);
 
-        foreach ($store->listChildPrefixes($prefix) as $examId) {
-            $attrKey = ObjectStore::examAttrKey($this->school_id, $this->id, $examId);
+        foreach ($store->listChildPrefixes($prefix) as $assessmentId) {
+            $attrKey = ObjectStore::assessmentAttrKey($this->school_id, $this->id, $assessmentId);
             if (!$store->exists($attrKey)) {
                 continue;
             }
             try {
-                $exams[] = Exam::from_hash($examId);
+                $assessments[] = Assessment::from_hash($assessmentId);
             } catch (\Exception $e) {
                 continue;
             }
         }
 
-        return $exams;
+        return $assessments;
     }
 
     public function to_output(): array

@@ -2,8 +2,8 @@
 
 namespace Corrai\Subject\DictationFranceCM2;
 
-use Corrai\Model\BaseExam;
-use Corrai\Model\Exam;
+use Corrai\Model\BaseAssessment;
+use Corrai\Model\Assessment;
 use Corrai\Utils\OCR;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
@@ -38,11 +38,11 @@ class Pipeline
     /**
      * Compare a dictation copy to the corrigé, then draw the errors with GD.
      *
-     * @return array Updated exam file list
+     * @return array Updated assessment file list
      */
-    public function run(Exam $exam, string $fileId, string $language): array
+    public function run(Assessment $assessment, string $fileId, string $language): array
     {
-        $file = $exam->getFile($fileId);
+        $file = $assessment->getFile($fileId);
         $student = $file->student ?? '';
         $filename = $file->name;
         $languageName = trim($language) !== '' ? trim($language) : 'French';
@@ -53,8 +53,8 @@ class Pipeline
         $solutionPath = null;
 
         try {
-            $exam->deleteFilesOfType('debug', $student);
-            $exam->deleteFilesOfType('correction', $student);
+            $assessment->deleteFilesOfType('debug', $student);
+            $assessment->deleteFilesOfType('correction', $student);
 
             $size = @getimagesize($tmpPath);
             $this->imageWidth = is_array($size) ? (int) $size[0] : null;
@@ -74,7 +74,7 @@ class Pipeline
                 '[DictationFranceCM2] OCR completed with %d boxes',
                 count($ocrWords)
             ));
-            $exam->createFile(
+            $assessment->createFile(
                 $base . '_ocr.json',
                 $this->ocrJson($ocrWords),
                 'application/json',
@@ -82,11 +82,11 @@ class Pipeline
                 $student
             );
 
-            $solution = $this->firstSolutionFile($exam);
-            $solutionPath = $store->downloadToTemp($exam->fileContentKey($solution['id']));
+            $solution = $this->firstSolutionFile($assessment);
+            $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
 
             $correction = $this->findErrors(
-                $exam,
+                $assessment,
                 $tmpPath,
                 $filename,
                 $solutionPath,
@@ -94,14 +94,14 @@ class Pipeline
                 $languageName,
                 $ocrWords
             );
-            $exam->createFile(
+            $assessment->createFile(
                 $base . '_boxes.png',
                 $this->renderOcrBoxes($tmpPath, $ocrWords, $this->errorBoxes($correction)),
                 'image/png',
                 'debug',
                 $student
             );
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' correction.txt',
                 $correction,
                 'text/plain; charset=utf-8',
@@ -110,7 +110,7 @@ class Pipeline
             );
 
             $directivesPhp = $this->gdDirectives($tmpPath, $filename, $correction);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' directives.php',
                 $directivesPhp,
                 'text/plain; charset=utf-8',
@@ -119,7 +119,7 @@ class Pipeline
             );
 
             $png = $this->renderCorrection($tmpPath, $directivesPhp);
-            $exam->createFile(
+            $assessment->createFile(
                 $base . ' correction.png',
                 $png,
                 'image/png',
@@ -139,7 +139,7 @@ class Pipeline
             }
         }
 
-        return $exam->list_files();
+        return $assessment->list_files();
     }
 
     /**
@@ -170,21 +170,21 @@ class Pipeline
     /**
      * @return array{id: string, name: string, type: string, student: ?string}
      */
-    private function firstSolutionFile(BaseExam $exam): array
+    private function firstSolutionFile(BaseAssessment $assessment): array
     {
-        foreach ($exam->list_files() as $file) {
+        foreach ($assessment->list_files() as $file) {
             if (($file['type'] ?? '') === 'solution') {
                 return $file;
             }
         }
-        throw new WSException('No corrigé file on this exam', 400);
+        throw new WSException('No corrigé file on this assessment', 400);
     }
 
     /**
      * @param list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}> $ocrWords
      */
     public function findErrors(
-        BaseExam $exam,
+        BaseAssessment $assessment,
         string $copyPath,
         string $copyName,
         string $solutionPath,
@@ -200,7 +200,7 @@ class Pipeline
             throw new WSException('The source file is not an image GD can annotate', 400);
         }
 
-        $instructionText = $exam->instructionFilesText();
+        $instructionText = $assessment->instructionFilesText();
         $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
             'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
@@ -217,7 +217,7 @@ class Pipeline
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
             . 'Write text fields in ' . $languageName . '. '
             . 'All coordinates are pixels of the image you receive, origin (0,0) is top-left. '
-            . "Follow these exam-specific instructions:\n"
+            . "Follow these assessment-specific instructions:\n"
             . $instructionText
         );
         $request->set_json_response('dictation_errors', [

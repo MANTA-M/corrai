@@ -2,9 +2,9 @@
 
 namespace Corrai\Subject\English;
 
-use Corrai\Model\BaseExam;
+use Corrai\Model\BaseAssessment;
 
-class Exam extends BaseExam
+class Assessment extends BaseAssessment
 {
     public string $subject = 'English';
 }

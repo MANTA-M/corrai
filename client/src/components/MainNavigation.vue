@@ -27,13 +27,13 @@ const toggleMenu = () => {
   <header class="header">
     <div class="row">
       <div class="header-left" v-if="sessionStore.isAuthenticated">
-        <router-link to="/exam-list" class="brand" @click="isMenuOpen = false">
+        <router-link to="/assessment-list" class="brand" @click="isMenuOpen = false">
           <span class="brand-mark" aria-hidden="true">C<span>✓</span></span>corrai
         </router-link>
         <HamburgerMenu :is-open="isMenuOpen" @toggle="toggleMenu" />
         <nav :class="{ 'is-open': isMenuOpen }">
-          <router-link to="/exam-list" class="nav-link" @click="isMenuOpen = false">{{
-            $t('nav.exams')
+          <router-link to="/assessment-list" class="nav-link" @click="isMenuOpen = false">{{
+            $t('nav.assessments')
           }}</router-link>
           <router-link to="/settings_page" class="nav-link" @click="isMenuOpen = false">{{
             $t('nav.settings')

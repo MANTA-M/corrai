@@ -1,6 +1,6 @@
 # Corrai Client
 
-Vue 3 + TypeScript frontend application for the Corrai exam paper correction system.
+Vue 3 + TypeScript frontend application for the Corrai assessment paper correction system.
 
 ## Quick Start
 

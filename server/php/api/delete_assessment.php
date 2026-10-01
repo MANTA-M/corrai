@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\Request;
 use Corrai\Utils\WSException;
 
@@ -13,23 +13,23 @@ try {
     }
 
     try {
-        $exam = Exam::from_hash($hash);
+        $assessment = Assessment::from_hash($hash);
     } catch (\Exception $e) {
-        Request::add_error_message("error", "Exam with hash $hash does not exist");
+        Request::add_error_message("error", "Assessment with hash $hash does not exist");
         Request::output_all();
         exit();
     }
 
     $request_user = Request::get_mandatory_author();
 
-    if ($exam->user_id !== $request_user) {
-        throw new WSException("Cannot delete exam: request author is not the exam author", 403);
+    if ($assessment->user_id !== $request_user) {
+        throw new WSException("Cannot delete assessment: request author is not the assessment author", 403);
     }
 
-    $exam->delete();
+    $assessment->delete();
 
     Request::add_output("hash", $hash);
-    Request::add_output("message", "Exam deleted successfully");
+    Request::add_output("message", "Assessment deleted successfully");
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

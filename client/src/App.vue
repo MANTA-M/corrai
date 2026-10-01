@@ -147,7 +147,7 @@ onMounted(async () => {
     <InitProfile v-if="!sessionStore.keyPair && !adoptingAsTeacher" />
 
     <div v-else-if="adoptingAsTeacher || provisioning || !sessionStore.isInitialized" class="provisioning">
-      <p>{{ t('exam.loading') }}</p>
+      <p>{{ t('assessment.loading') }}</p>
     </div>
 
     <template v-else>

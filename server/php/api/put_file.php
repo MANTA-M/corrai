@@ -1,13 +1,13 @@
 <?php
 
-use Corrai\Model\Exam;
+use Corrai\Model\Assessment;
 use Corrai\Utils\JsonUtils;
 use Corrai\Utils\Request;
 use Corrai\Utils\WSException;
 
 try {
-    $examId = Request::getStringParam("id");
-    if (!$examId) {
+    $assessmentId = Request::getStringParam("id");
+    if (!$assessmentId) {
         Request::add_error_message("error", "No id parameter provided");
         Request::output_all();
         exit();
@@ -21,15 +21,15 @@ try {
     }
 
     try {
-        $exam = Exam::from_hash($examId);
+        $assessment = Assessment::from_hash($assessmentId);
     } catch (\Exception $e) {
-        Request::add_error_message("error", "Exam with id $examId does not exist");
+        Request::add_error_message("error", "Assessment with id $assessmentId does not exist");
         Request::output_all();
         exit();
     }
 
     $request_user = Request::get_mandatory_author();
-    if ($exam->user_id !== $request_user) {
+    if ($assessment->user_id !== $request_user) {
         throw new WSException("Not authorized", 403);
     }
 
@@ -86,21 +86,21 @@ try {
     $files = null;
 
     if ($content !== null) {
-        $files = $exam->writeFileContents($fileId, $content);
+        $files = $assessment->writeFileContents($fileId, $content);
     }
 
     if ($newName !== null) {
-        $files = $exam->renameFile($fileId, $newName);
+        $files = $assessment->renameFile($fileId, $newName);
     }
 
     if ($type !== null || $student !== null) {
-        $files = $exam->setFileTags($fileId, $type, $student);
+        $files = $assessment->setFileTags($fileId, $type, $student);
     }
 
     Request::add_output("file", $fileId);
-    Request::add_output("id", $examId);
+    Request::add_output("id", $assessmentId);
     Request::add_output("files", $files);
-    Request::add_output("students", $exam->list_students());
+    Request::add_output("students", $assessment->list_students());
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

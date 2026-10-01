@@ -2,18 +2,18 @@
 
 namespace Corrai\Subject;
 
-use Corrai\Model\BaseExam;
-use Corrai\Model\Exam as GenericExam;
+use Corrai\Model\BaseAssessment;
+use Corrai\Model\Assessment as GenericAssessment;
 
 /**
- * Instantiates the most specific subject Exam for stored attributes.
+ * Instantiates the most specific subject Assessment for stored attributes.
  */
-class ExamFactory
+class AssessmentFactory
 {
     /**
-     * Every subject Exam class under Corrai\Subject.
+     * Every subject Assessment class under Corrai\Subject.
      *
-     * @return list<class-string<BaseExam>>
+     * @return list<class-string<BaseAssessment>>
      */
     public static function classes(): array
     {
@@ -22,22 +22,22 @@ class ExamFactory
             new \RecursiveDirectoryIterator(__DIR__, \FilesystemIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if (!$file->isFile() || $file->getFilename() !== 'Exam.php') {
+            if (!$file->isFile() || $file->getFilename() !== 'Assessment.php') {
                 continue;
             }
-            $relative = substr($file->getPathname(), strlen(__DIR__) + 1, -strlen('/Exam.php'));
-            $classes[] = 'Corrai\\Subject\\' . str_replace('/', '\\', $relative) . '\\Exam';
+            $relative = substr($file->getPathname(), strlen(__DIR__) + 1, -strlen('/Assessment.php'));
+            $classes[] = 'Corrai\\Subject\\' . str_replace('/', '\\', $relative) . '\\Assessment';
         }
         sort($classes);
         return $classes;
     }
 
     /**
-     * Most specific Exam class for a subject, country, and level.
+     * Most specific Assessment class for a subject, country, and level.
      *
-     * @return class-string<BaseExam>
+     * @return class-string<BaseAssessment>
      */
-    public static function examClass(string $subject, string $country, string $level): string
+    public static function assessmentClass(string $subject, string $country, string $level): string
     {
         $countryOnly = null;
         $bare = null;
@@ -59,28 +59,28 @@ class ExamFactory
                 $bare = $class;
             }
         }
-        return $countryOnly ?? $bare ?? GenericExam::class;
+        return $countryOnly ?? $bare ?? GenericAssessment::class;
     }
 
     /**
-     * Build an Exam from S3 attribute payload plus path ids.
+     * Build an Assessment from S3 attribute payload plus path ids.
      */
     public static function fromAttributes(
         array $data,
         string $schoolId,
         string $userId,
-        string $examId
-    ): BaseExam {
+        string $assessmentId
+    ): BaseAssessment {
         $subject = (string) ($data['subject'] ?? '');
         $country = self::normalizeOptional($data['country'] ?? null);
         $level = self::normalizeOptional($data['level'] ?? null);
-        $class = self::examClass($subject, $country, $level);
-        /** @var BaseExam $exam */
-        $exam = $class::from_array($data);
-        $exam->id = $examId;
-        $exam->school_id = $schoolId;
-        $exam->user_id = $userId;
-        return $exam;
+        $class = self::assessmentClass($subject, $country, $level);
+        /** @var BaseAssessment $assessment */
+        $assessment = $class::from_array($data);
+        $assessment->id = $assessmentId;
+        $assessment->school_id = $schoolId;
+        $assessment->user_id = $userId;
+        return $assessment;
     }
 
     private static function normalizeOptional(mixed $value): string

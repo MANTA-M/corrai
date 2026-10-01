@@ -16,7 +16,7 @@ class BaseStudent
     public ?string $id = null;
     public string $school_id = '';
     public string $user_id = '';
-    public string $exam_id = '';
+    public string $assessment_id = '';
 
     /**
      * Display name.
@@ -36,7 +36,7 @@ class BaseStudent
         $student->id = $data['id'] ?? null;
         $student->school_id = $data['school_id'] ?? '';
         $student->user_id = $data['user_id'] ?? '';
-        $student->exam_id = $data['exam_id'] ?? '';
+        $student->assessment_id = $data['assessment_id'] ?? '';
         $student->name = (string) ($data['name'] ?? $data['student'] ?? '');
         $student->status = (string) ($data['status'] ?? '');
         $mark = $data['mark'] ?? null;
@@ -46,8 +46,8 @@ class BaseStudent
 
     public function validate(): void
     {
-        if (trim($this->school_id) === '' || trim($this->user_id) === '' || trim($this->exam_id) === '') {
-            throw new WSException('Student school_id, user_id and exam_id are required', 400);
+        if (trim($this->school_id) === '' || trim($this->user_id) === '' || trim($this->assessment_id) === '') {
+            throw new WSException('Student school_id, user_id and assessment_id are required', 400);
         }
         if (trim($this->name) === '') {
             throw new WSException('Student name is required', 400);
@@ -63,10 +63,10 @@ class BaseStudent
             throw new Exception("Hash $hash does not point to a student");
         }
 
-        $attrKey = ObjectStore::examStudentAttrKey(
+        $attrKey = ObjectStore::assessmentStudentAttrKey(
             $parsed['school_id'],
             $parsed['teacher_id'],
-            $parsed['exam_id'],
+            $parsed['assessment_id'],
             $parsed['student_id']
         );
         if (!$store->exists($attrKey)) {
@@ -78,27 +78,27 @@ class BaseStudent
         $student->id = $parsed['student_id'];
         $student->school_id = $parsed['school_id'];
         $student->user_id = $parsed['teacher_id'];
-        $student->exam_id = $parsed['exam_id'];
+        $student->assessment_id = $parsed['assessment_id'];
         $student->etag = $loaded['etag'];
         return $student;
     }
 
     public function attrKey(): string
     {
-        return ObjectStore::examStudentAttrKey(
+        return ObjectStore::assessmentStudentAttrKey(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
 
     public function prefix(): string
     {
-        return ObjectStore::examStudentPrefix(
+        return ObjectStore::assessmentStudentPrefix(
             $this->school_id,
             $this->user_id,
-            $this->exam_id,
+            $this->assessment_id,
             $this->id
         );
     }
