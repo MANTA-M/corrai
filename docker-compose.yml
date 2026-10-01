@@ -1,22 +1,90 @@
 services:
   php:
     build:
-      context: ./docker/php
-      dockerfile: Dockerfile_nginx
+      context: .
+      dockerfile: docker/php/Dockerfile_nginx
     env_file:
       - ./server/php/.env
     environment:
       S3_ENDPOINT: http://seaweedfs:8333
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      HOME: /var/corrai/home
+      PADDLE_PDX_CACHE_HOME: /var/corrai/home/.paddlex
     volumes:
       - './server/log:/var/log/corrai'
       - './server/php:/var/corrai/php'
+      - './server/python/pycorrai:/var/corrai/python/pycorrai'
+      - 'paddle_cache:/var/corrai/home'
       - './docker/php/nginx-default.conf:/etc/nginx/sites-available/default'
       - './docker/php.ini:/usr/local/etc/php/conf.d/99-custom.ini'
       - './docker/php/zz-clear-env.conf:/usr/local/etc/php-fpm.d/zz-clear-env.conf'
+      - './admin_client/dist:/var/www/admin_client'
     ports:
       - '80:80'
     depends_on:
       seaweedfs:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      php-consumer:
+        condition: service_started
+      ocr-consumer:
+        condition: service_started
+  php-consumer:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile_nginx
+    restart: unless-stopped
+    env_file:
+      - ./server/php/.env
+    environment:
+      S3_ENDPOINT: http://seaweedfs:8333
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      HOME: /var/corrai/home
+      PADDLE_PDX_CACHE_HOME: /var/corrai/home/.paddlex
+      PHP_ERROR_LOG_STDERR: "true"
+    volumes:
+      - './server/log:/var/log/corrai'
+      - './server/php:/var/corrai/php'
+      - './server/python/pycorrai:/var/corrai/python/pycorrai'
+      - 'paddle_cache:/var/corrai/home'
+    command: ["php", "/var/corrai/php/cli/redis_consumer.php"]
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  ocr-consumer:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile_nginx
+    restart: unless-stopped
+    env_file:
+      - ./server/php/.env
+    environment:
+      S3_ENDPOINT: http://seaweedfs:8333
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      HOME: /var/corrai/home
+      PADDLE_PDX_CACHE_HOME: /var/corrai/home/.paddlex
+      PYTHONPATH: /var/corrai/python/pycorrai
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - './server/log:/var/log/corrai'
+      - './server/python/pycorrai:/var/corrai/python/pycorrai'
+      - 'paddle_cache:/var/corrai/home'
+    command:
+      [
+        "/var/corrai/python/.venv/bin/python",
+        "-m",
+        "pycorrai.consumer",
+      ]
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+      redis:
         condition: service_healthy
   seaweedfs:
     image: chrislusf/seaweedfs:latest
@@ -40,3 +108,19 @@ services:
       timeout: 3s
       retries: 12
       start_period: 8s
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - 'redis_data:/data'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  paddle_cache:
+  redis_data:

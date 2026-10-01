@@ -12,15 +12,10 @@ try {
         exit('No id parameter provided.');
     }
 
-    $fileName = Request::getStringParam("filename");
-    if (!$fileName) {
+    $fileId = Request::getStringParam("file");
+    if (!$fileId) {
         http_response_code(400);
-        exit('No filename parameter provided.');
-    }
-
-    if (preg_match('/[\/\\\\]/', $fileName)) {
-        http_response_code(400);
-        exit('Invalid file name.');
+        exit('No file parameter provided.');
     }
 
     try {
@@ -30,16 +25,26 @@ try {
         exit("Exam with id $examId does not exist.");
     }
 
+    try {
+        $file = $exam->getFile($fileId);
+    } catch (\Exception $e) {
+        http_response_code(404);
+        exit("File '$fileId' does not exist for exam $examId.");
+    }
+
     $store = ObjectStore::getInstance();
-    $key = $exam->unassignedFileKey($fileName);
+    $key = $file->contentKey();
 
     if (!$store->exists($key)) {
         http_response_code(404);
-        exit("File '$fileName' does not exist for exam $examId.");
+        exit("File '$fileId' does not exist for exam $examId.");
     }
 
     $object = $store->get($key);
-    $mimeType = Utils::mimeTypeForFilename($fileName, $object['ContentType'] ?? null);
+    $mimeType = Utils::mimeTypeForFilename(
+        $file->name,
+        $object['ContentType'] ?? $file->content_type
+    );
     $contentLength = $object['ContentLength'];
 
     if (ob_get_level()) {
@@ -47,7 +52,7 @@ try {
     }
 
     header('Content-Type: ' . $mimeType);
-    header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', basename($fileName)) . '"');
+    header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', basename($file->name)) . '"');
     header('X-Content-Type-Options: nosniff');
     if ($contentLength > 0) {
         header('Content-Length: ' . $contentLength);

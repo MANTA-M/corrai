@@ -3,7 +3,6 @@
 namespace Corrai\Model;
 
 use Exception;
-use Corrai\Utils\CsvStore;
 use Corrai\Utils\HashId;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
@@ -40,21 +39,25 @@ class School
     {
         $store = ObjectStore::getInstance();
         $prefix = $store->resolveIdPointer($hash);
-        $schoolId = rtrim($prefix, '/');
-        $csvKey = ObjectStore::schoolCsvKey($schoolId);
+        $parsed = ObjectStore::parseNodePrefix($prefix);
+        if ($parsed['kind'] !== 'school') {
+            throw new Exception("Hash $hash does not point to a school");
+        }
+        $schoolId = $parsed['school_id'];
+        $attrKey = ObjectStore::schoolAttrKey($schoolId);
 
-        if (!$store->exists($csvKey)) {
+        if (!$store->exists($attrKey)) {
             throw new Exception("School with hash $hash does not exist");
         }
 
-        $data = CsvStore::decode($store->getContents($csvKey));
-        $school = self::from_array($data);
+        $loaded = $store->getJson($attrKey);
+        $school = self::from_array($loaded['data']);
         $school->id = $schoolId;
         return $school;
     }
 
     /**
-     * List all schools at the bucket root (skipping the _id index).
+     * List all schools under schools/.
      *
      * @return School[]
      */
@@ -63,16 +66,13 @@ class School
         $store = ObjectStore::getInstance();
         $schools = [];
 
-        foreach ($store->listChildPrefixes('') as $child) {
-            if ($child === '_id') {
-                continue;
-            }
-            $csvKey = ObjectStore::schoolCsvKey($child);
-            if (!$store->exists($csvKey)) {
+        foreach ($store->listChildPrefixes(ObjectStore::schoolsRootPrefix()) as $schoolId) {
+            $attrKey = ObjectStore::schoolAttrKey($schoolId);
+            if (!$store->exists($attrKey)) {
                 continue;
             }
             try {
-                $schools[] = self::from_hash($child);
+                $schools[] = self::from_hash($schoolId);
             } catch (\Exception $e) {
                 continue;
             }
@@ -82,7 +82,7 @@ class School
     }
 
     /**
-     * Persist school.csv and register the _id pointer.
+     * Persist school attributes.json and register the _id pointer.
      */
     public function save(): void
     {
@@ -96,21 +96,18 @@ class School
         $this->validate();
 
         $store = ObjectStore::getInstance();
-        $row = [
-            'id' => $this->id,
-            'name' => $this->name,
-            'created_at' => $this->created_at,
-        ];
-        $store->putContents(
-            ObjectStore::schoolCsvKey($this->id),
-            CsvStore::encode($row),
-            'text/csv'
+        $store->putJson(
+            ObjectStore::schoolAttrKey($this->id),
+            [
+                'name' => $this->name,
+                'created_at' => $this->created_at,
+            ]
         );
         $store->setIdPointer($this->id, ObjectStore::schoolPrefix($this->id));
     }
 
     /**
-     * Delete the school prefix and its _id pointer (cascades users/exams in S3).
+     * Delete the school prefix and its _id pointer (cascades teachers/exams in S3).
      */
     public function delete(): void
     {
@@ -120,12 +117,9 @@ class School
 
         $store = ObjectStore::getInstance();
 
-        // Remove nested user/exam id pointers before wiping the prefix
         foreach ($this->users() as $user) {
             foreach ($user->exams() as $exam) {
-                if ($exam->id !== null) {
-                    $store->deleteIdPointer($exam->id);
-                }
+                $exam->delete();
             }
             if ($user->id !== null) {
                 $store->deleteIdPointer($user->id);
@@ -137,7 +131,7 @@ class School
     }
 
     /**
-     * List users belonging to this school.
+     * List teachers belonging to this school.
      *
      * @return User[]
      */
@@ -149,11 +143,11 @@ class School
 
         $store = ObjectStore::getInstance();
         $users = [];
-        $prefix = ObjectStore::schoolPrefix($this->id);
+        $prefix = ObjectStore::teachersPrefix($this->id);
 
         foreach ($store->listChildPrefixes($prefix) as $userId) {
-            $csvKey = ObjectStore::userCsvKey($this->id, $userId);
-            if (!$store->exists($csvKey)) {
+            $attrKey = ObjectStore::teacherAttrKey($this->id, $userId);
+            if (!$store->exists($attrKey)) {
                 continue;
             }
             try {
@@ -164,6 +158,27 @@ class School
         }
 
         return $users;
+    }
+
+    /**
+     * Create a teacher under this school. Email and password are generated placeholders.
+     */
+    public function addTeacher(string $name): User
+    {
+        if ($this->id === null || $this->id === '') {
+            throw new Exception('Cannot add teacher to school without id');
+        }
+
+        $user = new User();
+        $user->id = HashId::create();
+        $user->school_id = $this->id;
+        $user->email = strtolower($user->id) . '@school.local';
+        $user->name = trim($name);
+        $user->role = User::ROLE_TEACHER;
+        $user->setPassword(bin2hex(random_bytes(16)));
+        $user->save();
+
+        return $user;
     }
 
     /**
@@ -198,9 +213,9 @@ class School
     public static function ensureIndependent(): School
     {
         $store = ObjectStore::getInstance();
-        $csvKey = ObjectStore::schoolCsvKey(self::IND_SCHOOL_ID);
+        $attrKey = ObjectStore::schoolAttrKey(self::IND_SCHOOL_ID);
 
-        if ($store->exists($csvKey)) {
+        if ($store->exists($attrKey)) {
             return self::from_hash(self::IND_SCHOOL_ID);
         }
 

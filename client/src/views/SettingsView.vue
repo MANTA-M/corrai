@@ -53,6 +53,18 @@
                   </option>
                 </select>
               </div>
+              <div style="display: flex; flex-flow: row wrap; gap: 8px; align-items: center">
+                <label for="debug_mode" style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+                  <input
+                    id="debug_mode"
+                    type="checkbox"
+                    data-testid="settings-debug-mode"
+                    :checked="sessionStore.debugMode"
+                    @change="onDebugModeChange"
+                  />
+                  {{ $t('settings.debug_mode') }}
+                </label>
+              </div>
             </div>
           </section>
 
@@ -273,6 +285,11 @@ const saveSetting = async (setting: keyof Settings) => {
       [setting]: originalValue,
     }
   }
+}
+
+const onDebugModeChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  sessionStore.setDebugMode(target.checked)
 }
 
 const link_data = computed(() => {

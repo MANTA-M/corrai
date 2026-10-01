@@ -13,15 +13,9 @@ try {
         exit();
     }
 
-    $fileName = Request::getStringParam("filename");
-    if (!$fileName) {
-        Request::add_error_message("error", "No filename parameter provided");
-        Request::output_all();
-        exit();
-    }
-
-    if (preg_match('/[\/\\\\]/', $fileName)) {
-        Request::add_error_message("error", "Invalid file name");
+    $fileId = Request::getStringParam("file");
+    if (!$fileId) {
+        Request::add_error_message("error", "No file parameter provided");
         Request::output_all();
         exit();
     }
@@ -89,25 +83,24 @@ try {
         throw new WSException('No type, student, name or content provided', 400);
     }
 
-    $currentName = $fileName;
     $files = null;
 
     if ($content !== null) {
-        $files = $exam->writeFileContents($currentName, $content);
+        $files = $exam->writeFileContents($fileId, $content);
     }
 
     if ($newName !== null) {
-        $files = $exam->renameFile($currentName, $newName);
-        $currentName = trim($newName);
+        $files = $exam->renameFile($fileId, $newName);
     }
 
     if ($type !== null || $student !== null) {
-        $files = $exam->setFileTags($currentName, $type, $student);
+        $files = $exam->setFileTags($fileId, $type, $student);
     }
 
-    Request::add_output("filename", $currentName);
+    Request::add_output("file", $fileId);
     Request::add_output("id", $examId);
     Request::add_output("files", $files);
+    Request::add_output("students", $exam->list_students());
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

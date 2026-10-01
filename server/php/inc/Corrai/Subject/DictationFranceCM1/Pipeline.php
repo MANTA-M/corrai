@@ -51,16 +51,16 @@ class Pipeline
      *
      * @return array Updated exam file list
      */
-    public function run(Exam $exam, string $filename, string $language): array
+    public function run(Exam $exam, string $fileId, string $language): array
     {
-        $tags = $exam->loadFileTags();
-        $student = $tags[$filename]['student'] ?? '';
+        $file = $exam->getFile($fileId);
+        $student = $file->student ?? '';
+        $filename = $file->name;
         $languageName = trim($language) !== '' ? trim($language) : 'French';
         $base = pathinfo($filename, PATHINFO_FILENAME);
 
         $store = ObjectStore::getInstance();
-        $key = $exam->unassignedFileKey($filename);
-        $tmpPath = $store->downloadToTemp($key);
+        $tmpPath = $store->downloadToTemp($file->contentKey());
         $solutionPath = null;
 
         try {
@@ -68,7 +68,7 @@ class Pipeline
             $exam->deleteFilesOfType('correction', $student);
 
             $solution = $this->firstSolutionFile($exam);
-            $solutionPath = $store->downloadToTemp($exam->unassignedFileKey($solution['name']));
+            $solutionPath = $store->downloadToTemp($exam->fileContentKey($solution['id']));
 
             $correction = $this->findErrors(
                 $exam,
@@ -118,7 +118,7 @@ class Pipeline
     }
 
     /**
-     * @return array{name: string, type: string, student: string}
+     * @return array{id: string, name: string, type: string, student: ?string}
      */
     private function firstSolutionFile(Exam $exam): array
     {

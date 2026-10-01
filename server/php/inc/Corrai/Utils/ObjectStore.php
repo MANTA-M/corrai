@@ -10,15 +10,23 @@ use Exception;
  * Thin S3 wrapper pointed at SeaweedFS (or any S3-compatible endpoint).
  *
  * Tree layout:
- *   {schoolId}/school.csv
- *   {schoolId}/{userId}/user.csv
- *   {schoolId}/{userId}/{examId}/exam.csv
- *   {schoolId}/{userId}/{examId}/unassigned/{filename}
- *   {schoolId}/{userId}/{examId}/files.csv  (type + student tags per file)
+ *   schools/<schoolId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/content
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/events/<eventId>.json
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/students/<studentId>/attributes.json
  *   _id/{hash}  — pointer to node prefix for O(1) from_hash
+ *
+ * Legacy CSV keys (school.csv, user.csv, exam.csv, files.csv) remain for migration only.
  */
 class ObjectStore
 {
+    public const ATTR_FILE = 'attributes.json';
+    public const CONTENT_FILE = 'content';
+    public const SCHEMA = 1;
+
     private static ?self $instance = null;
 
     private S3Client $client;
@@ -74,7 +82,7 @@ class ObjectStore
     }
 
     // -------------------------------------------------------------------------
-    // Path builders
+    // Path builders (JSON tree)
     // -------------------------------------------------------------------------
 
     public static function idIndexKey(string $hash): string
@@ -82,58 +90,247 @@ class ObjectStore
         return '_id/' . $hash;
     }
 
+    public static function schoolsRootPrefix(): string
+    {
+        return 'schools/';
+    }
+
     public static function schoolPrefix(string $schoolId): string
+    {
+        return 'schools/' . $schoolId . '/';
+    }
+
+    public static function schoolAttrKey(string $schoolId): string
+    {
+        return self::schoolPrefix($schoolId) . self::ATTR_FILE;
+    }
+
+    public static function teachersPrefix(string $schoolId): string
+    {
+        return self::schoolPrefix($schoolId) . 'teachers/';
+    }
+
+    public static function teacherPrefix(string $schoolId, string $teacherId): string
+    {
+        return self::teachersPrefix($schoolId) . $teacherId . '/';
+    }
+
+    public static function teacherAttrKey(string $schoolId, string $teacherId): string
+    {
+        return self::teacherPrefix($schoolId, $teacherId) . self::ATTR_FILE;
+    }
+
+    public static function examsPrefix(string $schoolId, string $teacherId): string
+    {
+        return self::teacherPrefix($schoolId, $teacherId) . 'exams/';
+    }
+
+    public static function examPrefix(string $schoolId, string $teacherId, string $examId): string
+    {
+        return self::examsPrefix($schoolId, $teacherId) . $examId . '/';
+    }
+
+    public static function examAttrKey(string $schoolId, string $teacherId, string $examId): string
+    {
+        return self::examPrefix($schoolId, $teacherId, $examId) . self::ATTR_FILE;
+    }
+
+    public static function examFilesPrefix(string $schoolId, string $teacherId, string $examId): string
+    {
+        return self::examPrefix($schoolId, $teacherId, $examId) . 'files/';
+    }
+
+    public static function examFilePrefix(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilesPrefix($schoolId, $teacherId, $examId) . $fileId . '/';
+    }
+
+    public static function examFileAttrKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::ATTR_FILE;
+    }
+
+    public static function examFileContentKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::CONTENT_FILE;
+    }
+
+    public static function examFileEventsPrefix(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . 'events/';
+    }
+
+    public static function examFileEventKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId,
+        string $eventId
+    ): string {
+        return self::examFileEventsPrefix($schoolId, $teacherId, $examId, $fileId) . $eventId . '.json';
+    }
+
+    public static function examStudentsPrefix(string $schoolId, string $teacherId, string $examId): string
+    {
+        return self::examPrefix($schoolId, $teacherId, $examId) . 'students/';
+    }
+
+    public static function examStudentPrefix(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $studentId
+    ): string {
+        return self::examStudentsPrefix($schoolId, $teacherId, $examId) . $studentId . '/';
+    }
+
+    public static function examStudentAttrKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $studentId
+    ): string {
+        return self::examStudentPrefix($schoolId, $teacherId, $examId, $studentId) . self::ATTR_FILE;
+    }
+
+    /**
+     * Parse a schools/... node prefix into path segments.
+     *
+     * @return array{kind: string, school_id: string, teacher_id?: string, exam_id?: string, file_id?: string, student_id?: string}
+     */
+    public static function parseNodePrefix(string $prefix): array
+    {
+        $parts = explode('/', trim($prefix, '/'));
+        if (count($parts) < 2 || $parts[0] !== 'schools') {
+            throw new Exception('Invalid node prefix: ' . $prefix);
+        }
+
+        $schoolId = $parts[1];
+        if (count($parts) === 2) {
+            return ['kind' => 'school', 'school_id' => $schoolId];
+        }
+
+        if (($parts[2] ?? '') !== 'teachers' || !isset($parts[3])) {
+            throw new Exception('Invalid teacher path in prefix: ' . $prefix);
+        }
+        $teacherId = $parts[3];
+        if (count($parts) === 4) {
+            return ['kind' => 'teacher', 'school_id' => $schoolId, 'teacher_id' => $teacherId];
+        }
+
+        if (($parts[4] ?? '') !== 'exams' || !isset($parts[5])) {
+            throw new Exception('Invalid exam path in prefix: ' . $prefix);
+        }
+        $examId = $parts[5];
+        if (count($parts) === 6) {
+            return [
+                'kind' => 'exam',
+                'school_id' => $schoolId,
+                'teacher_id' => $teacherId,
+                'exam_id' => $examId,
+            ];
+        }
+
+        if (($parts[6] ?? '') === 'files' && isset($parts[7])) {
+            return [
+                'kind' => 'file',
+                'school_id' => $schoolId,
+                'teacher_id' => $teacherId,
+                'exam_id' => $examId,
+                'file_id' => $parts[7],
+            ];
+        }
+
+        if (($parts[6] ?? '') === 'students' && isset($parts[7])) {
+            return [
+                'kind' => 'student',
+                'school_id' => $schoolId,
+                'teacher_id' => $teacherId,
+                'exam_id' => $examId,
+                'student_id' => $parts[7],
+            ];
+        }
+
+        throw new Exception('Unrecognized node prefix: ' . $prefix);
+    }
+
+    // -------------------------------------------------------------------------
+    // Legacy CSV path builders (migration only)
+    // -------------------------------------------------------------------------
+
+    public static function legacySchoolPrefix(string $schoolId): string
     {
         return $schoolId . '/';
     }
 
-    public static function schoolCsvKey(string $schoolId): string
+    public static function legacySchoolCsvKey(string $schoolId): string
     {
         return $schoolId . '/school.csv';
     }
 
-    public static function userPrefix(string $schoolId, string $userId): string
+    public static function legacyUserPrefix(string $schoolId, string $userId): string
     {
         return $schoolId . '/' . $userId . '/';
     }
 
-    public static function userCsvKey(string $schoolId, string $userId): string
+    public static function legacyUserCsvKey(string $schoolId, string $userId): string
     {
         return $schoolId . '/' . $userId . '/user.csv';
     }
 
-    public static function examPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyExamPrefix(string $schoolId, string $userId, string $examId): string
     {
         return $schoolId . '/' . $userId . '/' . $examId . '/';
     }
 
-    public static function examCsvKey(string $schoolId, string $userId, string $examId): string
+    public static function legacyExamCsvKey(string $schoolId, string $userId, string $examId): string
     {
         return $schoolId . '/' . $userId . '/' . $examId . '/exam.csv';
     }
 
-    public static function examFilesCsvKey(string $schoolId, string $userId, string $examId): string
+    public static function legacyExamFilesCsvKey(string $schoolId, string $userId, string $examId): string
     {
-        return self::examPrefix($schoolId, $userId, $examId) . 'files.csv';
+        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'files.csv';
     }
 
-    public static function examUnassignedPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyExamFilesPrefix(string $schoolId, string $userId, string $examId): string
     {
-        return self::examPrefix($schoolId, $userId, $examId) . 'unassigned/';
+        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'files/';
     }
 
-    public static function examUnassignedKey(
+    public static function legacyExamFileKey(
         string $schoolId,
         string $userId,
         string $examId,
         string $filename
     ): string {
-        return self::examUnassignedPrefix($schoolId, $userId, $examId) . $filename;
+        return self::legacyExamFilesPrefix($schoolId, $userId, $examId) . $filename;
     }
 
-    public static function examSubjectPrefix(string $schoolId, string $userId, string $examId): string
+    public static function legacyExamUnassignedPrefix(string $schoolId, string $userId, string $examId): string
     {
-        return self::examPrefix($schoolId, $userId, $examId) . 'subject/';
+        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'unassigned/';
+    }
+
+    public static function legacyExamSubjectPrefix(string $schoolId, string $userId, string $examId): string
+    {
+        return self::legacyExamPrefix($schoolId, $userId, $examId) . 'subject/';
     }
 
     // -------------------------------------------------------------------------
@@ -162,8 +359,10 @@ class ObjectStore
 
     /**
      * Upload a local file to the object store.
+     *
+     * @return string|null New ETag when the store returns one
      */
-    public function put(string $key, string $localPath, ?string $contentType = null): void
+    public function put(string $key, string $localPath, ?string $contentType = null, ?string $ifMatch = null): ?string
     {
         $this->ensureBucket();
 
@@ -175,15 +374,31 @@ class ObjectStore
         if ($contentType !== null && $contentType !== '') {
             $params['ContentType'] = $contentType;
         }
+        self::applyIfMatch($params, $ifMatch);
 
-        $this->client->putObject($params);
+        try {
+            $result = $this->client->putObject($params);
+        } catch (S3Exception $e) {
+            if ($e->getStatusCode() === 412) {
+                throw new StoreConflictException("Conflict writing $key", 412, $e);
+            }
+            throw $e;
+        }
+
+        return self::normalizeEtag($result['ETag'] ?? null);
     }
 
     /**
      * Upload an in-memory string/body to the object store.
+     *
+     * @return string|null New ETag when the store returns one
      */
-    public function putContents(string $key, string $body, ?string $contentType = null): void
-    {
+    public function putContents(
+        string $key,
+        string $body,
+        ?string $contentType = null,
+        ?string $ifMatch = null
+    ): ?string {
         $this->ensureBucket();
 
         $params = [
@@ -194,8 +409,54 @@ class ObjectStore
         if ($contentType !== null && $contentType !== '') {
             $params['ContentType'] = $contentType;
         }
+        self::applyIfMatch($params, $ifMatch);
 
-        $this->client->putObject($params);
+        try {
+            $result = $this->client->putObject($params);
+        } catch (S3Exception $e) {
+            if ($e->getStatusCode() === 412) {
+                throw new StoreConflictException("Conflict writing $key", 412, $e);
+            }
+            throw $e;
+        }
+
+        return self::normalizeEtag($result['ETag'] ?? null);
+    }
+
+    /**
+     * Put JSON attributes (schema stamped).
+     *
+     * @param array<string, mixed> $data
+     * @return string|null New ETag
+     */
+    public function putJson(string $key, array $data, ?string $ifMatch = null): ?string
+    {
+        if (!isset($data['schema'])) {
+            $data['schema'] = self::SCHEMA;
+        }
+        $body = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($body === false) {
+            throw new Exception('Failed to encode JSON for ' . $key);
+        }
+        return $this->putContents($key, $body, 'application/json', $ifMatch);
+    }
+
+    /**
+     * @return array{data: array, etag: string|null}
+     */
+    public function getJson(string $key): array
+    {
+        $object = $this->get($key);
+        $body = $object['Body'];
+        $raw = is_string($body) ? $body : (string) $body;
+        $data = JsonUtils::decodeArray($raw);
+        if (!is_array($data)) {
+            throw new Exception("Invalid JSON object at $key");
+        }
+        return [
+            'data' => $data,
+            'etag' => $object['ETag'] ?? null,
+        ];
     }
 
     /**
@@ -214,7 +475,9 @@ class ObjectStore
     }
 
     /**
-     * Fetch an object. Returns ['Body' => stream/resource, 'ContentType' => string, 'ContentLength' => int].
+     * Fetch an object. Returns Body, ContentType, ContentLength, ETag.
+     *
+     * @return array{Body: mixed, ContentType: string, ContentLength: int, ETag: string|null}
      */
     public function get(string $key): array
     {
@@ -229,6 +492,28 @@ class ObjectStore
             'Body' => $result['Body'],
             'ContentType' => $result['ContentType'] ?? 'application/octet-stream',
             'ContentLength' => (int) ($result['ContentLength'] ?? 0),
+            'ETag' => self::normalizeEtag($result['ETag'] ?? null),
+        ];
+    }
+
+    /**
+     * Head an object for ETag / size without reading the body.
+     *
+     * @return array{ETag: string|null, ContentLength: int, ContentType: string}
+     */
+    public function head(string $key): array
+    {
+        $this->ensureBucket();
+
+        $result = $this->client->headObject([
+            'Bucket' => $this->bucket,
+            'Key' => $key,
+        ]);
+
+        return [
+            'ETag' => self::normalizeEtag($result['ETag'] ?? null),
+            'ContentLength' => (int) ($result['ContentLength'] ?? 0),
+            'ContentType' => (string) ($result['ContentType'] ?? 'application/octet-stream'),
         ];
     }
 
@@ -274,7 +559,7 @@ class ObjectStore
     }
 
     /**
-     * Delete all objects under a prefix (e.g. schoolId/).
+     * Delete all objects under a prefix (e.g. schools/abc/).
      */
     public function deletePrefix(string $prefix): void
     {
@@ -322,8 +607,36 @@ class ObjectStore
     }
 
     /**
+     * List full object keys under a prefix (directory placeholders excluded).
+     *
+     * @return string[]
+     */
+    public function listKeys(string $prefix = ''): array
+    {
+        $this->ensureBucket();
+
+        $keys = [];
+        $paginator = $this->client->getPaginator('ListObjectsV2', [
+            'Bucket' => $this->bucket,
+            'Prefix' => $prefix,
+        ]);
+
+        foreach ($paginator as $page) {
+            foreach ($page['Contents'] ?? [] as $item) {
+                $key = $item['Key'] ?? '';
+                if ($key === '' || substr($key, -1) === '/') {
+                    continue;
+                }
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
      * List objects under a prefix.
-     * Returns array of ['name' => basename, 'size' => int, 'created' => unix timestamp].
+     * Returns array of ['name' => basename, 'size' => int, 'created' => unix timestamp, 'key' => full key].
      */
     public function list(string $prefix): array
     {
@@ -356,6 +669,7 @@ class ObjectStore
                     'name' => $name,
                     'size' => (int) ($item['Size'] ?? 0),
                     'created' => $created,
+                    'key' => $key,
                 ];
             }
         }
@@ -449,5 +763,29 @@ class ObjectStore
         if ($this->exists($key)) {
             $this->delete($key);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private static function applyIfMatch(array &$params, ?string $ifMatch): void
+    {
+        if ($ifMatch === null || $ifMatch === '') {
+            return;
+        }
+        $quoted = '"' . trim($ifMatch, '"') . '"';
+        $params['@http'] = [
+            'headers' => [
+                'If-Match' => $quoted,
+            ],
+        ];
+    }
+
+    private static function normalizeEtag(mixed $etag): ?string
+    {
+        if (!is_string($etag) || $etag === '') {
+            return null;
+        }
+        return trim($etag, '"');
     }
 }

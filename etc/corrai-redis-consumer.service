@@ -1,0 +1,24 @@
+[Unit]
+Description=Corrai PHP Redis file-status consumer
+Documentation=file:///home/maintainer/corrai_test/server/php/cli/redis_consumer.php
+After=network-online.target redis.service
+Wants=network-online.target
+Wants=redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/maintainer/corrai_test/server/php
+ExecStart=/usr/bin/php /home/maintainer/corrai_test/server/php/cli/redis_consumer.php
+Restart=always
+RestartSec=3
+User=maintainer
+Group=maintainer
+Environment=REDIS_HOST=127.0.0.1
+Environment=REDIS_PORT=6379
+Environment=PHP_ERROR_LOG_STDERR=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=corrai-redis-consumer
+
+[Install]
+WantedBy=multi-user.target

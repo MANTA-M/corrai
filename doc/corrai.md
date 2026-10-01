@@ -24,18 +24,20 @@ School
 
 The system is based on SeaweedFS (S3-compatible object storage).
 
-Every school, user (teacher), and exam is identified by a short 7-character alphanumeric hash. These hashes form a tree in the bucket:
+Every school, teacher, exam, file, and student is identified by a short alphanumeric hash (schools may use a fixed id such as `IND`). These hashes form a tree in the bucket:
 
 ```
-{schoolId}/school.csv
-{schoolId}/{userId}/user.csv
-{schoolId}/{userId}/{examId}/exam.csv
-{schoolId}/{userId}/{examId}/unassigned/{filename}
-{schoolId}/{userId}/{examId}/subject/   (answer key, grading guidelines)
+schools/<schoolId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/exams/<examId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/content
+schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/events/<eventId>.json
+schools/<schoolId>/teachers/<teacherId>/exams/<examId>/students/<studentId>/attributes.json
 _id/{hash}                              (pointer to the node prefix)
 ```
 
-Structured entity data is stored as a single-record CSV file at the root of each node. Binary exam files live under `unassigned/` (and later under student-paper folders). If volumes grow too high, the CSV layer will be replaced by SQLite tables while keeping the same S3 tree for binaries.
+Each node owns its own `attributes.json`. Binary file bytes live under `content`. Concurrent updates are isolated to individual file and student documents (with If-Match) and append-only event objects.
 
 # Use Cases
 

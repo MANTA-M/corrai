@@ -1,0 +1,8 @@
+.git
+docker/storage
+client/node_modules
+server/php/vendor
+server/python/.venv
+server/log
+**/__pycache__
+**/*.pyc

@@ -21,6 +21,7 @@ try {
 
     Request::add_output("exam", $exam->to_output());
     Request::add_output("files", $exam->list_files());
+    Request::add_output("students", $exam->list_students());
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

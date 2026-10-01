@@ -4,7 +4,7 @@
       <h2>{{ t('exam.files') }}</h2>
       <div class="files-header-actions">
         <div
-          v-if="files.length"
+          v-if="visibleFiles.length"
           class="view-toggle"
           role="tablist"
           aria-label="File grouping"
@@ -77,14 +77,22 @@
               @click="openMenu($event, file)"
             >
               <span class="file-name">{{ file.name }}</span>
-              <span class="file-meta">{{ formatFileSize(file.size) }}</span>
+              <span class="file-meta">
+                  <span
+                  v-if="sessionStore.debugMode && file.status"
+                  class="file-status"
+                  data-testid="exam-file-status"
+                  :title="t('exam.fileStatus')"
+                >{{ file.status }}</span>
+                {{ formatFileSize(file.size) }}
+              </span>
             </button>
           </li>
         </ul>
       </section>
     </div>
 
-    <div v-else-if="files.length" class="student-view" data-testid="file-student-view">
+    <div v-else-if="visibleFiles.length" class="student-view" data-testid="file-student-view">
       <template v-if="selectedStudent === null">
         <p v-if="!studentEntries.length" class="empty-files" data-testid="file-students-empty">
           {{ t('exam.fileStudentsEmpty') }}
@@ -127,7 +135,15 @@
               @click="openMenu($event, file)"
             >
               <span class="file-name">{{ file.name }}</span>
-              <span class="file-meta">{{ formatFileSize(file.size) }}</span>
+              <span class="file-meta">
+                  <span
+                  v-if="sessionStore.debugMode && file.status"
+                  class="file-status"
+                  data-testid="exam-file-status"
+                  :title="t('exam.fileStatus')"
+                >{{ file.status }}</span>
+                {{ formatFileSize(file.size) }}
+              </span>
             </button>
           </li>
         </ul>
@@ -412,21 +428,41 @@ import {
   EXAM_FILE_TYPE_ZONES,
   type ExamFile,
   type ExamFileTypeZone,
+  type ExamStudent,
 } from '@/types/types'
 
 const props = defineProps<{
   examId: string
   files: ExamFile[]
+  students?: ExamStudent[]
 }>()
 
 const emit = defineEmits<{
-  updated: [files: ExamFile[]]
+  updated: [payload: { files: ExamFile[]; students?: ExamStudent[] }]
 }>()
 
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 
-const typeZones = EXAM_FILE_TYPE_ZONES
+const typeZones = computed(() =>
+  sessionStore.debugMode
+    ? EXAM_FILE_TYPE_ZONES
+    : EXAM_FILE_TYPE_ZONES.filter((zone) => zone !== 'debug')
+)
+
+const fileZone = (file: ExamFile): ExamFileTypeZone => {
+  const type = file.type ?? ''
+  return (EXAM_FILE_TYPES as readonly string[]).includes(type)
+    ? (type as ExamFileTypeZone)
+    : 'unknown'
+}
+
+const visibleFiles = computed(() =>
+  sessionStore.debugMode
+    ? props.files
+    : props.files.filter((file) => fileZone(file) !== 'debug')
+)
+
 const viewMode = ref<'type' | 'student'>('type')
 const selectedStudent = ref<string | null>(null)
 const showAddFilePopup = ref(false)
@@ -451,13 +487,6 @@ interface FileMenu {
 
 const menu = ref<FileMenu | null>(null)
 
-const fileZone = (file: ExamFile): ExamFileTypeZone => {
-  const type = file.type ?? ''
-  return (EXAM_FILE_TYPES as readonly string[]).includes(type)
-    ? (type as ExamFileTypeZone)
-    : 'unknown'
-}
-
 const typeZoneLabel = (zone: ExamFileTypeZone) => {
   const keys: Record<ExamFileTypeZone, string> = {
     subject: 'exam.fileTypeSubject',
@@ -472,13 +501,21 @@ const typeZoneLabel = (zone: ExamFileTypeZone) => {
 }
 
 const filesInZone = (zone: ExamFileTypeZone) =>
-  props.files.filter((file) => fileZone(file) === zone)
+  visibleFiles.value.filter((file) => fileZone(file) === zone)
 
 const studentKey = (file: ExamFile) => (file.student ?? '').trim()
 
+const studentLabelForId = (id: string) => {
+  if (id === '') return t('exam.fileStudentUnknown')
+  const fromFile = visibleFiles.value.find((file) => studentKey(file) === id)?.student_name
+  if (fromFile && fromFile.trim() !== '') return fromFile
+  const fromList = (props.students ?? []).find((student) => student.id === id)
+  return fromList?.name ?? id
+}
+
 const studentEntries = computed(() => {
   const counts = new Map<string, number>()
-  for (const file of props.files) {
+  for (const file of visibleFiles.value) {
     const key = studentKey(file)
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
@@ -486,24 +523,23 @@ const studentEntries = computed(() => {
     .sort(([a], [b]) => {
       if (a === '') return 1
       if (b === '') return -1
-      return a.localeCompare(b)
+      return studentLabelForId(a).localeCompare(studentLabelForId(b))
     })
     .map(([id, count]) => ({
       id,
       count,
-      label: id === '' ? t('exam.fileStudentUnknown') : id,
+      label: studentLabelForId(id),
     }))
 })
 
 const filesForSelectedStudent = computed(() => {
   if (selectedStudent.value === null) return []
-  return props.files.filter((file) => studentKey(file) === selectedStudent.value)
+  return visibleFiles.value.filter((file) => studentKey(file) === selectedStudent.value)
 })
 
 const selectedStudentLabel = computed(() => {
   if (selectedStudent.value === null) return ''
-  if (selectedStudent.value === '') return t('exam.fileStudentUnknown')
-  return selectedStudent.value
+  return studentLabelForId(selectedStudent.value)
 })
 
 const menuStyle = computed(() => {
@@ -531,7 +567,7 @@ const openMenu = (event: MouseEvent, file: ExamFile) => {
     y: Math.min(rect.bottom + 4, maxTop),
     mode: 'root',
   }
-  studentDraft.value = (file.student ?? '').trim()
+  studentDraft.value = (file.student_name ?? '').trim()
   error.value = ''
 }
 
@@ -542,7 +578,7 @@ const closeMenu = () => {
 const fileViewUrl = (file: ExamFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
     id: props.examId,
-    filename: file.name,
+    file: file.id,
   })
 
 const startRename = () => {
@@ -578,7 +614,7 @@ const closeDelete = () => {
 
 const startSetStudent = () => {
   if (!menu.value) return
-  studentDraft.value = (menu.value.file.student ?? '').trim()
+  studentDraft.value = (menu.value.file.student_name ?? '').trim()
   menu.value.mode = 'student'
 }
 
@@ -626,14 +662,14 @@ const correctSubmission = async () => {
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
       'POST',
       '/correction',
-      { id: props.examId, filename: file.name },
+      { id: props.examId, file: file.id },
       { language: uiLanguageName() }
     )
     if (response?.files) {
-      applyUpdatedFiles(response.files)
+      applyUpdatedFiles(response.files, response.students)
     }
     closeMenu()
   } catch (err) {
@@ -645,13 +681,14 @@ const correctSubmission = async () => {
   }
 }
 
-const applyUpdatedFiles = (files: ExamFile[]) => {
-  emit('updated', files)
+const applyUpdatedFiles = (files: ExamFile[], students?: ExamStudent[]) => {
+  emit('updated', { files, students })
   const existingIndex = sessionStore.own_exams.findIndex((e) => e.id === props.examId)
   if (existingIndex !== -1) {
     sessionStore.own_exams[existingIndex] = {
       ...sessionStore.own_exams[existingIndex],
       files,
+      students: students ?? sessionStore.own_exams[existingIndex].students,
     }
   }
 }
@@ -665,14 +702,14 @@ const updateTags = async (file: ExamFile, patch: { type?: string; student?: stri
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
       'PUT',
       '/file',
-      { id: props.examId, filename: file.name },
+      { id: props.examId, file: file.id },
       patch
     )
     if (response?.files) {
-      applyUpdatedFiles(response.files)
+      applyUpdatedFiles(response.files, response.students)
     }
     closeMenu()
   } catch (err) {
@@ -690,7 +727,50 @@ const changeType = async (zone: ExamFileTypeZone) => {
 
 const saveStudent = async () => {
   if (!menu.value) return
-  await updateTags(menu.value.file, { student: studentDraft.value.trim() })
+  const name = studentDraft.value.trim()
+  if (name === '') {
+    await updateTags(menu.value.file, { student: '' })
+    return
+  }
+
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const wsClient = sessionStore.getWsClient()
+    let studentId =
+      (props.students ?? []).find((student) => student.name.toLowerCase() === name.toLowerCase())
+        ?.id ?? null
+    let students = props.students
+
+    if (!studentId) {
+      const created = await wsClient.queryWs<{
+        student?: ExamStudent
+        students?: ExamStudent[]
+        files?: ExamFile[]
+      }>('POST', '/student', { id: props.examId }, { name })
+      studentId = created?.student?.id ?? null
+      students = created?.students ?? students
+      if (!studentId) {
+        throw new Error('Student create returned no id')
+      }
+    }
+
+    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
+      'PUT',
+      '/file',
+      { id: props.examId, file: menu.value.file.id },
+      { student: studentId }
+    )
+    if (response?.files) {
+      applyUpdatedFiles(response.files, response.students ?? students)
+    }
+    closeMenu()
+  } catch (err) {
+    console.error('Error assigning student:', err)
+    error.value = t('exam.fileUpdateError')
+  } finally {
+    isUpdating.value = false
+  }
 }
 
 const submitRename = async () => {
@@ -703,14 +783,14 @@ const submitRename = async () => {
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
       'PUT',
       '/file',
-      { id: props.examId, filename: renameTarget.value.name },
+      { id: props.examId, file: renameTarget.value.id },
       { name: newName }
     )
     if (response?.files) {
-      applyUpdatedFiles(response.files)
+      applyUpdatedFiles(response.files, response.students)
     }
     renameTarget.value = null
   } catch (err) {
@@ -729,15 +809,15 @@ const submitDelete = async () => {
   isUpdating.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
+    const response = await wsClient.queryWs<{ files?: ExamFile[]; students?: ExamStudent[] }>(
       'DELETE',
       '/file',
-      { id: props.examId, filename: deleteTarget.value.name }
+      { id: props.examId, file: deleteTarget.value.id }
     )
     if (response?.files) {
-      applyUpdatedFiles(response.files)
+      applyUpdatedFiles(response.files, response.students)
     } else {
-      applyUpdatedFiles(props.files.filter((file) => file.name !== deleteTarget.value?.name))
+      applyUpdatedFiles(props.files.filter((file) => file.id !== deleteTarget.value?.id))
     }
     deleteTarget.value = null
   } catch (err) {
@@ -749,15 +829,15 @@ const submitDelete = async () => {
 }
 
 watch(
-  () => props.files,
+  () => [props.files, sessionStore.debugMode] as const,
   () => {
-    if (props.files.length === 0) {
+    if (visibleFiles.value.length === 0) {
       viewMode.value = 'type'
       selectedStudent.value = null
       return
     }
     if (selectedStudent.value === null) return
-    const remaining = props.files.some((file) => studentKey(file) === selectedStudent.value)
+    const remaining = visibleFiles.value.some((file) => studentKey(file) === selectedStudent.value)
     if (!remaining) {
       selectedStudent.value = null
     }
@@ -992,6 +1072,15 @@ watch(viewMode, () => {
   color: var(--text-muted);
   font-size: 0.9rem;
   flex-shrink: 0;
+}
+
+.file-status {
+  margin-right: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+  color: var(--info);
+  font-size: 0.8rem;
 }
 
 .student-detail-header {

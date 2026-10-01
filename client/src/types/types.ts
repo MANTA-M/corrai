@@ -30,11 +30,23 @@ export const EXAM_FILE_TYPE_ZONES = [...EXAM_FILE_TYPES, 'unknown'] as const
 export type ExamFileTypeZone = (typeof EXAM_FILE_TYPE_ZONES)[number]
 
 export interface ExamFile {
+  id: string
   name: string
   size: number
   created: number
   type?: string
-  student?: string
+  /** Student hash, or null/empty when unassigned */
+  student?: string | null
+  student_name?: string | null
+  status?: string
+  content_type?: string
+}
+
+export interface ExamStudent {
+  id: string
+  name: string
+  status?: string
+  mark?: number | null
 }
 
 export interface ExamQuestion {
@@ -74,4 +86,5 @@ export interface Exam {
   locked_by?: string | null
   questions?: ExamQuestion[]
   files?: ExamFile[]
+  students?: ExamStudent[]
 }

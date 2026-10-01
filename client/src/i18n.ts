@@ -115,6 +115,7 @@ export interface I18nSchema {
         fileTypeCorrection: string
         fileTypeDebug: string
         fileTypeUnknown: string
+        fileStatus: string
         fileChangeType: string
         fileSetStudent: string
         fileStudentPlaceholder: string
@@ -165,6 +166,7 @@ export interface I18nSchema {
         admin_console_link: string
         copy_link: string
         admin_locale: string
+        debug_mode: string
         notifications: string
         notifications_permission_denied_warning: string
         notifications_permission_denied: string

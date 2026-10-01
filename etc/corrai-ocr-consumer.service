@@ -1,0 +1,31 @@
+[Unit]
+Description=Corrai Python OCR Redis consumer
+Documentation=file:///home/maintainer/corrai_test/server/python/pycorrai/pycorrai/consumer.py
+After=network-online.target redis.service
+Wants=network-online.target
+Wants=redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/maintainer/corrai_test/server/python/pycorrai
+ExecStart=/home/maintainer/corrai_test/server/python/.venv/bin/python -m pycorrai.consumer
+Restart=always
+RestartSec=3
+User=maintainer
+Group=maintainer
+# Keep one long-lived process so PaddleOCR engines stay in memory between tickets.
+# Disk model cache under HOME / PADDLE_PDX_CACHE_HOME so downloads are reused across restarts.
+EnvironmentFile=-/home/maintainer/corrai_test/server/php/.env
+Environment=REDIS_HOST=127.0.0.1
+Environment=REDIS_PORT=6379
+Environment=HOME=/home/maintainer
+Environment=PADDLE_PDX_CACHE_HOME=/home/maintainer/.paddlex
+Environment=PYTHONPATH=/home/maintainer/corrai_test/server/python/pycorrai
+Environment=PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT=0
+Environment=FLAGS_use_mkldnn=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=corrai-ocr-consumer
+
+[Install]
+WantedBy=multi-user.target

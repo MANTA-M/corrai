@@ -149,7 +149,7 @@ const nextInstructionTitle = () => {
 const fileViewUrl = (file: ExamFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
     id: props.examId,
-    filename: file.name,
+    file: file.id,
   })
 
 onMounted(async () => {
@@ -212,7 +212,7 @@ const save = async () => {
       const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
         'PUT',
         '/file',
-        { id: props.examId, filename: props.existingFile.name },
+        { id: props.examId, file: props.existingFile.id },
         patch
       )
       files = response?.files

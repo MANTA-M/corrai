@@ -29,16 +29,16 @@ class Pipeline
      *
      * @return array Updated exam file list
      */
-    public function run(Exam $exam, string $filename, string $language): array
+    public function run(Exam $exam, string $fileId, string $language): array
     {
-        $tags = $exam->loadFileTags();
-        $student = $tags[$filename]['student'] ?? '';
+        $file = $exam->getFile($fileId);
+        $student = $file->student ?? '';
+        $filename = $file->name;
         $languageName = trim($language) !== '' ? trim($language) : 'French';
         $base = pathinfo($filename, PATHINFO_FILENAME);
 
         $store = ObjectStore::getInstance();
-        $key = $exam->unassignedFileKey($filename);
-        $tmpPath = $store->downloadToTemp($key);
+        $tmpPath = $store->downloadToTemp($file->contentKey());
 
         try {
             $exam->deleteFilesOfType('debug', $student);

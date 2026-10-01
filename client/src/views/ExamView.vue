@@ -66,7 +66,8 @@
             v-if="exam.id"
             :exam-id="exam.id"
             :files="files"
-            @updated="onFilesUploaded"
+            :students="students"
+            @updated="onFilesUpdated"
           />
         </div>
       </div>
@@ -87,7 +88,7 @@ import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import ExamFilesSection from '@/components/ExamFilesSection.vue'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
-import { isExamSubject, type Exam, type ExamFile } from '@/types/types'
+import { isExamSubject, type Exam, type ExamFile, type ExamStudent } from '@/types/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,6 +117,7 @@ const levelLabel = (subject: string, country: string | null | undefined, level: 
 
 const examId = computed(() => route.params.id as string)
 const files = computed(() => exam.value?.files ?? [])
+const students = computed(() => exam.value?.students ?? [])
 
 const goBack = () => {
   router.push({ name: 'exam-list' })
@@ -126,11 +128,12 @@ const goEdit = () => {
   router.push(`/exam/${exam.value.id}/edit`)
 }
 
-const onFilesUploaded = (updatedFiles: ExamFile[]) => {
+const onFilesUpdated = (payload: { files: ExamFile[]; students?: ExamStudent[] }) => {
   if (!exam.value) return
   exam.value = {
     ...exam.value,
-    files: updatedFiles
+    files: payload.files,
+    students: payload.students ?? exam.value.students ?? [],
   }
 }
 

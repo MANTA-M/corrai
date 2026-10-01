@@ -1,11 +1,10 @@
 <?php
 
 use Corrai\Model\Exam;
-use Corrai\Utils\ObjectStore;
 use Corrai\Utils\Request;
+use Corrai\Utils\WSException;
 
 try {
-    // Get exam ID parameter
     $examId = Request::getStringParam("id");
     if (!$examId) {
         Request::add_error_message("error", "No id parameter provided");
@@ -13,7 +12,6 @@ try {
         exit();
     }
 
-    // Check if exam exists
     try {
         $exam = Exam::from_hash($examId);
     } catch (\Exception $e) {
@@ -22,7 +20,6 @@ try {
         exit();
     }
 
-    // Check if file was uploaded
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         $errorMsg = "No file uploaded";
         if (isset($_FILES['file']['error'])) {
@@ -57,7 +54,6 @@ try {
     $fileName = $uploadedFile['name'];
     $tmpPath = $uploadedFile['tmp_name'];
 
-    // Validate file name (basic security check)
     if (empty($fileName) || preg_match('/[\/\\\\]/', $fileName)) {
         Request::add_error_message("error", "Invalid file name");
         Request::output_all();
@@ -71,26 +67,28 @@ try {
         exit();
     }
 
+    $student = Request::getStringParam("student");
     $contentType = $uploadedFile['type'] ?? null;
-    $key = $exam->unassignedFileKey($fileName);
 
     try {
-        ObjectStore::getInstance()->put($key, $tmpPath, $contentType);
-        if ($type !== null && $type !== '') {
-            $exam->setFileTags($fileName, $type, null);
-        }
+        $file = $exam->createFileFromPath(
+            $fileName,
+            $tmpPath,
+            $contentType,
+            $type,
+            $student
+        );
     } catch (\Throwable $e) {
         Request::add_error_message("error", "Failed to save uploaded file");
         Request::output_all();
         exit();
     }
 
-    // Get updated file list
-    $files = $exam->list_files();
-
-    Request::add_output("filename", $fileName);
-    Request::add_output("path", $key);
-    Request::add_output("files", $files);
+    Request::add_output("file", $file->id);
+    Request::add_output("filename", $file->name);
+    Request::add_output("id", $examId);
+    Request::add_output("files", $exam->list_files());
+    Request::add_output("students", $exam->list_students());
     if (!headers_sent()) {
         http_response_code(201);
     }

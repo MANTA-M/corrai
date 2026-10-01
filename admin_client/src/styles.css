@@ -1,0 +1,213 @@
+/* Design system aligned with the Corrai teacher client. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --navy: #0b1735;
+  --blue: #1a55e8;
+  --blue-hover: #1348ca;
+  --blue2: #3478ff;
+  --pale: #eef4ff;
+  --coral: #ff776d;
+  --ink: #111c38;
+  --line: #dfe5f0;
+  --white: #fff;
+  --green: #20835a;
+  --canvas: #f4f7fc;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 18px;
+
+  --shadow-1: 0 10px 30px rgba(23, 46, 96, 0.06);
+  --shadow-2: 0 20px 50px rgba(19, 43, 95, 0.1);
+
+  --accent: var(--blue);
+  --accent-600: var(--blue-hover);
+
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Manrope", sans-serif;
+
+  --type-label: 0.875rem;
+  --type-body: 1rem;
+
+  --bg: var(--canvas);
+  --surface: var(--white);
+  --border: var(--line);
+  --muted: #5d6680;
+  --text: var(--ink);
+  --link: var(--blue);
+  --link-hover: var(--blue-hover);
+  --selection: rgba(26, 85, 232, 0.16);
+
+  --text-muted: var(--muted);
+  --border-color: var(--border);
+  --hover-border: #c5d4f4;
+
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--type-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+h1,
+h2,
+h3,
+.brand {
+  font-family: var(--font-display);
+  color: var(--navy);
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 28px 64px;
+}
+
+.header .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px;
+  min-height: 72px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--navy);
+}
+
+.brand-mark {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--blue);
+  color: white;
+  font-size: 21px;
+  font-weight: 800;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.brand-mark span {
+  position: absolute;
+  color: var(--coral);
+  font-size: 15px;
+  right: 4px;
+  bottom: 2px;
+  line-height: 1;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 28px;
+}
+
+main h1 {
+  font-size: clamp(1.75rem, 3vw, 2.125rem);
+  margin-bottom: 0.35rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button.primary {
+  background: var(--blue);
+  color: white;
+  border: none;
+}
+
+.button.primary:hover:not(:disabled) {
+  background: var(--blue-hover);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input {
+  background: var(--white);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: var(--type-body);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(26, 85, 232, 0.18);
+}

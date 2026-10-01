@@ -64,6 +64,32 @@ def suffix_for(data: bytes) -> str:
     raise ValueError("Unsupported file data. Expected an image or a PDF.")
 
 
+# Long-lived PaddleOCR engines keyed by language. Loaded once per process so a
+# systemd / docker consumer does not reload models between tickets.
+_engines: dict[str, Any] = {}
+
+
+def get_engine(lang: str) -> Any:
+    """Return a cached PaddleOCR engine for ``lang``, creating it on first use."""
+    os.environ["PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT"] = "0"
+    os.environ["FLAGS_use_mkldnn"] = "0"
+    engine = _engines.get(lang)
+    if engine is not None:
+        return engine
+
+    from paddleocr import PaddleOCR
+
+    engine = PaddleOCR(
+        lang=lang,
+        use_doc_orientation_classify=False,
+        use_doc_unwarping=False,
+        use_textline_orientation=False,
+        return_word_box=True,
+    )
+    _engines[lang] = engine
+    return engine
+
+
 def recognize_bytes(data: bytes, lang: str) -> list[dict[str, Any]]:
     """Recognize words from file bytes read on stdin."""
     suffix = suffix_for(data)
@@ -75,17 +101,7 @@ def recognize_bytes(data: bytes, lang: str) -> list[dict[str, Any]]:
 
 def recognize(path: Path, lang: str) -> list[dict[str, Any]]:
     """Run OCR and return word coordinates for every page."""
-    os.environ["PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT"] = "0"
-    os.environ["FLAGS_use_mkldnn"] = "0"
-    from paddleocr import PaddleOCR
-
-    engine = PaddleOCR(
-        lang=lang,
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
-        return_word_box=True,
-    )
+    engine = get_engine(lang)
     pages = engine.predict(str(path), return_word_box=True)
     return words_from_pages(pages)
 

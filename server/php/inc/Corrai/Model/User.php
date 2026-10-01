@@ -3,7 +3,6 @@
 namespace Corrai\Model;
 
 use Exception;
-use Corrai\Utils\CsvStore;
 use Corrai\Utils\HashId;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
@@ -87,21 +86,26 @@ class User
         } catch (\Exception $e) {
             throw new WSException("User with hash $hash does not exist", 401);
         }
-        // prefix is {schoolId}/{userId}/
-        $parts = explode('/', trim($prefix, '/'));
-        if (count($parts) < 2) {
+
+        try {
+            $parsed = ObjectStore::parseNodePrefix($prefix);
+        } catch (\Exception $e) {
             throw new WSException("Invalid user path for hash $hash", 401);
         }
-        $schoolId = $parts[0];
-        $userId = $parts[1];
-        $csvKey = ObjectStore::userCsvKey($schoolId, $userId);
+        if ($parsed['kind'] !== 'teacher') {
+            throw new WSException("Invalid user path for hash $hash", 401);
+        }
 
-        if (!$store->exists($csvKey)) {
+        $schoolId = $parsed['school_id'];
+        $userId = $parsed['teacher_id'];
+        $attrKey = ObjectStore::teacherAttrKey($schoolId, $userId);
+
+        if (!$store->exists($attrKey)) {
             throw new WSException("User with hash $hash does not exist", 401);
         }
 
-        $data = CsvStore::decode($store->getContents($csvKey));
-        $user = self::from_array($data);
+        $loaded = $store->getJson($attrKey);
+        $user = self::from_array($loaded['data']);
         $user->id = $userId;
         $user->school_id = $schoolId;
         return $user;
@@ -124,7 +128,7 @@ class User
     }
 
     /**
-     * Persist user.csv and register the _id pointer.
+     * Persist teacher attributes.json and register the _id pointer.
      */
     public function save(): void
     {
@@ -138,23 +142,19 @@ class User
         $this->validate();
 
         $store = ObjectStore::getInstance();
-        $row = [
-            'id' => $this->id,
-            'school_id' => $this->school_id,
-            'email' => $this->email,
-            'name' => $this->name,
-            'role' => $this->role,
-            'password_hash' => $this->password_hash,
-            'created_at' => $this->created_at,
-        ];
-        $store->putContents(
-            ObjectStore::userCsvKey($this->school_id, $this->id),
-            CsvStore::encode($row),
-            'text/csv'
+        $store->putJson(
+            ObjectStore::teacherAttrKey($this->school_id, $this->id),
+            [
+                'email' => $this->email,
+                'name' => $this->name,
+                'role' => $this->role,
+                'password_hash' => $this->password_hash,
+                'created_at' => $this->created_at,
+            ]
         );
         $store->setIdPointer(
             $this->id,
-            ObjectStore::userPrefix($this->school_id, $this->id)
+            ObjectStore::teacherPrefix($this->school_id, $this->id)
         );
     }
 
@@ -167,15 +167,12 @@ class User
             throw new Exception('Cannot delete user without id and school_id');
         }
 
-        // Remove exam id pointers before wiping the prefix
         foreach ($this->exams() as $exam) {
-            if ($exam->id !== null) {
-                ObjectStore::getInstance()->deleteIdPointer($exam->id);
-            }
+            $exam->delete();
         }
 
         $store = ObjectStore::getInstance();
-        $store->deletePrefix(ObjectStore::userPrefix($this->school_id, $this->id));
+        $store->deletePrefix(ObjectStore::teacherPrefix($this->school_id, $this->id));
         $store->deleteIdPointer($this->id);
     }
 
@@ -192,11 +189,11 @@ class User
 
         $store = ObjectStore::getInstance();
         $exams = [];
-        $prefix = ObjectStore::userPrefix($this->school_id, $this->id);
+        $prefix = ObjectStore::examsPrefix($this->school_id, $this->id);
 
         foreach ($store->listChildPrefixes($prefix) as $examId) {
-            $csvKey = ObjectStore::examCsvKey($this->school_id, $this->id, $examId);
-            if (!$store->exists($csvKey)) {
+            $attrKey = ObjectStore::examAttrKey($this->school_id, $this->id, $examId);
+            if (!$store->exists($attrKey)) {
                 continue;
             }
             try {

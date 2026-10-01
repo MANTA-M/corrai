@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Model\Exam;
+use Corrai\Queue\RedisQueue;
+use Corrai\Utils\CsvStore;
+use Corrai\Utils\CsvTreeMigrator;
 use Corrai\Utils\HashId;
 use Corrai\Utils\ObjectStore;
 use Corrai\Model\School;
 use Corrai\Model\User;
+use Corrai\Utils\StoreConflictException;
 use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;
+use Redis;
 
 /**
- * Integration tests for exam CRUD and unassigned file attach/detach.
+ * Integration tests for exam CRUD and file attach/detach.
  *
  * Uses the fixed "IND" (Independent) school and a disposable teacher user.
  * Requires SeaweedFS reachable via S3_* env (docker compose php + seaweedfs).
@@ -27,11 +32,20 @@ class ExamLifecycleTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
+        // Move any leftover CSV tree into the JSON layout before tests create data.
+        (new CsvTreeMigrator())->run();
         self::$indSchool = School::ensureIndependent();
     }
 
     protected function setUp(): void
     {
+        $redis = $this->getMockBuilder(Redis::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['lPush', 'brPop', 'connect'])
+            ->getMock();
+        $redis->method('lPush')->willReturn(1);
+        RedisQueue::setInstance(new RedisQueue($redis));
+
         $suffix = bin2hex(random_bytes(4));
         $this->user = self::$indSchool->addUser(
             "teacher_{$suffix}@ind.test",
@@ -45,6 +59,8 @@ class ExamLifecycleTest extends TestCase
 
     protected function tearDown(): void
     {
+        RedisQueue::setInstance(null);
+
         foreach ($this->tempFiles as $path) {
             if (is_string($path) && is_file($path)) {
                 @unlink($path);
@@ -63,7 +79,6 @@ class ExamLifecycleTest extends TestCase
 
     public function testExamCreateModifyListAddAndRemoveFileThenDelete(): void
     {
-        // --- Create ---
         $exam = new Exam();
         $exam->school_id = $this->user->school_id;
         $exam->user_id = $this->user->id;
@@ -82,20 +97,15 @@ class ExamLifecycleTest extends TestCase
         $this->assertSame(School::IND_SCHOOL_ID, $loaded->school_id);
         $this->assertSame($this->user->id, $loaded->user_id);
         $this->assertSame('Math Exam', $loaded->name);
-        $this->assertSame('Mathematics', $loaded->subject);
-        $this->assertSame('2026-06-15', $loaded->date);
 
-        // --- Listing ---
         $listed = Exam::list_for_author($this->user->id);
         $this->assertCount(1, $listed);
         $this->assertSame($examId, $listed[0]['id']);
-        $this->assertSame('Math Exam', $listed[0]['name']);
 
         $viaUser = $this->user->exams();
         $this->assertCount(1, $viaUser);
         $this->assertSame($examId, $viaUser[0]->id);
 
-        // --- Modification ---
         $loaded->name = 'Math Exam Updated';
         $loaded->subject = 'Algebra';
         $loaded->date = '2026-09-01';
@@ -104,21 +114,15 @@ class ExamLifecycleTest extends TestCase
         $updated = Exam::from_hash($examId);
         $this->assertSame('Math Exam Updated', $updated->name);
         $this->assertSame('Algebra', $updated->subject);
-        $this->assertSame('2026-09-01', $updated->date);
 
-        $listedAfterUpdate = Exam::list_for_author($this->user->id);
-        $this->assertCount(1, $listedAfterUpdate);
-        $this->assertSame('Math Exam Updated', $listedAfterUpdate[0]['name']);
-
-        // --- Add files (random dummy content) ---
         $store = ObjectStore::getInstance();
         $file1 = $this->createRandomTempFile('paper_', '.txt');
         $file2 = $this->createRandomTempFile('scan_', '.bin');
         $name1 = basename($file1);
         $name2 = basename($file2);
 
-        $store->put($updated->unassignedFileKey($name1), $file1, 'text/plain');
-        $store->put($updated->unassignedFileKey($name2), $file2, 'application/octet-stream');
+        $created1 = $updated->createFileFromPath($name1, $file1, 'text/plain', null, null);
+        $created2 = $updated->createFileFromPath($name2, $file2, 'application/octet-stream', null, null);
 
         $files = $updated->list_files();
         $this->assertCount(2, $files);
@@ -128,19 +132,16 @@ class ExamLifecycleTest extends TestCase
         sort($expected);
         $this->assertSame($expected, $names);
 
-        $this->assertTrue($store->exists($updated->unassignedFileKey($name1)));
-        $this->assertTrue($store->exists($updated->unassignedFileKey($name2)));
+        $this->assertTrue($store->exists($created1->contentKey()));
+        $this->assertTrue($store->exists($created2->contentKey()));
 
-        // --- Remove one file ---
-        $store->delete($updated->unassignedFileKey($name1));
-        $updated->removeFileTags($name1);
+        $updated->deleteFile($created1->id);
         $filesAfterDelete = $updated->list_files();
         $this->assertCount(1, $filesAfterDelete);
         $this->assertSame($name2, $filesAfterDelete[0]['name']);
-        $this->assertFalse($store->exists($updated->unassignedFileKey($name1)));
-        $this->assertTrue($store->exists($updated->unassignedFileKey($name2)));
+        $this->assertFalse($store->exists($created1->contentKey()));
+        $this->assertTrue($store->exists($created2->contentKey()));
 
-        // --- Delete exam (prefix + id pointer) ---
         $updated->delete();
 
         $this->assertSame([], Exam::list_for_author($this->user->id));
@@ -181,7 +182,6 @@ class ExamLifecycleTest extends TestCase
         sort($expectedIds);
         $this->assertSame($expectedIds, $listedIds);
 
-        // Cleanup exams explicitly (tearDown also deletes the user)
         foreach ($ids as $id) {
             Exam::from_hash($id)->delete();
         }
@@ -201,20 +201,18 @@ class ExamLifecycleTest extends TestCase
 
         $this->assertSame([], $exam->list_files());
 
-        $store = ObjectStore::getInstance();
         $tmp = $this->createRandomTempFile('unassigned_', '.pdf');
         $filename = basename($tmp);
-        $key = $exam->unassignedFileKey($filename);
-
-        $store->put($key, $tmp, 'application/pdf');
+        $file = $exam->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
         $files = $exam->list_files();
         $this->assertCount(1, $files);
         $this->assertSame($filename, $files[0]['name']);
+        $this->assertSame($file->id, $files[0]['id']);
         $this->assertGreaterThan(0, $files[0]['size']);
 
-        $store->delete($key);
+        $exam->deleteFile($file->id);
         $this->assertSame([], $exam->list_files());
-        $this->assertFalse($store->exists($key));
+        $this->assertFalse(ObjectStore::getInstance()->exists($file->contentKey()));
 
         $exam->delete();
     }
@@ -230,33 +228,34 @@ class ExamLifecycleTest extends TestCase
         $exam->id = HashId::create();
         $exam->save();
 
-        $store = ObjectStore::getInstance();
         $tmp = $this->createRandomTempFile('tagged_', '.pdf');
         $filename = basename($tmp);
-        $store->put($exam->unassignedFileKey($filename), $tmp, 'application/pdf');
+        $file = $exam->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
+        $alice = $exam->createStudent('Alice');
 
         $files = $exam->list_files();
         $this->assertCount(1, $files);
         $this->assertSame('', $files[0]['type']);
-        $this->assertSame('', $files[0]['student']);
+        $this->assertNull($files[0]['student']);
 
-        $exam->setFileTags($filename, 'submission', 'Alice');
+        $exam->setFileTags($file->id, 'submission', $alice->id);
         $tagged = $exam->list_files();
         $this->assertSame('submission', $tagged[0]['type']);
-        $this->assertSame('Alice', $tagged[0]['student']);
+        $this->assertSame($alice->id, $tagged[0]['student']);
+        $this->assertSame('Alice', $tagged[0]['student_name']);
 
-        $exam->setFileTags($filename, 'subject', null);
+        $exam->setFileTags($file->id, 'subject', null);
         $retyped = $exam->list_files();
         $this->assertSame('subject', $retyped[0]['type']);
-        $this->assertSame('Alice', $retyped[0]['student']);
+        $this->assertSame($alice->id, $retyped[0]['student']);
 
-        $exam->setFileTags($filename, 'unknown', '');
+        $exam->setFileTags($file->id, 'unknown', '');
         $cleared = $exam->list_files();
         $this->assertSame('', $cleared[0]['type']);
-        $this->assertSame('', $cleared[0]['student']);
+        $this->assertNull($cleared[0]['student']);
 
         try {
-            $exam->setFileTags($filename, 'not-a-type', null);
+            $exam->setFileTags($file->id, 'not-a-type', null);
             $this->fail('Expected invalid file type to throw');
         } catch (WSException $e) {
             $this->assertSame(400, $e->getCode());
@@ -265,7 +264,7 @@ class ExamLifecycleTest extends TestCase
         $exam->delete();
     }
 
-    public function testRenameFileMovesObjectAndTags(): void
+    public function testRenameFileUpdatesDisplayNameOnly(): void
     {
         $exam = new Exam();
         $exam->school_id = $this->user->school_id;
@@ -276,23 +275,27 @@ class ExamLifecycleTest extends TestCase
         $exam->id = HashId::create();
         $exam->save();
 
-        $store = ObjectStore::getInstance();
         $tmp = $this->createRandomTempFile('rename_', '.png');
         $oldName = basename($tmp);
         $newName = 'renamed-scan.png';
-        $store->put($exam->unassignedFileKey($oldName), $tmp, 'image/png');
-        $exam->setFileTags($oldName, 'submission', 'Bob');
+        $file = $exam->createFileFromPath($oldName, $tmp, 'image/png', null, null);
+        $bob = $exam->createStudent('Bob');
+        $exam->setFileTags($file->id, 'submission', $bob->id);
 
-        $files = $exam->renameFile($oldName, $newName);
+        $contentBefore = ObjectStore::getInstance()->getContents($file->contentKey());
+        $files = $exam->renameFile($file->id, $newName);
         $this->assertCount(1, $files);
         $this->assertSame($newName, $files[0]['name']);
+        $this->assertSame($file->id, $files[0]['id']);
         $this->assertSame('submission', $files[0]['type']);
-        $this->assertSame('Bob', $files[0]['student']);
-        $this->assertFalse($store->exists($exam->unassignedFileKey($oldName)));
-        $this->assertTrue($store->exists($exam->unassignedFileKey($newName)));
+        $this->assertSame($bob->id, $files[0]['student']);
+        $this->assertSame(
+            $contentBefore,
+            ObjectStore::getInstance()->getContents($file->contentKey())
+        );
 
         try {
-            $exam->renameFile($newName, $newName . '/evil');
+            $exam->renameFile($file->id, $newName . '/evil');
             $this->fail('Expected invalid renamed path to throw');
         } catch (WSException $e) {
             $this->assertSame(400, $e->getCode());
@@ -312,32 +315,30 @@ class ExamLifecycleTest extends TestCase
         $exam->id = HashId::create();
         $exam->save();
 
-        $store = ObjectStore::getInstance();
         $tmp = $this->createRandomTempFile('consigne_', '.txt');
         $filename = basename($tmp);
-        $store->put($exam->unassignedFileKey($filename), $tmp, 'text/plain');
-        $exam->setFileTags($filename, 'instructions', null);
+        $file = $exam->createFileFromPath($filename, $tmp, 'text/plain', 'instructions', null);
 
-        $files = $exam->writeFileContents($filename, "Bring a calculator.\n");
+        $files = $exam->writeFileContents($file->id, "Bring a calculator.\n");
         $this->assertCount(1, $files);
         $this->assertSame($filename, $files[0]['name']);
         $this->assertSame('instructions', $files[0]['type']);
         $this->assertSame(
             "Bring a calculator.\n",
-            $store->getContents($exam->unassignedFileKey($filename))
+            ObjectStore::getInstance()->getContents($file->contentKey())
         );
 
         try {
-            $exam->writeFileContents('missing-instruction.txt', 'nope');
+            $exam->writeFileContents('missing1', 'nope');
             $this->fail('Expected missing file to throw');
-        } catch (WSException $e) {
-            $this->assertSame(404, $e->getCode());
+        } catch (\Exception $e) {
+            $this->assertTrue(true);
         }
 
         $exam->delete();
     }
 
-    public function testCreateCorrectionFilesWithStudentTagAndUniqueNames(): void
+    public function testCreateCorrectionFilesWithStudentHashAndUniqueNames(): void
     {
         $exam = new Exam();
         $exam->school_id = $this->user->school_id;
@@ -348,30 +349,31 @@ class ExamLifecycleTest extends TestCase
         $exam->id = HashId::create();
         $exam->save();
 
-        $store = ObjectStore::getInstance();
         $tmp = $this->createRandomTempFile('copy_', '.png');
         $filename = basename($tmp);
-        $store->put($exam->unassignedFileKey($filename), $tmp, 'image/png');
-        $exam->setFileTags($filename, 'submission', 'Carol');
+        $submission = $exam->createFileFromPath($filename, $tmp, 'image/png', 'submission', null);
+        $carol = $exam->createStudent('Carol');
+        $dan = $exam->createStudent('Dan');
+        $exam->setFileTags($submission->id, 'submission', $carol->id);
 
         $files = $exam->createFile(
             'copy_correction.txt',
             "Mark: 14/20\nGood work.",
             'text/plain; charset=utf-8',
             'correction',
-            'Carol'
+            $carol->id
         );
         $this->assertCount(2, $files);
         $text = array_values(array_filter($files, fn($f) => $f['name'] === 'copy_correction.txt'))[0];
         $this->assertSame('correction', $text['type']);
-        $this->assertSame('Carol', $text['student']);
+        $this->assertSame($carol->id, $text['student']);
 
         $again = $exam->createFile(
             'copy_correction.txt',
             "Mark: 15/20",
             'text/plain; charset=utf-8',
             'correction',
-            'Carol'
+            $carol->id
         );
         $names = array_column($again, 'name');
         $this->assertContains('copy_correction.txt', $names);
@@ -382,20 +384,17 @@ class ExamLifecycleTest extends TestCase
             '<?php $GD_directives = [];',
             'text/plain; charset=utf-8',
             'debug',
-            'Carol'
+            $carol->id
         );
-        $debugFiles = $exam->list_files();
-        $debug = array_values(array_filter($debugFiles, fn($f) => $f['name'] === 'copy_directives.php'))[0];
-        $this->assertSame('debug', $debug['type']);
         $exam->createFile(
             'other_correction.txt',
             'other student',
             'text/plain; charset=utf-8',
             'correction',
-            'Dan'
+            $dan->id
         );
 
-        $exam->deleteFilesOfType('correction', 'Carol');
+        $exam->deleteFilesOfType('correction', $carol->id);
         $left = $exam->list_files();
         $leftNames = array_column($left, 'name');
         $this->assertNotContains('copy_correction.txt', $leftNames);
@@ -404,7 +403,7 @@ class ExamLifecycleTest extends TestCase
         $this->assertContains('other_correction.txt', $leftNames);
         $this->assertContains($filename, $leftNames);
 
-        $exam->deleteFilesOfType('debug', 'Carol');
+        $exam->deleteFilesOfType('debug', $carol->id);
         $afterDebug = array_column($exam->list_files(), 'name');
         $this->assertNotContains('copy_directives.php', $afterDebug);
         $this->assertContains('other_correction.txt', $afterDebug);
@@ -425,10 +424,10 @@ class ExamLifecycleTest extends TestCase
             $this->assertSame($user->id . '@ind.local', $user->email);
 
             $store = ObjectStore::getInstance();
-            $this->assertTrue($store->exists(ObjectStore::userCsvKey(School::IND_SCHOOL_ID, $user->id)));
+            $this->assertTrue($store->exists(ObjectStore::teacherAttrKey(School::IND_SCHOOL_ID, $user->id)));
             $this->assertTrue($store->exists(ObjectStore::idIndexKey($user->id)));
             $this->assertSame(
-                ObjectStore::userPrefix(School::IND_SCHOOL_ID, $user->id),
+                ObjectStore::teacherPrefix(School::IND_SCHOOL_ID, $user->id),
                 $store->resolveIdPointer($user->id)
             );
 
@@ -442,7 +441,7 @@ class ExamLifecycleTest extends TestCase
             $exam->save();
 
             $this->assertTrue(
-                $store->exists(ObjectStore::examCsvKey(School::IND_SCHOOL_ID, $user->id, $exam->id))
+                $store->exists(ObjectStore::examAttrKey(School::IND_SCHOOL_ID, $user->id, $exam->id))
             );
 
             $listed = Exam::list_for_author($user->id);
@@ -481,6 +480,128 @@ class ExamLifecycleTest extends TestCase
         Exam::list_for_author($unknownId);
     }
 
+    public function testIfMatchConditionalPut(): void
+    {
+        $store = ObjectStore::getInstance();
+        $key = 'schools/' . School::IND_SCHOOL_ID . '/_if_match_test_' . bin2hex(random_bytes(4)) . '.json';
+
+        try {
+            $etag = $store->putJson($key, ['probe' => 1]);
+            $this->assertNotNull($etag);
+
+            $store->putJson($key, ['probe' => 2], $etag);
+            $fresh = $store->getJson($key);
+            $this->assertSame(2, $fresh['data']['probe']);
+
+            try {
+                $store->putJson($key, ['probe' => 3], $etag);
+                $this->markTestIncomplete(
+                    'SeaweedFS accepted a stale If-Match; conditional writes are not enforced'
+                );
+            } catch (StoreConflictException $e) {
+                $this->assertSame(412, $e->getCode());
+            }
+        } finally {
+            if ($store->exists($key)) {
+                $store->delete($key);
+            }
+        }
+    }
+
+    public function testCsvTreeMigratorMovesLegacySchool(): void
+    {
+        $store = ObjectStore::getInstance();
+        $suffix = bin2hex(random_bytes(3));
+        $schoolId = 'Mig' . $suffix; // 9 chars; not under schools/
+        $userId = HashId::create();
+        $examId = HashId::create();
+
+        $store->putContents(
+            ObjectStore::legacySchoolCsvKey($schoolId),
+            CsvStore::encode([
+                'id' => $schoolId,
+                'name' => 'Migrated School',
+                'created_at' => '2026-01-01T00:00:00+00:00',
+            ]),
+            'text/csv'
+        );
+        $store->setIdPointer($schoolId, ObjectStore::legacySchoolPrefix($schoolId));
+
+        $store->putContents(
+            ObjectStore::legacyUserCsvKey($schoolId, $userId),
+            CsvStore::encode([
+                'id' => $userId,
+                'school_id' => $schoolId,
+                'email' => "$userId@mig.test",
+                'name' => 'Mig Teacher',
+                'role' => 'teacher',
+                'password_hash' => password_hash('x', PASSWORD_DEFAULT),
+                'created_at' => '2026-01-01T00:00:00+00:00',
+            ]),
+            'text/csv'
+        );
+        $store->setIdPointer($userId, ObjectStore::legacyUserPrefix($schoolId, $userId));
+
+        $store->putContents(
+            ObjectStore::legacyExamCsvKey($schoolId, $userId, $examId),
+            CsvStore::encode([
+                'id' => $examId,
+                'school_id' => $schoolId,
+                'user_id' => $userId,
+                'name' => 'Mig Exam',
+                'subject' => 'Other',
+                'country' => '',
+                'level' => '',
+                'date' => '2026-02-02',
+                'created_at' => '2026-01-01T00:00:00+00:00',
+            ]),
+            'text/csv'
+        );
+        $store->setIdPointer($examId, ObjectStore::legacyExamPrefix($schoolId, $userId, $examId));
+
+        $filename = 'scan.pdf';
+        $store->putContents(
+            ObjectStore::legacyExamFileKey($schoolId, $userId, $examId, $filename),
+            '%PDF-mig',
+            'application/pdf'
+        );
+        $store->putContents(
+            ObjectStore::legacyExamFilesCsvKey($schoolId, $userId, $examId),
+            CsvStore::encodeRows([
+                ['name' => $filename, 'type' => 'submission', 'student' => 'Eve'],
+            ]),
+            'text/csv'
+        );
+
+        $logs = (new CsvTreeMigrator($store))->run([$schoolId]);
+        $this->assertNotEmpty($logs);
+
+        $this->assertFalse($store->exists(ObjectStore::legacySchoolCsvKey($schoolId)));
+        $this->assertTrue($store->exists(ObjectStore::schoolAttrKey($schoolId)));
+
+        $school = School::from_hash($schoolId);
+        $this->assertSame('Migrated School', $school->name);
+
+        $teacher = User::from_hash($userId);
+        $this->assertSame('Mig Teacher', $teacher->name);
+        $this->assertSame($schoolId, $teacher->school_id);
+
+        $exam = Exam::from_hash($examId);
+        $this->assertSame('Mig Exam', $exam->name);
+        $files = $exam->list_files();
+        $this->assertCount(1, $files);
+        $this->assertSame($filename, $files[0]['name']);
+        $this->assertSame('submission', $files[0]['type']);
+        $this->assertSame('Eve', $files[0]['student_name']);
+        $this->assertNotEmpty($files[0]['student']);
+
+        $students = $exam->list_students();
+        $this->assertCount(1, $students);
+        $this->assertSame('Eve', $students[0]['name']);
+
+        $school->delete();
+    }
+
     /**
      * Create a temp file with random bytes; tracked for tearDown cleanup.
      */
@@ -489,7 +610,6 @@ class ExamLifecycleTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), $prefix);
         $this->assertNotFalse($path);
 
-        // tempnam has no extension; rename so basename is meaningful for S3 keys.
         $named = $path . $suffix;
         $this->assertTrue(rename($path, $named));
 

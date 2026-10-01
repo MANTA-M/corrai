@@ -16,6 +16,7 @@ interface SessionState {
   keyPair: CryptoKeyPair | null
   user_id: string | null
   own_exams: Exam[]
+  debugMode: boolean
 }
 
 /** Server exam payload (uses user_id; client Exam uses author). */
@@ -31,6 +32,7 @@ interface ServerExam {
   date: string
   created_at?: string
   files?: Exam['files']
+  students?: Exam['students']
 }
 
 const STORAGE_KEY = 'corrai-session'
@@ -42,6 +44,7 @@ const defaultState: SessionState = {
   keyPair: null,
   user_id: null,
   own_exams: [],
+  debugMode: false,
 }
 
 export function isValidUserId(id: string | null | undefined): id is string {
@@ -58,6 +61,7 @@ function normalizeExam(raw: ServerExam): Exam {
     level: raw.level || null,
     date: raw.date,
     files: raw.files ?? [],
+    students: raw.students ?? [],
   }
 }
 
@@ -67,6 +71,7 @@ export const useSessionStore = defineStore('session', () => {
   const keyPair = ref<CryptoKeyPair | null>(defaultState.keyPair)
   const user_id = ref<string | null>(defaultState.user_id)
   const own_exams = ref<Exam[]>(defaultState.own_exams)
+  const debugMode = ref<boolean>(defaultState.debugMode)
 
   const hasValidUserId = computed(() => isValidUserId(user_id.value))
   const isAuthenticated = computed(
@@ -138,6 +143,10 @@ export const useSessionStore = defineStore('session', () => {
 
   function setLocale(newLocale: AvailableLocale): void {
     locale.value = newLocale
+  }
+
+  function setDebugMode(enabled: boolean): void {
+    debugMode.value = enabled
   }
 
   function logout(): void {
@@ -216,11 +225,11 @@ export const useSessionStore = defineStore('session', () => {
   async function load_exam(hash: string): Promise<Exam | null> {
     try {
       const wsClient = getWsClient()
-      const response = await wsClient.queryWs<{ exam: ServerExam; files?: Exam['files'] }>(
-        'GET',
-        '/exam',
-        { hash }
-      )
+      const response = await wsClient.queryWs<{
+        exam: ServerExam
+        files?: Exam['files']
+        students?: Exam['students']
+      }>('GET', '/exam', { hash })
 
       if (!response || !response.exam || !response.exam.id) {
         console.error('Exam loaded but missing id')
@@ -230,6 +239,7 @@ export const useSessionStore = defineStore('session', () => {
       const exam = normalizeExam({
         ...response.exam,
         files: response.files ?? response.exam.files ?? [],
+        students: response.students ?? response.exam.students ?? [],
       })
       const existingIndex = own_exams.value.findIndex(e => e.id === exam.id)
       if (existingIndex !== -1) {
@@ -255,6 +265,7 @@ export const useSessionStore = defineStore('session', () => {
     keyPair,
     user_id,
     own_exams,
+    debugMode,
     hasValidUserId,
     isAuthenticated,
     isInitialized,
@@ -266,6 +277,7 @@ export const useSessionStore = defineStore('session', () => {
     ensureServerUser,
     setUserName,
     setLocale,
+    setDebugMode,
     logout,
     getCryptoKeys,
     clearSession,
@@ -279,9 +291,12 @@ export const useSessionStore = defineStore('session', () => {
   persist: {
     key: STORAGE_KEY,
     storage: localStorage,
-    pick: ['user_name', 'locale', 'keyPair', 'user_id'],
+    pick: ['user_name', 'locale', 'keyPair', 'user_id', 'debugMode'],
     afterHydrate: ({ store }) => {
       store.discardInvalidUserId()
+      if (typeof store.debugMode !== 'boolean') {
+        store.debugMode = false
+      }
     },
   }
 })

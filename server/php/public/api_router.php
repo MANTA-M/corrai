@@ -29,11 +29,23 @@ $requestUri = strtok($requestUri, '?');
 // Extract the path after /api/
 $path = '';
 include_once(dirname(__DIR__) . '/inc/common.php');
-$prefix = $_ENV['API_PREFIX'] ?? '/api';
-if (preg_match("#^$prefix/(.*)$#", $requestUri, $matches)) {
-    $path = trim($matches[1], '/');
-} else {
-    error_log("Invalid API prefix: $prefix with $requestUri");    
+$configuredPrefix = $_ENV['API_PREFIX'] ?? '/api';
+$allowedPrefixes = array_values(array_unique([
+    $configuredPrefix,
+    '/api',
+    '/corrai_test/api',
+    '/corrai_test_adm/api',
+]));
+$matchedPrefix = null;
+foreach ($allowedPrefixes as $candidatePrefix) {
+    if (preg_match('#^' . preg_quote($candidatePrefix, '#') . '/(.*)$#', $requestUri, $matches)) {
+        $matchedPrefix = $candidatePrefix;
+        $path = trim($matches[1], '/');
+        break;
+    }
+}
+if ($matchedPrefix === null) {
+    error_log("Invalid API prefix: $configuredPrefix with $requestUri");
     http_response_code(400);
     exit('Invalid API prefix');
 }

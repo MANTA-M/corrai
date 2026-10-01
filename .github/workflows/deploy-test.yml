@@ -31,6 +31,8 @@ jobs:
             --exclude 'node_modules/' \
             --exclude 'client/node_modules/' \
             --exclude 'client/dist/' \
+            --exclude 'admin_client/node_modules/' \
+            --exclude 'admin_client/dist/' \
             --exclude 'server/php/vendor/' \
             --exclude 'server/php/.env' \
             --exclude 'client/.env.local' \
@@ -46,6 +48,15 @@ jobs:
             if [ ! -f vite.config.ts ]; then
               cp vite.config_remote.ts vite.config.ts
             fi
+            npm ci
+            npm run build
+          '
+
+      - name: Build admin client on server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes maintainer@mantam.eu '
+            set -e
+            cd /home/maintainer/corrai_test/admin_client
             npm ci
             npm run build
           '

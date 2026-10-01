@@ -7,6 +7,7 @@ The Corrai application repository - An Exam paper correction AI.
 ```
 corrai/
 ├── client/        # Vue 3 + TypeScript frontend application
+├── admin_client/  # Vue 3 + TypeScript admin frontend (schools list)
 ├── server/        # PHP backend
 ├── docker/        # Docker configuration
 ├── doc/           # Documentation
@@ -43,10 +44,24 @@ The PHP backend will be available at `http://localhost:80`
 
 - **php**: Nginx + PHP 8.3, serving the API endpoints
   - Port: 80
+  - PHP Redis extension, and a Python virtualenv at `/var/corrai/python/.venv` with PaddleOCR and the Redis client
+  - `Corrai\Utils\OCR` runs that interpreter against the mounted `pycorrai` package
   - Volumes:
     - `./server/log` → `/var/log/corrai`
     - `./server/php` → `/var/corrai/php`
+    - `./server/python/pycorrai` → `/var/corrai/python/pycorrai`
+    - `paddle_cache` → `/var/corrai/home` (PaddleX model cache)
     - Nginx config mounted from `docker/php/nginx-default.conf`
+  - Starts after **php-consumer** and **ocr-consumer** so a plain `docker compose up` brings up the full worker stack
+- **php-consumer**: PHP Redis file-status worker (`server/php/cli/redis_consumer.php`)
+  - Consumes `corrai:files`, loads exam/file attributes from SeaweedFS, dispatches `on_{status}`
+  - `restart: unless-stopped`
+- **ocr-consumer**: Python OCR worker (`python -m pycorrai.consumer`)
+  - Consumes `corrai:ocr`, writes OCR results to S3, enqueues work for the PHP consumer
+  - `restart: unless-stopped`
+- **redis**: Redis 7
+  - Port: 6379
+  - Reachable from the PHP container as `redis:6379` (`REDIS_HOST`, `REDIS_PORT`)
 - **seaweedfs**: S3-compatible object store for schools, users, exams, and files
   - Ports: 8333 (S3 API), 8888 (filer UI)
   - Volume: `./docker/storage` → `/data`
@@ -62,6 +77,10 @@ Configure environment variables in `server/php/.env`:
 ## Client (Vue Frontend)
 
 See [client/README.md](client/README.md) for setup and features.
+
+## Admin Client (Vue Frontend)
+
+See [admin_client/README.md](admin_client/README.md) for setup. Served at `/corrai_test_adm/`.
 
 ## Server (PHP Backend)
 

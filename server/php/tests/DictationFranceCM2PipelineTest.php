@@ -266,7 +266,7 @@ class TestablePipeline extends Pipeline
     }
 
     public function callFindErrors(
-        \Corrai\Model\Exam $exam,
+        \Corrai\Model\BaseExam $exam,
         string $copyPath,
         string $copyName,
         string $solutionPath,

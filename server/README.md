@@ -156,7 +156,7 @@ Most API endpoints require authentication using the `Authorization` header:
 Authorization: Bearer <user_id>
 ```
 
-The token is the 7-character alphanumeric user id returned by `POST /api/user` (and stored under `IND/{userId}/` in S3). It identifies the request author and must be provided for exam and file operations.
+The token is the 7-character alphanumeric user id returned by `POST /api/user` (and stored under `schools/IND/teachers/{userId}/` in S3). It identifies the request author and must be provided for exam and file operations.
 
 `POST /api/user` is unauthenticated and creates a new Independent-school teacher.
 
@@ -166,7 +166,7 @@ The token is the 7-character alphanumeric user id returned by `POST /api/user` (
 
 **POST** `/api/user`
 
-Creates a new teacher under the fixed Independent (`IND`) school. Writes `IND/{userId}/user.csv` and registers `_id/{userId}`.
+Creates a new teacher under the fixed Independent (`IND`) school. Writes `schools/IND/teachers/{userId}/attributes.json` and registers `_id/{userId}`.
 
 **Request Body (optional):**
 ```json
@@ -394,28 +394,27 @@ file: <file_data>
 
 ### 7. Delete File
 
-**DELETE** `/api/delete_file.php?id=<exam_id>&filename=<filename>`
+**DELETE** `/api/file?id=<exam_id>&file=<file_id>`
 
-Deletes a file from a exam.
+Deletes a file from an exam by file hash.
 
 **Query Parameters:**
 - `id` (required): The exam ID/hash
-- `filename` (required): The name of the file to delete
+- `file` (required): The file hash to delete
 
 **Response:**
 - **200 OK**: File deleted successfully
-  - Returns: `{"filename": "<filename>", "id": "<exam_id>", "message": "File deleted successfully", "files": [...]}`
+  - Returns: `{"file": "<file_id>", "id": "<exam_id>", "message": "File deleted successfully", "files": [...], "students": [...]}`
 - **400 Bad Request**: Invalid request
   - Missing id parameter
-  - Missing filename parameter
-  - Invalid file name
+  - Missing file parameter
   - Exam does not exist
   - File does not exist
   - Error deleting file
 
 **Example:**
 ```
-DELETE /api/delete_file.php?id=abc123...&filename=document.pdf
+DELETE /api/file?id=abc1234&file=def5678
 Authorization: Bearer <user_id>
 ```
 
