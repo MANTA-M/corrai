@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\LlmClient\ClaudeSonnetClient;
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Subject\DictationFranceCM2\Pipeline;
 use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;

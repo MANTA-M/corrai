@@ -1,18 +1,20 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Gpt4oMiniClient extends LlmClient
+class Gemini3Client extends OpenrouterClient
 {
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: 'openai/gpt-4o-mini');
+        parent::__construct($model ?: ($_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image'));
     }
 
     /**
-     * Images are sent as image_url data URLs. PDFs are parsed via file-parser.
+     * Add a submission file to the user message.
+     * Images are sent as images. PDFs are sent as files and parsed into page
+     * images first: the image model rejects a raw PDF with "The document has no pages."
      */
     public function add_file(string $file_path, string $file_name): void
     {
@@ -45,6 +47,10 @@ class Gpt4oMiniClient extends LlmClient
         $user_content[] = ['type' => 'text', 'text' => $file_name . ":\n" . $bytes];
     }
 
+    /**
+     * Force a parser that turns PDF pages into images.
+     * The default native path forwards the PDF to Google AI Studio, which rejects it.
+     */
     private function enablePdfParser(): void
     {
         foreach ($this->payload['plugins'] ?? [] as $plugin) {

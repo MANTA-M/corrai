@@ -2,12 +2,12 @@
 
 namespace Corrai\Subject\DictationFranceGemini;
 
-use Corrai\LlmClient\Gemini2FlashLiteClient;
+use Corrai\Llm\Openrouter\Gemini2FlashLiteClient;
 use Corrai\Model\Exam;
 use Corrai\Utils\ImageRedimentioner;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
-use Corrai\LlmClient\ClaudeSonnetClient;
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 
 /**
  * Dictation CM2 pipeline whose page is straightened and ruled by Gemini 1.5 Flash.

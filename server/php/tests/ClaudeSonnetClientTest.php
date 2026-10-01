@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\LlmClient\ClaudeSonnetClient;
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use PHPUnit\Framework\TestCase;
 
 class ClaudeSonnetClientTest extends TestCase

@@ -1,19 +1,19 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Qwen25Vl72bInstructClient extends LlmClient
+class DeepSeekV32Client extends OpenrouterClient
 {
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: 'qwen/qwen2.5-vl-72b-instruct');
+        parent::__construct($model ?: 'deepseek/deepseek-v3.2');
     }
 
     /**
-     * Images are sent as image_url data URLs. PDFs are parsed into page images
-     * (vision model, no native PDF path).
+     * PDFs go through OpenRouter file-parser (text extraction).
+     * Images are sent as image_url; other files as UTF-8 text.
      */
     public function add_file(string $file_path, string $file_name): void
     {
@@ -55,7 +55,7 @@ class Qwen25Vl72bInstructClient extends LlmClient
         }
         $this->payload['plugins'][] = [
             'id' => 'file-parser',
-            'pdf' => ['engine' => 'mistral-ocr'],
+            'pdf' => ['engine' => 'pdf-text'],
         ];
     }
 }

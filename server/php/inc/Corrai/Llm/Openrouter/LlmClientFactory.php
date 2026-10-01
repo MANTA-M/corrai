@@ -1,12 +1,12 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
 use Exception;
 
 class LlmClientFactory
 {
-    public static function create(?string $model = null): LlmClient
+    public static function create(?string $model = null): OpenrouterClient
     {
         $model = $model ?: ($_ENV['OPENROUTER_MODEL'] ?? '');
         if (stripos($model, 'qwen') !== false) {

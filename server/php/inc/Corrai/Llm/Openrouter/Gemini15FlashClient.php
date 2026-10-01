@@ -1,10 +1,10 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Gemini15FlashClient extends LlmClient
+class Gemini15FlashClient extends OpenrouterClient
 {
     public function __construct()
     {

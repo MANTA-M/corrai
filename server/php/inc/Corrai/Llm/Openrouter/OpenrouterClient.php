@@ -1,12 +1,12 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
 use Corrai\Utils\JsonUtils;
 use Corrai\Utils\RestClient;
 use Corrai\Utils\WSException;
 
-abstract class LlmClient extends RestClient
+abstract class OpenrouterClient extends RestClient
 {
     const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 

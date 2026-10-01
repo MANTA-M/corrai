@@ -1,11 +1,11 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
 use Corrai\Utils\ImageRedimentioner;
 use Corrai\Utils\Utils;
 
-class ClaudeSonnetClient extends LlmClient
+class ClaudeSonnetClient extends OpenrouterClient
 {
     public const MAX_IMAGE_DIMENTION = 1568;
     public float $rescale = 1.0;

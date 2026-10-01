@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\LlmClient\ClaudeSonnetClient;
-use Corrai\LlmClient\Gemini2FlashLiteClient;
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Llm\Openrouter\Gemini2FlashLiteClient;
 use Corrai\Subject\Catalog;
 use Corrai\Subject\DictationFranceGemini\Pipeline;
 use Corrai\Utils\WSException;

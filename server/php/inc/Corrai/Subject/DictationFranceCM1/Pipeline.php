@@ -5,8 +5,8 @@ namespace Corrai\Subject\DictationFranceCM1;
 use Corrai\Model\Exam;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
-use Corrai\LlmClient\ClaudeSonnetClient;
-use Corrai\LlmClient\Qwen25Vl72bInstructClient;
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Llm\Openrouter\Qwen25Vl72bInstructClient;
 
 class Pipeline
 {

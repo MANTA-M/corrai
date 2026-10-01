@@ -1,8 +1,8 @@
 <?php
 
-namespace Corrai\LlmClient;
+namespace Corrai\Llm\Openrouter;
 
-class MistralLargeClient extends LlmClient
+class MistralLargeClient extends OpenrouterClient
 {
 
     public function __construct()

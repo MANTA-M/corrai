@@ -55,6 +55,7 @@ class RedisQueue
             throw new RedisException('Failed to encode file queue ticket');
         }
         $this->client->lPush(self::LIST_KEY, $payload);
+        error_log('Enqueued file ticket ' . $fileId . ' on ' . self::LIST_KEY);
     }
 
     /**
@@ -70,6 +71,7 @@ class RedisQueue
             throw new RedisException('Failed to encode OCR queue ticket');
         }
         $this->client->lPush(self::OCR_LIST_KEY, $payload);
+        error_log('Enqueued OCR ticket path=' . $contentPath . ' lang=' . $lang . ' on ' . self::OCR_LIST_KEY);
     }
 
     /**

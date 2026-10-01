@@ -7,7 +7,7 @@ use Corrai\Model\Exam;
 use Corrai\Utils\OCR;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
-use Corrai\LlmClient\ClaudeSonnetClient;
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 
 class Pipeline
 {
