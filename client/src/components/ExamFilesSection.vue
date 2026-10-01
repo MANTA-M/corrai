@@ -253,6 +253,41 @@
           >
             {{ t('exam.fileSetStudent') }}
           </button>
+          <template v-if="sessionStore.debugMode">
+            <button
+              type="button"
+              class="file-menu-item"
+              data-testid="file-menu-history"
+              role="menuitem"
+              @click="menu.mode = 'history'"
+            >
+              {{ t('exam.fileHistory') }}
+            </button>
+            <p class="file-menu-section" data-testid="file-menu-annexes">
+              {{ t('exam.fileAnnexes') }}
+            </p>
+            <p v-if="debugInfoLoading" class="file-menu-hint">…</p>
+            <p
+              v-else-if="annexes.length === 0"
+              class="file-menu-hint"
+              data-testid="file-menu-annexes-empty"
+            >
+              {{ t('exam.fileAnnexesEmpty') }}
+            </p>
+            <a
+              v-for="name in annexes"
+              :key="name"
+              class="file-menu-item"
+              :href="annexUrl(name)"
+              target="_blank"
+              rel="noopener noreferrer"
+              :data-testid="`file-menu-annex-${name}`"
+              role="menuitem"
+              @click="closeMenu"
+            >
+              {{ name }}
+            </a>
+          </template>
         </template>
 
         <template v-else-if="menu.mode === 'type'">
@@ -277,6 +312,38 @@
           >
             {{ typeZoneLabel(zone) }}
           </button>
+        </template>
+
+        <template v-else-if="menu.mode === 'history'">
+          <button
+            type="button"
+            class="file-menu-item"
+            data-testid="file-menu-history-back"
+            @click="menu.mode = 'root'"
+          >
+            {{ t('common.back') }}
+          </button>
+          <p v-if="debugInfoLoading" class="file-menu-hint">…</p>
+          <p
+            v-else-if="debugEvents.length === 0"
+            class="file-menu-hint"
+            data-testid="file-menu-history-empty"
+          >
+            {{ t('exam.fileHistoryEmpty') }}
+          </p>
+          <a
+            v-for="event in debugEvents"
+            :key="event.id"
+            class="file-menu-item"
+            :href="eventUrl(event.id)"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="file-menu-event"
+            role="menuitem"
+            @click="closeMenu"
+          >
+            {{ eventLabel(event) }}
+          </a>
         </template>
 
         <template v-else>
@@ -482,10 +549,27 @@ interface FileMenu {
   file: ExamFile
   x: number
   y: number
-  mode: 'root' | 'type' | 'student'
+  mode: 'root' | 'type' | 'student' | 'history'
+}
+
+interface FileEvent {
+  id: string
+  timestamp: number
+  name: string
+}
+
+interface FileDebugInfo {
+  annexes: string[]
+  events: FileEvent[]
 }
 
 const menu = ref<FileMenu | null>(null)
+const debugInfo = ref<FileDebugInfo | null>(null)
+const debugInfoLoading = ref(false)
+let debugLoadSeq = 0
+
+const annexes = computed(() => debugInfo.value?.annexes ?? [])
+const debugEvents = computed(() => debugInfo.value?.events ?? [])
 
 const typeZoneLabel = (zone: ExamFileTypeZone) => {
   const keys: Record<ExamFileTypeZone, string> = {
@@ -569,6 +653,39 @@ const openMenu = (event: MouseEvent, file: ExamFile) => {
   }
   studentDraft.value = (file.student_name ?? '').trim()
   error.value = ''
+  if (sessionStore.debugMode) {
+    void loadFileDebug(file)
+  } else {
+    debugInfo.value = null
+    debugInfoLoading.value = false
+  }
+}
+
+const loadFileDebug = async (file: ExamFile) => {
+  const seq = ++debugLoadSeq
+  debugInfo.value = null
+  debugInfoLoading.value = true
+  try {
+    const data = await sessionStore.getWsClient().queryWs<FileDebugInfo>(
+      'GET',
+      '/file_annexes',
+      { id: props.examId, file: file.id }
+    )
+    if (seq !== debugLoadSeq || menu.value?.file.id !== file.id) return
+    debugInfo.value = {
+      annexes: data.annexes ?? [],
+      events: data.events ?? [],
+    }
+  } catch (err) {
+    console.error('Error loading file annexes:', err)
+    if (seq === debugLoadSeq) {
+      debugInfo.value = { annexes: [], events: [] }
+    }
+  } finally {
+    if (seq === debugLoadSeq) {
+      debugInfoLoading.value = false
+    }
+  }
 }
 
 const closeMenu = () => {
@@ -580,6 +697,29 @@ const fileViewUrl = (file: ExamFile) =>
     id: props.examId,
     file: file.id,
   })
+
+const annexUrl = (name: string) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: props.examId,
+    file: menu.value?.file.id ?? '',
+    annex: name,
+  })
+
+const eventUrl = (eventId: string) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: props.examId,
+    file: menu.value?.file.id ?? '',
+    event: eventId,
+  })
+
+const eventLabel = (event: FileEvent) => {
+  if (!event.timestamp) return event.name
+  const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(event.timestamp * 1000))
+  return `${event.name} — ${when}`
+}
 
 const startRename = () => {
   if (!menu.value) return
@@ -1133,6 +1273,8 @@ watch(viewMode, () => {
   position: fixed;
   min-width: 220px;
   max-width: min(320px, calc(100vw - 1.5rem));
+  max-height: min(70vh, 32rem);
+  overflow-y: auto;
   background: var(--popover);
   border: 1px solid var(--border);
   border-radius: 15px;
@@ -1181,6 +1323,22 @@ watch(viewMode, () => {
 .file-menu-item:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.file-menu-section {
+  margin: 0.35rem 0 0;
+  padding: 0.55rem 0.9rem 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.file-menu-hint {
+  margin: 0;
+  padding: 0.35rem 0.9rem 0.55rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .file-student-form {

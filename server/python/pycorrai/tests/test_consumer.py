@@ -75,7 +75,10 @@ class KeyDerivationTest(unittest.TestCase):
         )
 
     def test_ocr_json_key(self) -> None:
-        self.assertEqual(ocr_json_key(CONTENT_PATH), CONTENT_PATH + "_ocr.json")
+        self.assertEqual(
+            ocr_json_key(CONTENT_PATH),
+            "schools/s1/teachers/t1/exams/e1/files/f1/ocr_result.json",
+        )
 
     def test_event_key_shape(self) -> None:
         key = event_key(CONTENT_PATH, timestamp=1700000000)
@@ -147,7 +150,7 @@ class TreatTest(unittest.TestCase):
             put_keys,
             [
                 "schools/s1/teachers/t1/exams/e1/files/f1/events/1-aaaaaaaa.json",
-                CONTENT_PATH + "_ocr.json",
+                "schools/s1/teachers/t1/exams/e1/files/f1/ocr_result.json",
                 "schools/s1/teachers/t1/exams/e1/files/f1/events/2-bbbbbbbb.json",
                 "schools/s1/teachers/t1/exams/e1/files/f1/attributes.json",
             ],

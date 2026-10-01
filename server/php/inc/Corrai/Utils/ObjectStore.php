@@ -15,6 +15,9 @@ use Exception;
  *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/content
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/ocr_result.json
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/found_errors.json
+ *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/markup_directives.php
  *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/files/<fileId>/events/<eventId>.json
  *   schools/<schoolId>/teachers/<teacherId>/exams/<examId>/students/<studentId>/attributes.json
  *   _id/{hash}  — pointer to node prefix for O(1) from_hash
@@ -25,6 +28,9 @@ class ObjectStore
 {
     public const ATTR_FILE = 'attributes.json';
     public const CONTENT_FILE = 'content';
+    public const OCR_RESULT_FILE = 'ocr_result.json';
+    public const FOUND_ERRORS_FILE = 'found_errors.json';
+    public const MARKUP_DIRECTIVES_FILE = 'markup_directives.php';
     public const SCHEMA = 1;
 
     private static ?self $instance = null;
@@ -165,6 +171,33 @@ class ObjectStore
         string $fileId
     ): string {
         return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::CONTENT_FILE;
+    }
+
+    public static function examFileOcrResultKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::OCR_RESULT_FILE;
+    }
+
+    public static function examFileFoundErrorsKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::FOUND_ERRORS_FILE;
+    }
+
+    public static function examFileMarkupDirectivesKey(
+        string $schoolId,
+        string $teacherId,
+        string $examId,
+        string $fileId
+    ): string {
+        return self::examFilePrefix($schoolId, $teacherId, $examId, $fileId) . self::MARKUP_DIRECTIVES_FILE;
     }
 
     public static function examFileEventsPrefix(
@@ -725,6 +758,56 @@ class ObjectStore
         } while ($continuationToken !== null);
 
         return $children;
+    }
+
+    /**
+     * List file names stored directly under $prefix (not in subdirectories).
+     *
+     * @return string[]
+     */
+    public function listImmediateFiles(string $prefix): array
+    {
+        $this->ensureBucket();
+
+        if ($prefix !== '' && substr($prefix, -1) !== '/') {
+            $prefix .= '/';
+        }
+
+        $names = [];
+        $continuationToken = null;
+
+        do {
+            $params = [
+                'Bucket' => $this->bucket,
+                'Delimiter' => '/',
+            ];
+            if ($prefix !== '') {
+                $params['Prefix'] = $prefix;
+            }
+            if ($continuationToken !== null) {
+                $params['ContinuationToken'] = $continuationToken;
+            }
+
+            $result = $this->client->listObjectsV2($params);
+
+            foreach ($result['Contents'] ?? [] as $item) {
+                $key = (string) ($item['Key'] ?? '');
+                if ($key === '' || substr($key, -1) === '/') {
+                    continue;
+                }
+                $relative = $prefix !== '' ? substr($key, strlen($prefix)) : $key;
+                if ($relative === '' || str_contains($relative, '/')) {
+                    continue;
+                }
+                $names[] = $relative;
+            }
+
+            $continuationToken = !empty($result['IsTruncated'])
+                ? ($result['NextContinuationToken'] ?? null)
+                : null;
+        } while ($continuationToken !== null);
+
+        return $names;
     }
 
     /**

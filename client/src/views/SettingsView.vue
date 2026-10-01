@@ -15,32 +15,9 @@
               {{ $t('settings.general') }}
             </h2>
             <div style="display: flex; flex-direction: column; gap: 16px">
-              <div style="display: flex; align-items: center; gap: 8px">
-                <router-link :to="link_data">{{ $t('settings.admin_console_link') }}</router-link>
-                <button
-                  class="copy-button"
-                  @click.prevent="copyLinkToClipboard"
-                  :title="$t('settings.copy_link')"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </button>
-              </div>
               <div style="display: flex; flex-flow: row wrap; gap: 8px; align-items: center">
                 <label for="admin_locale" style="display: block; margin-bottom: 8px">{{
-                  $t('settings.admin_locale')
+                  $t('language')
                 }}</label>
                 <select
                   id="admin_locale"
@@ -50,6 +27,23 @@
                 >
                   <option v-for="locale in availableLocales" :key="locale.code" :value="locale.code">
                     {{ locale.name }}
+                  </option>
+                </select>
+              </div>
+              <div style="display: flex; flex-flow: row wrap; gap: 8px; align-items: center">
+                <label for="user_country" style="display: block; margin-bottom: 8px">{{
+                  $t('settings.country')
+                }}</label>
+                <select
+                  id="user_country"
+                  data-testid="settings-country"
+                  :value="sessionStore.country"
+                  class="select"
+                  :disabled="isSavingCountry"
+                  @change="onCountryChange"
+                >
+                  <option v-for="country in countries" :key="country.code" :value="country.code">
+                    {{ country.name }}
                   </option>
                 </select>
               </div>
@@ -134,15 +128,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import { AVAILABLE_LOCALES, isValidLocale, loadLanguage } from '@/i18n'
 import { useNotificationService } from '@/services/notifications'
+import { localizedCountries } from '@/data/countries'
 
 const sessionStore = useSessionStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const notificationService = useNotificationService()
+const isSavingCountry = ref(false)
+
+const countries = computed(() => localizedCountries(locale.value))
+
+onMounted(async () => {
+  try {
+    await sessionStore.loadUser()
+  } catch (error) {
+    console.error('Error loading user country:', error)
+  }
+})
 
 // Use native language names from LocaleSelector.vue
 const availableLocales = computed(() => {
@@ -239,21 +245,6 @@ const resetNotifications = async () => {
   }
 }
 
-const copyLinkToClipboard = () => {
-  const { origin } = window.location
-  const { path, hash } = link_data.value
-  const fullUrl = `${origin}${path}${hash}`
-  navigator.clipboard
-    .writeText(fullUrl)
-    .then(() => {
-      // You could add a toast notification here if you have one
-      console.log('Link copied to clipboard')
-    })
-    .catch((err) => {
-      console.error('Failed to copy link:', err)
-    })
-}
-
 const onAdminLocaleChange = async (event: Event) => {
   const target = event.target as HTMLSelectElement
   const newLocale = target.value
@@ -264,17 +255,28 @@ const onAdminLocaleChange = async (event: Event) => {
   sessionStore.setLocale(newLocale)
 }
 
+const onCountryChange = async (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  const next = target.value
+  if (next === sessionStore.country || isSavingCountry.value) {
+    return
+  }
+  isSavingCountry.value = true
+  try {
+    await sessionStore.saveCountry(next)
+  } catch (error) {
+    console.error('Error saving country:', error)
+    target.value = sessionStore.country
+    alert(t('settings.country_error'))
+  } finally {
+    isSavingCountry.value = false
+  }
+}
+
 const onDebugModeChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   sessionStore.setDebugMode(target.checked)
 }
-
-const link_data = computed(() => {
-  return {
-    path: '/',
-    hash: sessionStore.keyPair?.publicKey ? '#' + sessionStore.keyPair.publicKey : '',
-  }
-})
 
 </script>
 
@@ -297,28 +299,6 @@ const link_data = computed(() => {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
-}
-
-.copy-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
-}
-
-.copy-button:hover {
-  color: var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.copy-button:active {
-  transform: scale(0.95);
 }
 
 .test-button {

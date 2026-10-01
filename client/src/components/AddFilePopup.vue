@@ -18,6 +18,23 @@
         </button>
       </div>
       <div class="popup-body">
+        <label class="type-field" for="add-file-type">
+          {{ t('exam.fileUploadType') }}
+          <select
+            id="add-file-type"
+            v-model="fileType"
+            data-testid="add-file-type"
+            :disabled="isUploading"
+          >
+            <option value="">{{ t('exam.fileTypeUnknown') }}</option>
+            <option value="subject">{{ t('exam.fileTypeSubject') }}</option>
+            <option value="solution">{{ t('exam.fileTypeSolution') }}</option>
+            <option value="submission">{{ t('exam.fileTypeSubmission') }}</option>
+            <option value="instructions">{{ t('exam.fileTypeInstructions') }}</option>
+            <option value="correction">{{ t('exam.fileTypeCorrection') }}</option>
+            <option value="debug">{{ t('exam.fileTypeDebug') }}</option>
+          </select>
+        </label>
         <div
           class="dropzone"
           :class="{ 'dropzone-active': isDragging, 'dropzone-disabled': isUploading }"
@@ -96,6 +113,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
 const isUploading = ref(false)
 const error = ref('')
+const fileType = ref('')
 const uploadItems = ref<UploadItem[]>([])
 let dragCounter = 0
 
@@ -170,10 +188,12 @@ const uploadFiles = async (files: File[]) => {
       try {
         const formData = new FormData()
         formData.append('file', file)
+        const params: Record<string, string> = { id: props.examId }
+        if (fileType.value) params.type = fileType.value
         const response = await wsClient.queryWs<{ files?: ExamFile[] }>(
           'POST',
           '/file',
-          { id: props.examId },
+          params,
           formData,
           'form'
         )
@@ -209,6 +229,22 @@ const uploadFiles = async (files: File[]) => {
 .add-file-popup {
   width: min(480px, calc(100vw - 2rem));
   max-width: 100%;
+}
+
+.type-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.type-field select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
 }
 
 .popup-header h2 {

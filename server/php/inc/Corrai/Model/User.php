@@ -20,6 +20,16 @@ class User
     public string $password_hash = '';
     public string $created_at = '';
 
+    /**
+     * ISO 3166-1 alpha-2 country code. Defaults to France.
+     */
+    public string $country = 'fr';
+
+    /**
+     * Official ISO 3166-1 alpha-2 codes, space-separated.
+     */
+    private const COUNTRY_CODES = 'ad ae af ag ai al am ao aq ar as at au aw ax az ba bb bd be bf bg bh bi bj bl bm bn bo bq br bs bt bv bw by bz ca cc cd cf cg ch ci ck cl cm cn co cr cu cv cw cx cy cz de dj dk dm do dz ec ee eg eh er es et fi fj fk fm fo fr ga gb gd ge gf gg gh gi gl gm gn gp gq gr gs gt gu gw gy hk hm hn hr ht hu id ie il im in io iq ir is it je jm jo jp ke kg kh ki km kn kp kr kw ky kz la lb lc li lk lr ls lt lu lv ly ma mc md me mf mg mh mk ml mm mn mo mp mq mr ms mt mu mv mw mx my mz na nc ne nf ng ni nl no np nr nu nz om pa pe pf pg ph pk pl pm pn pr ps pt pw py qa re ro rs ru rw sa sb sc sd se sg sh si sj sk sl sm sn so sr ss st sv sx sy sz tc td tf tg th tj tk tl tm tn to tr tt tv tw tz ua ug um us uy uz va vc ve vg vi vn vu wf ws ye yt za zm zw';
+
     public static function from_array(array $data): User
     {
         $user = new User();
@@ -30,7 +40,39 @@ class User
         $user->role = $data['role'] ?? self::ROLE_TEACHER;
         $user->password_hash = $data['password_hash'] ?? '';
         $user->created_at = $data['created_at'] ?? '';
+        $user->country = self::normalizeCountry($data['country'] ?? null);
         return $user;
+    }
+
+    /**
+     * Accept an ISO 3166-1 alpha-2 code. Blank or unknown values become "fr"
+     * unless $strict is set, in which case an unknown code is rejected.
+     */
+    public static function normalizeCountry(mixed $value, bool $strict = false): string
+    {
+        $code = is_string($value) ? strtolower(trim($value)) : '';
+        if ($code === '') {
+            return 'fr';
+        }
+        if (!preg_match('/^[a-z]{2}$/', $code) || !isset(self::countryCodes()[$code])) {
+            if ($strict) {
+                throw new WSException('User country must be an ISO 3166-1 alpha-2 code', 400);
+            }
+            return 'fr';
+        }
+        return $code;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function countryCodes(): array
+    {
+        static $codes = null;
+        if ($codes === null) {
+            $codes = array_fill_keys(explode(' ', self::COUNTRY_CODES), true);
+        }
+        return $codes;
     }
 
     public function validate(): void
@@ -53,6 +95,7 @@ class User
         if ($this->password_hash === '') {
             throw new WSException('User password is required', 400);
         }
+        $this->country = self::normalizeCountry($this->country, true);
     }
 
     public function setPassword(string $password): void
@@ -150,6 +193,7 @@ class User
                 'role' => $this->role,
                 'password_hash' => $this->password_hash,
                 'created_at' => $this->created_at,
+                'country' => $this->country,
             ]
         );
         $store->setIdPointer(
@@ -215,6 +259,7 @@ class User
             'name' => $this->name,
             'role' => $this->role,
             'created_at' => $this->created_at,
+            'country' => $this->country,
         ];
     }
 }

@@ -128,6 +128,36 @@ class BaseFile
         );
     }
 
+    public function ocrResultKey(): string
+    {
+        return ObjectStore::examFileOcrResultKey(
+            $this->school_id,
+            $this->user_id,
+            $this->exam_id,
+            $this->id
+        );
+    }
+
+    public function foundErrorsKey(): string
+    {
+        return ObjectStore::examFileFoundErrorsKey(
+            $this->school_id,
+            $this->user_id,
+            $this->exam_id,
+            $this->id
+        );
+    }
+
+    public function markupDirectivesKey(): string
+    {
+        return ObjectStore::examFileMarkupDirectivesKey(
+            $this->school_id,
+            $this->user_id,
+            $this->exam_id,
+            $this->id
+        );
+    }
+
     public function prefix(): string
     {
         return ObjectStore::examFilePrefix(
@@ -174,6 +204,71 @@ class BaseFile
                 // Keep local field changes; only refresh etag for retry.
             }
         }
+    }
+
+    /**
+     * Files stored next to this exam file, excluding attributes and the main content blob.
+     *
+     * @return string[]
+     */
+    public function listAnnexes(): array
+    {
+        $names = ObjectStore::getInstance()->listImmediateFiles($this->prefix());
+        $excluded = [ObjectStore::ATTR_FILE, ObjectStore::CONTENT_FILE];
+        $annexes = array_values(array_filter(
+            $names,
+            static fn(string $name): bool => !in_array($name, $excluded, true)
+        ));
+        sort($annexes, SORT_STRING);
+        return $annexes;
+    }
+
+    /**
+     * Immutable events recorded for this file, oldest first.
+     *
+     * @return array<int, array{id: string, timestamp: int, name: string}>
+     */
+    public function listEvents(): array
+    {
+        $store = ObjectStore::getInstance();
+        $prefix = ObjectStore::examFileEventsPrefix(
+            $this->school_id,
+            $this->user_id,
+            $this->exam_id,
+            (string) $this->id
+        );
+        $events = [];
+        foreach ($store->listImmediateFiles($prefix) as $name) {
+            if (!str_ends_with($name, '.json')) {
+                continue;
+            }
+            $id = substr($name, 0, -5);
+            $timestamp = 0;
+            $label = $id;
+            try {
+                $loaded = $store->getJson($prefix . $name);
+                $timestamp = (int) ($loaded['data']['timestamp'] ?? 0);
+                $eventName = $loaded['data']['name'] ?? '';
+                if (is_string($eventName) && $eventName !== '') {
+                    $label = $eventName;
+                }
+            } catch (\Throwable $e) {
+                // Keep the object visible in debug history even if its JSON is unreadable.
+            }
+            $events[] = [
+                'id' => $id,
+                'timestamp' => $timestamp,
+                'name' => $label,
+            ];
+        }
+        usort($events, static function (array $a, array $b): int {
+            $byTime = $a['timestamp'] <=> $b['timestamp'];
+            if ($byTime !== 0) {
+                return $byTime;
+            }
+            return strcmp($a['name'], $b['name']);
+        });
+        return $events;
     }
 
     /**

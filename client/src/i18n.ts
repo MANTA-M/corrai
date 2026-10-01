@@ -107,6 +107,7 @@ export interface I18nSchema {
         addFiles: string
         addFilesTitle: string
         dropzoneHint: string
+        fileUploadType: string
         uploading: string
         uploadDone: string
         uploadError: string
@@ -161,15 +162,18 @@ export interface I18nSchema {
         fileRenameSave: string
         fileRenaming: string
         fileRenameError: string
+        fileHistory: string
+        fileHistoryEmpty: string
+        fileAnnexes: string
+        fileAnnexesEmpty: string
     }
     language: string
     settings: {
         title: string
         subtitle: string
         general: string
-        admin_console_link: string
-        copy_link: string
-        admin_locale: string
+        country: string
+        country_error: string
         debug_mode: string
         notifications: string
         notifications_permission_denied_warning: string

@@ -12,6 +12,7 @@ interface CryptoKeyPair {
 
 interface SessionState {
   user_name: string
+  country: string
   locale: AvailableLocale
   keyPair: CryptoKeyPair | null
   user_id: string | null
@@ -40,6 +41,7 @@ const USER_ID_PATTERN = /^[0-9a-zA-Z]{7}$/
 
 const defaultState: SessionState = {
   user_name: '',
+  country: 'fr',
   locale: DEFAULT_LOCALE,
   keyPair: null,
   user_id: null,
@@ -67,6 +69,7 @@ function normalizeExam(raw: ServerExam): Exam {
 
 export const useSessionStore = defineStore('session', () => {
   const user_name = ref<string>(defaultState.user_name)
+  const country = ref<string>(defaultState.country)
   const locale = ref<AvailableLocale>(defaultState.locale)
   const keyPair = ref<CryptoKeyPair | null>(defaultState.keyPair)
   const user_id = ref<string | null>(defaultState.user_id)
@@ -139,6 +142,36 @@ export const useSessionStore = defineStore('session', () => {
 
   function setUserName(userName: string): void {
     user_name.value = userName
+  }
+
+  function setCountry(code: string): void {
+    country.value = code
+  }
+
+  async function loadUser(): Promise<void> {
+    const wsClient = getWsClient()
+    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string } }>(
+      'GET',
+      '/user'
+    )
+    const loaded = response?.user?.country
+    if (typeof loaded === 'string' && loaded !== '') {
+      country.value = loaded
+    }
+    if (!user_name.value && response?.user?.name) {
+      user_name.value = response.user.name
+    }
+  }
+
+  async function saveCountry(code: string): Promise<void> {
+    const wsClient = getWsClient()
+    const response = await wsClient.queryWs<{ user?: { country?: string } }>(
+      'PUT',
+      '/user',
+      undefined,
+      { country: code }
+    )
+    country.value = response?.user?.country || code
   }
 
   function setLocale(newLocale: AvailableLocale): void {
@@ -261,6 +294,7 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     user_name,
+    country,
     locale,
     keyPair,
     user_id,
@@ -276,6 +310,9 @@ export const useSessionStore = defineStore('session', () => {
     discardInvalidUserId,
     ensureServerUser,
     setUserName,
+    setCountry,
+    loadUser,
+    saveCountry,
     setLocale,
     setDebugMode,
     logout,
@@ -291,7 +328,7 @@ export const useSessionStore = defineStore('session', () => {
   persist: {
     key: STORAGE_KEY,
     storage: localStorage,
-    pick: ['user_name', 'locale', 'keyPair', 'user_id', 'debugMode'],
+    pick: ['user_name', 'country', 'locale', 'keyPair', 'user_id', 'debugMode'],
     afterHydrate: ({ store }) => {
       store.discardInvalidUserId()
       if (typeof store.debugMode !== 'boolean') {

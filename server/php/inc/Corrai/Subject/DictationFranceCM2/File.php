@@ -53,7 +53,7 @@ class File extends BaseFile
         try {
             $exam = $this->loadExam();
             $store = ObjectStore::getInstance();
-            $ocrKey = $this->contentKey() . '_ocr.json';
+            $ocrKey = $this->ocrResultKey();
             if (!$store->exists($ocrKey)) {
                 throw new WSException('OCR result is missing for this file', 400);
             }
@@ -79,7 +79,7 @@ class File extends BaseFile
             );
 
             $store->putContents(
-                $this->contentKey() . '_errors.json',
+                $this->foundErrorsKey(),
                 $correction,
                 'application/json'
             );
@@ -109,7 +109,7 @@ class File extends BaseFile
         $copyPath = null;
         try {
             $store = ObjectStore::getInstance();
-            $errorsKey = $this->contentKey() . '_errors.json';
+            $errorsKey = $this->foundErrorsKey();
             if (!$store->exists($errorsKey)) {
                 throw new WSException('Errors JSON is missing for this file', 400);
             }
@@ -120,7 +120,7 @@ class File extends BaseFile
             $directivesPhp = $pipeline->gdDirectives($copyPath, $this->name, $correction);
 
             $store->putContents(
-                $this->contentKey() . '_directives.php',
+                $this->markupDirectivesKey(),
                 $directivesPhp,
                 'text/plain; charset=utf-8'
             );
@@ -148,7 +148,7 @@ class File extends BaseFile
         try {
             $exam = $this->loadExam();
             $store = ObjectStore::getInstance();
-            $directivesKey = $this->contentKey() . '_directives.php';
+            $directivesKey = $this->markupDirectivesKey();
             if (!$store->exists($directivesKey)) {
                 throw new WSException('Directives are missing for this file', 400);
             }

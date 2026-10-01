@@ -94,8 +94,8 @@ def event_key(content_path: str, timestamp: int | None = None) -> str:
 
 
 def ocr_json_key(content_path: str) -> str:
-    """Ticket path concatenated with ``_ocr.json``."""
-    return content_path + "_ocr.json"
+    """Sibling ``ocr_result.json`` next to the content object."""
+    return file_prefix(content_path) + "ocr_result.json"
 
 
 def file_id_from_path(content_path: str) -> str:
