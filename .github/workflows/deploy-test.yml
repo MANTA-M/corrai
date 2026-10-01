@@ -35,6 +35,7 @@ jobs:
             --exclude 'admin_client/dist/' \
             --exclude 'server/php/vendor/' \
             --exclude 'server/php/.env' \
+            --exclude 'server/python/.venv/' \
             --exclude 'client/.env.local' \
             --exclude 'client/vite.config.ts' \
             --exclude 'docker/storage/' \

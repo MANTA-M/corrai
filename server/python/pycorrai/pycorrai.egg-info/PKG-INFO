@@ -4,3 +4,5 @@ Version: 0.1.0
 Summary: OCR a document and print each word with its coordinates as JSON.
 Requires-Python: >=3.10
 Requires-Dist: paddleocr<3.8.0,>=3.7.0
+Requires-Dist: redis>=5.0.0
+Requires-Dist: boto3>=1.34.0
