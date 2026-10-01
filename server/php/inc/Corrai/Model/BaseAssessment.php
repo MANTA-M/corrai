@@ -284,12 +284,7 @@ abstract class BaseAssessment
      */
     public function fileContentKey(string $fileId): string
     {
-        return ObjectStore::assessmentFileContentKey(
-            $this->school_id,
-            $this->user_id,
-            $this->id,
-            $fileId
-        );
+        return $this->getFile($fileId)->contentKey();
     }
 
     /**
@@ -301,22 +296,52 @@ abstract class BaseAssessment
             return [];
         }
 
-        $store = ObjectStore::getInstance();
         $files = [];
-        $prefix = ObjectStore::assessmentFilesPrefix($this->school_id, $this->user_id, $this->id);
-        foreach ($store->listChildPrefixes($prefix) as $fileId) {
-            $attrKey = ObjectStore::assessmentFileAttrKey($this->school_id, $this->user_id, $this->id, $fileId);
-            if (!$store->exists($attrKey)) {
+        $seen = [];
+        $class = $this->fileClass();
+        foreach ($this->storedFileIds() as $fileId) {
+            if (isset($seen[$fileId])) {
                 continue;
             }
+            $seen[$fileId] = true;
             try {
-                $class = $this->fileClass();
                 $files[] = $class::from_hash($fileId);
             } catch (\Exception $e) {
                 continue;
             }
         }
         return $files;
+    }
+
+    /**
+     * File ids stored under subject/, unclassified/, students/, and the legacy files/ area.
+     *
+     * @return string[]
+     */
+    private function storedFileIds(): array
+    {
+        $store = ObjectStore::getInstance();
+        $ids = [];
+        $areas = [
+            ObjectStore::assessmentSubjectFilesPrefix($this->school_id, $this->user_id, $this->id),
+            ObjectStore::assessmentUnclassifiedFilesPrefix($this->school_id, $this->user_id, $this->id),
+            ObjectStore::assessmentFilesPrefix($this->school_id, $this->user_id, $this->id),
+        ];
+        foreach ($areas as $prefix) {
+            foreach ($store->listChildPrefixes($prefix) as $fileId) {
+                $ids[$fileId] = true;
+            }
+        }
+
+        $students = ObjectStore::assessmentStudentsPrefix($this->school_id, $this->user_id, $this->id);
+        foreach ($store->listChildPrefixes($students) as $studentId) {
+            $studentPrefix = $students . $studentId . '/';
+            foreach ($store->listChildPrefixes($studentPrefix) as $fileId) {
+                $ids[$fileId] = true;
+            }
+        }
+
+        return array_keys($ids);
     }
 
     /**

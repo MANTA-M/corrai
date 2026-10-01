@@ -94,10 +94,28 @@ class KeyDerivationTest(unittest.TestCase):
 
     def test_file_id_from_path(self) -> None:
         self.assertEqual(file_id_from_path(CONTENT_PATH), "f1")
+        self.assertEqual(
+            file_id_from_path(
+                "schools/s1/teachers/t1/assessments/e1/subject/sub1/content"
+            ),
+            "sub1",
+        )
+        self.assertEqual(
+            file_id_from_path(
+                "schools/s1/teachers/t1/assessments/e1/unclassified/u1/content"
+            ),
+            "u1",
+        )
+        self.assertEqual(
+            file_id_from_path(
+                "schools/s1/teachers/t1/assessments/e1/students/st1/copy1/content"
+            ),
+            "copy1",
+        )
 
-    def test_file_id_missing_files_segment(self) -> None:
+    def test_file_id_requires_content_object(self) -> None:
         with self.assertRaises(ValueError):
-            file_id_from_path("schools/s1/content")
+            file_id_from_path("schools/s1/attributes.json")
 
 
 class FormatAndEventTest(unittest.TestCase):

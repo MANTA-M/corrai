@@ -88,12 +88,7 @@ class BaseFile
             throw new Exception("Hash $hash does not point to a file");
         }
 
-        $attrKey = ObjectStore::assessmentFileAttrKey(
-            $parsed['school_id'],
-            $parsed['teacher_id'],
-            $parsed['assessment_id'],
-            $parsed['file_id']
-        );
+        $attrKey = rtrim($prefix, '/') . '/' . ObjectStore::ATTR_FILE;
         if (!$store->exists($attrKey)) {
             throw new Exception("File with hash $hash does not exist");
         }
@@ -114,7 +109,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            $this->id
+            $this->id,
+            $this->type,
+            $this->student
         );
     }
 
@@ -124,7 +121,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            $this->id
+            $this->id,
+            $this->type,
+            $this->student
         );
     }
 
@@ -134,7 +133,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            $this->id
+            $this->id,
+            $this->type,
+            $this->student
         );
     }
 
@@ -144,7 +145,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            $this->id
+            $this->id,
+            $this->type,
+            $this->student
         );
     }
 
@@ -154,7 +157,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            $this->id
+            $this->id,
+            $this->type,
+            $this->student
         );
     }
 
@@ -164,7 +169,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            $this->id
+            $this->id,
+            $this->type,
+            $this->student
         );
     }
 
@@ -190,10 +197,24 @@ class BaseFile
 
         $attempts = $retry ? 5 : 1;
         $store = ObjectStore::getInstance();
+        $desired = $this->prefix();
+        $previous = null;
+        if ($store->exists(ObjectStore::idIndexKey($this->id))) {
+            $current = $store->resolveIdPointer($this->id);
+            if ($current !== $desired) {
+                $store->copyPrefix($current, $desired);
+                $this->etag = null;
+                $previous = $current;
+            }
+        }
         for ($i = 0; $i < $attempts; $i++) {
             try {
                 $this->etag = $store->putJson($this->attrKey(), $payload, $this->etag);
-                $store->setIdPointer($this->id, $this->prefix());
+                $store->setIdPointer($this->id, $desired);
+                if ($previous !== null) {
+                    $store->deletePrefix($previous);
+                    $previous = null;
+                }
                 return;
             } catch (StoreConflictException $e) {
                 if ($i === $attempts - 1) {
@@ -235,7 +256,9 @@ class BaseFile
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
-            (string) $this->id
+            (string) $this->id,
+            $this->type,
+            $this->student
         );
         $events = [];
         foreach ($store->listImmediateFiles($prefix) as $name) {
@@ -286,7 +309,9 @@ class BaseFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $eventId
+            $eventId,
+            $this->type,
+            $this->student
         );
         ObjectStore::getInstance()->putJson($key, [
             'timestamp' => $timestamp,

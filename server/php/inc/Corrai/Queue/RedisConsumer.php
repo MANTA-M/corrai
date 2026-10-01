@@ -29,7 +29,7 @@ class RedisConsumer
         $userId = $parsed['teacher_id'];
         $assessmentId = $parsed['assessment_id'];
 
-        $fileAttrKey = ObjectStore::assessmentFileAttrKey($schoolId, $userId, $assessmentId, $fileId);
+        $fileAttrKey = rtrim($prefix, '/') . '/' . ObjectStore::ATTR_FILE;
         if (!$store->exists($fileAttrKey)) {
             throw new Exception("File with hash $fileId does not exist");
         }

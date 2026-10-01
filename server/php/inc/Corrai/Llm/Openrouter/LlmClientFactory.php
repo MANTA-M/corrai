@@ -25,7 +25,7 @@ class LlmClientFactory
             if (stripos($model, 'flash-lite') !== false) {
                 return new Gemini2FlashLiteClient();
             }
-            if (stripos($model, '1.5-flash') !== false) {
+            if (stripos($model, '2.5-flash') !== false && stripos($model, 'flash-image') === false) {
                 return new Gemini15FlashClient();
             }
             return new Gemini3Client($model);

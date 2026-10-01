@@ -13,14 +13,19 @@ use Exception;
  *   schools/<schoolId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/attributes.json
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/attributes.json
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/content
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/ocr_result.json
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/found_errors.json
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/markup_directives.php
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/events/<eventId>.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/content
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/content
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/events/<eventId>.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/unclassified/<fileId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/unclassified/<fileId>/content
  *   _id/{hash}  — pointer to node prefix for O(1) from_hash
+ *
+ * File bytes follow the classification: subject material under subject/, student copies
+ * under students/<studentId>/<fileId>/, and files not yet classified under unclassified/.
+ * The legacy files/<fileId>/ prefix is still recognized so older objects stay readable.
  *
  * Legacy CSV keys (school.csv, user.csv, exam.csv, files.csv) remain for migration only.
  */
@@ -141,72 +146,136 @@ class ObjectStore
         return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . self::ATTR_FILE;
     }
 
+    /**
+     * Legacy flat file area. New writes use subject/, students/, or unclassified/.
+     */
     public static function assessmentFilesPrefix(string $schoolId, string $teacherId, string $assessmentId): string
     {
         return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'files/';
+    }
+
+    public static function assessmentSubjectFilesPrefix(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'subject/';
+    }
+
+    public static function assessmentUnclassifiedFilesPrefix(
+        string $schoolId,
+        string $teacherId,
+        string $assessmentId
+    ): string {
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'unclassified/';
+    }
+
+    /**
+     * Where a file lives given its type and optional student assignment.
+     *
+     * A student id stores the copy under that student. Subject material
+     * (subject, solution, instructions) lives under subject/. Anything else
+     * is not yet classified.
+     *
+     * @return 'student'|'subject'|'unclassified'
+     */
+    public static function assessmentFileArea(string $type, ?string $studentId): string
+    {
+        if ($studentId !== null && trim($studentId) !== '') {
+            return 'student';
+        }
+        if (in_array($type, ['subject', 'solution', 'instructions'], true)) {
+            return 'subject';
+        }
+        return 'unclassified';
     }
 
     public static function assessmentFilePrefix(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilesPrefix($schoolId, $teacherId, $assessmentId) . $fileId . '/';
+        $area = self::assessmentFileArea($type, $studentId);
+        if ($area === 'student') {
+            return self::assessmentStudentPrefix($schoolId, $teacherId, $assessmentId, trim((string) $studentId))
+                . $fileId . '/';
+        }
+        if ($area === 'subject') {
+            return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . $fileId . '/';
+        }
+        return self::assessmentUnclassifiedFilesPrefix($schoolId, $teacherId, $assessmentId) . $fileId . '/';
     }
 
     public static function assessmentFileAttrKey(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::ATTR_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . self::ATTR_FILE;
     }
 
     public static function assessmentFileContentKey(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::CONTENT_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . self::CONTENT_FILE;
     }
 
     public static function assessmentFileOcrResultKey(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::OCR_RESULT_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . self::OCR_RESULT_FILE;
     }
 
     public static function assessmentFileFoundErrorsKey(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::FOUND_ERRORS_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . self::FOUND_ERRORS_FILE;
     }
 
     public static function assessmentFileMarkupDirectivesKey(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . self::MARKUP_DIRECTIVES_FILE;
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . self::MARKUP_DIRECTIVES_FILE;
     }
 
     public static function assessmentFileEventsPrefix(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
-        string $fileId
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId) . 'events/';
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . 'events/';
     }
 
     public static function assessmentFileEventKey(
@@ -214,9 +283,18 @@ class ObjectStore
         string $teacherId,
         string $assessmentId,
         string $fileId,
-        string $eventId
+        string $eventId,
+        string $type = '',
+        ?string $studentId = null
     ): string {
-        return self::assessmentFileEventsPrefix($schoolId, $teacherId, $assessmentId, $fileId) . $eventId . '.json';
+        return self::assessmentFileEventsPrefix(
+            $schoolId,
+            $teacherId,
+            $assessmentId,
+            $fileId,
+            $type,
+            $studentId
+        ) . $eventId . '.json';
     }
 
     public static function assessmentStudentsPrefix(string $schoolId, string $teacherId, string $assessmentId): string
@@ -280,24 +358,39 @@ class ObjectStore
             ];
         }
 
-        if (($parts[6] ?? '') === 'files' && isset($parts[7])) {
+        $area = $parts[6] ?? '';
+        if (in_array($area, ['subject', 'unclassified', 'files'], true) && isset($parts[7]) && !isset($parts[8])) {
             return [
                 'kind' => 'file',
                 'school_id' => $schoolId,
                 'teacher_id' => $teacherId,
                 'assessment_id' => $assessmentId,
                 'file_id' => $parts[7],
+                'area' => $area === 'files' ? 'unclassified' : $area,
             ];
         }
 
-        if (($parts[6] ?? '') === 'students' && isset($parts[7])) {
-            return [
-                'kind' => 'student',
-                'school_id' => $schoolId,
-                'teacher_id' => $teacherId,
-                'assessment_id' => $assessmentId,
-                'student_id' => $parts[7],
-            ];
+        if ($area === 'students' && isset($parts[7])) {
+            if (!isset($parts[8])) {
+                return [
+                    'kind' => 'student',
+                    'school_id' => $schoolId,
+                    'teacher_id' => $teacherId,
+                    'assessment_id' => $assessmentId,
+                    'student_id' => $parts[7],
+                ];
+            }
+            if (!isset($parts[9])) {
+                return [
+                    'kind' => 'file',
+                    'school_id' => $schoolId,
+                    'teacher_id' => $teacherId,
+                    'assessment_id' => $assessmentId,
+                    'student_id' => $parts[7],
+                    'file_id' => $parts[8],
+                    'area' => 'student',
+                ];
+            }
         }
 
         throw new Exception('Unrecognized node prefix: ' . $prefix);
@@ -490,6 +583,26 @@ class ObjectStore
             'data' => $data,
             'etag' => $object['ETag'] ?? null,
         ];
+    }
+
+    /**
+     * Copy every object under $sourcePrefix to the same relative key under $destPrefix.
+     */
+    public function copyPrefix(string $sourcePrefix, string $destPrefix): void
+    {
+        $sourcePrefix = rtrim($sourcePrefix, '/') . '/';
+        $destPrefix = rtrim($destPrefix, '/') . '/';
+        if ($sourcePrefix === $destPrefix) {
+            return;
+        }
+
+        foreach ($this->listKeys($sourcePrefix) as $key) {
+            $relative = substr($key, strlen($sourcePrefix));
+            if ($relative === '') {
+                continue;
+            }
+            $this->copy($key, $destPrefix . $relative);
+        }
     }
 
     /**

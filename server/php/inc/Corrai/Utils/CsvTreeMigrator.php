@@ -258,24 +258,49 @@ class CsvTreeMigrator
 
         // Existing destinations by display name
         $existingByName = [];
-        $filesPrefix = ObjectStore::assessmentFilesPrefix($schoolId, $userId, $assessmentId);
-        foreach ($this->store->listChildPrefixes($filesPrefix) as $fileId) {
-            $attrKey = ObjectStore::assessmentFileAttrKey($schoolId, $userId, $assessmentId, $fileId);
-            if (!$this->store->exists($attrKey)) {
-                continue;
-            }
-            $loaded = $this->store->getJson($attrKey);
-            $name = (string) ($loaded['data']['name'] ?? '');
-            if ($name !== '') {
-                $existingByName[strtolower($name)] = $fileId;
+        $areas = [
+            ObjectStore::assessmentSubjectFilesPrefix($schoolId, $userId, $assessmentId),
+            ObjectStore::assessmentUnclassifiedFilesPrefix($schoolId, $userId, $assessmentId),
+            ObjectStore::assessmentFilesPrefix($schoolId, $userId, $assessmentId),
+        ];
+        $studentsPrefix = ObjectStore::assessmentStudentsPrefix($schoolId, $userId, $assessmentId);
+        foreach ($this->store->listChildPrefixes($studentsPrefix) as $studentId) {
+            $areas[] = $studentsPrefix . $studentId . '/';
+        }
+        foreach ($areas as $filesPrefix) {
+            foreach ($this->store->listChildPrefixes($filesPrefix) as $fileId) {
+                $pointerKey = ObjectStore::idIndexKey($fileId);
+                if (!$this->store->exists($pointerKey)) {
+                    continue;
+                }
+                $attrKey = rtrim($this->store->resolveIdPointer($fileId), '/') . '/' . ObjectStore::ATTR_FILE;
+                if (!$this->store->exists($attrKey)) {
+                    continue;
+                }
+                $loaded = $this->store->getJson($attrKey);
+                $name = (string) ($loaded['data']['name'] ?? '');
+                if ($name !== '') {
+                    $existingByName[strtolower($name)] = [
+                        'id' => $fileId,
+                        'type' => (string) ($loaded['data']['type'] ?? ''),
+                        'student' => $loaded['data']['student'] ?? null,
+                    ];
+                }
             }
         }
 
         foreach ($sources as $filename => $source) {
             $lower = strtolower($filename);
             if (isset($existingByName[$lower])) {
-                $fileId = $existingByName[$lower];
-                $contentKey = ObjectStore::assessmentFileContentKey($schoolId, $userId, $assessmentId, $fileId);
+                $fileId = $existingByName[$lower]['id'];
+                $contentKey = ObjectStore::assessmentFileContentKey(
+                    $schoolId,
+                    $userId,
+                    $assessmentId,
+                    $fileId,
+                    $existingByName[$lower]['type'],
+                    is_string($existingByName[$lower]['student']) ? $existingByName[$lower]['student'] : null
+                );
                 if ($this->store->exists($contentKey)) {
                     $head = $this->store->head($contentKey);
                     if ($head['ContentLength'] === $source['size']) {
@@ -295,14 +320,29 @@ class CsvTreeMigrator
             }
 
             $fileId = HashId::create();
-            $contentKey = ObjectStore::assessmentFileContentKey($schoolId, $userId, $assessmentId, $fileId);
+            $fileType = (string) ($tag['type'] ?? '');
+            $contentKey = ObjectStore::assessmentFileContentKey(
+                $schoolId,
+                $userId,
+                $assessmentId,
+                $fileId,
+                $fileType,
+                $studentHash
+            );
             $this->store->copy($source['key'], $contentKey);
             $head = $this->store->head($contentKey);
 
-            $attrKey = ObjectStore::assessmentFileAttrKey($schoolId, $userId, $assessmentId, $fileId);
+            $attrKey = ObjectStore::assessmentFileAttrKey(
+                $schoolId,
+                $userId,
+                $assessmentId,
+                $fileId,
+                $fileType,
+                $studentHash
+            );
             $this->store->putJson($attrKey, [
                 'name' => $filename,
-                'type' => $tag['type'] ?? '',
+                'type' => $fileType,
                 'student' => $studentHash,
                 'status' => 'loaded',
                 'content_type' => $head['ContentType'] ?: 'application/octet-stream',
@@ -311,11 +351,26 @@ class CsvTreeMigrator
             ]);
             $this->store->setIdPointer(
                 $fileId,
-                ObjectStore::assessmentFilePrefix($schoolId, $userId, $assessmentId, $fileId)
+                ObjectStore::assessmentFilePrefix(
+                    $schoolId,
+                    $userId,
+                    $assessmentId,
+                    $fileId,
+                    $fileType,
+                    $studentHash
+                )
             );
             $eventId = sprintf('%d-%s', time(), bin2hex(random_bytes(4)));
             $this->store->putJson(
-                ObjectStore::assessmentFileEventKey($schoolId, $userId, $assessmentId, $fileId, $eventId),
+                ObjectStore::assessmentFileEventKey(
+                    $schoolId,
+                    $userId,
+                    $assessmentId,
+                    $fileId,
+                    $eventId,
+                    $fileType,
+                    $studentHash
+                ),
                 [
                     'timestamp' => time(),
                     'name' => 'Migrated',

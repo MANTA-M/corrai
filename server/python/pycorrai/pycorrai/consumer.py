@@ -99,15 +99,11 @@ def ocr_json_key(content_path: str) -> str:
 
 
 def file_id_from_path(content_path: str) -> str:
-    """Extract the file id segment after ``files/`` in an S3 content path."""
-    parts = content_path.strip("/").split("/")
-    try:
-        files_index = parts.index("files")
-    except ValueError as exc:
-        raise ValueError(f"Path has no files/ segment: {content_path}") from exc
-    if files_index + 1 >= len(parts):
-        raise ValueError(f"Path has no file id after files/: {content_path}")
-    file_id = parts[files_index + 1]
+    """Extract the file id, the directory that contains the ``content`` object."""
+    parts = [part for part in content_path.strip("/").split("/") if part != ""]
+    if len(parts) < 2 or parts[-1] != "content":
+        raise ValueError(f"Path is not a content object: {content_path}")
+    file_id = parts[-2]
     if file_id == "":
         raise ValueError(f"Empty file id in path: {content_path}")
     return file_id

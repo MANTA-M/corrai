@@ -10,7 +10,7 @@ School
             Subject
             Answer Key
             Grading Guidelines
-            Unassigned
+            Unclassified
                 File1
                 File2
                 File3
@@ -30,14 +30,18 @@ Every school, teacher, assessment, file, and student is identified by a short al
 schools/<schoolId>/attributes.json
 schools/<schoolId>/teachers/<teacherId>/attributes.json
 schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/attributes.json
-schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/attributes.json
-schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/content
-schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/files/<fileId>/events/<eventId>.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/content
 schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/content
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/events/<eventId>.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/unclassified/<fileId>/attributes.json
+schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/unclassified/<fileId>/content
 _id/{hash}                              (pointer to the node prefix)
 ```
 
-Each node owns its own `attributes.json`. Binary file bytes live under `content`. Concurrent updates are isolated to individual file and student documents (with If-Match) and append-only event objects.
+Each node owns its own `attributes.json`. Binary file bytes live under `content`. Files linked to the subject (`subject`, `solution`, `instructions`) live under `subject/`. Student copies live under `students/<studentId>/<fileId>/`, with append-only event objects. Files not yet classified live under `unclassified/`. Assigning a type or a student moves the file to the matching prefix. Concurrent updates are isolated to individual file and student documents (with If-Match).
 
 # Use Cases
 

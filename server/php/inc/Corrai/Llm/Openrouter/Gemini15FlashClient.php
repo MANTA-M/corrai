@@ -8,7 +8,7 @@ class Gemini15FlashClient extends OpenrouterClient
 {
     public function __construct()
     {
-        parent::__construct("google/gemini-1.5-flash");
+        parent::__construct("google/gemini-2.5-flash");
     }
 
     /**
