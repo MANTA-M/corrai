@@ -176,6 +176,45 @@ export interface I18nSchema {
         fileHistoryEmpty: string
         fileAnnexes: string
         fileAnnexesEmpty: string
+        editSubject: string
+        addCopies: string
+        studentsHeading: string
+        studentsEmpty: string
+        unassignedFiles: string
+        unassignedEmpty: string
+        studentOpen: string
+        studentRename: string
+        studentDelete: string
+        studentDeleteTitle: string
+        studentDeleteConfirm: string
+        studentDeleting: string
+        studentDeleteError: string
+        studentRenameTitle: string
+        studentRenamePlaceholder: string
+        studentRenameSave: string
+        studentRenaming: string
+        studentRenameError: string
+        studentNotFound: string
+        subjectPageTitle: string
+        subjectFiles: string
+        subjectFilesEmpty: string
+        addSubjectFile: string
+        addSubjectFileTitle: string
+        solutionFiles: string
+        solutionFilesEmpty: string
+        addSolutionFile: string
+        addSolutionFileTitle: string
+        studentFilesEmpty: string
+        fileReassign: string
+        fileReassignTitle: string
+        fileReassignNotFound: string
+        fileReassignConfirm: string
+        fileReassigning: string
+        fileEventsTitle: string
+        startCorrection: string
+        correctionPrice: string
+        startCorrectionLaunch: string
+        startCorrectionError: string
     }
     language: string
     settings: {

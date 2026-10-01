@@ -6,7 +6,7 @@
   >
     <div class="popup-content add-file-popup">
       <div class="popup-header">
-        <h2>{{ t('assessment.addFilesTitle') }}</h2>
+        <h2>{{ title || t('assessment.addFilesTitle') }}</h2>
         <button
           type="button"
           class="close-button"
@@ -18,7 +18,7 @@
         </button>
       </div>
       <div class="popup-body">
-        <label class="type-field" for="add-file-type">
+        <label v-if="!fixedType" class="type-field" for="add-file-type">
           {{ t('assessment.fileUploadType') }}
           <select
             id="add-file-type"
@@ -92,6 +92,8 @@ import type { AssessmentFile } from '@/types/types'
 
 const props = defineProps<{
   assessmentId: string
+  fixedType?: string
+  title?: string
 }>()
 
 const emit = defineEmits<{
@@ -113,7 +115,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
 const isUploading = ref(false)
 const error = ref('')
-const fileType = ref('')
+const fileType = ref(props.fixedType ?? '')
 const uploadItems = ref<UploadItem[]>([])
 let dragCounter = 0
 

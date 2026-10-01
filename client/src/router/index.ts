@@ -33,6 +33,18 @@ const router = createRouter({
       meta: { title: 'Edit Assessment', requiresAuth: true }
     },
     {
+      path: '/assessment/:id/sujet',
+      name: 'assessment-subject',
+      component: () => import('@/views/SubjectView.vue'),
+      meta: { title: 'Sujet', requiresAuth: true }
+    },
+    {
+      path: '/assessment/:id/student/:studentId',
+      name: 'assessment-student',
+      component: () => import('@/views/StudentView.vue'),
+      meta: { title: 'Élève', requiresAuth: true }
+    },
+    {
       path: '/assessment/:id',
       name: 'assessment',
       component: () => import('@/views/AssessmentView.vue'),

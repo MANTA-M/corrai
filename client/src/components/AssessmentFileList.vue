@@ -1,0 +1,799 @@
+<template>
+  <p v-if="error" class="error-message">{{ error }}</p>
+  <p v-if="!sortedFiles.length" class="zone-empty">{{ emptyText || t('assessment.fileZoneEmpty') }}</p>
+  <ul v-else class="entity-list" data-testid="assessment-file-list">
+    <li v-for="file in sortedFiles" :key="file.id" class="entity-row" data-testid="assessment-file-item">
+      <button
+        v-if="allowTextEdit && isEditableTextFile(file)"
+        type="button"
+        class="entity-name file-name-button"
+        data-testid="assessment-file-edit"
+        @click="emit('editText', file)"
+      >
+        {{ file.name }}
+      </button>
+      <span v-else class="entity-name">{{ file.name }}</span>
+      <span v-if="sessionStore.debugMode && file.status" class="file-status" data-testid="assessment-file-status">
+        {{ file.status }}
+      </span>
+      <span class="file-size">{{ formatFileSize(file.size) }}</span>
+      <div class="row-actions">
+        <a
+          class="icon-button"
+          :href="fileViewUrl(file)"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="file-view"
+          :aria-label="t('assessment.fileView')"
+          :title="t('assessment.fileView')"
+        >
+          <ActionIcon name="eye" />
+        </a>
+        <button
+          v-if="canReassignFile(file)"
+          type="button"
+          class="icon-button"
+          data-testid="file-reassign"
+          :aria-label="t('assessment.fileReassign')"
+          :title="t('assessment.fileReassign')"
+          @click="openReassign(file)"
+        >
+          <ActionIcon name="person" />
+        </button>
+        <button
+          type="button"
+          class="icon-button"
+          data-testid="file-events"
+          :aria-label="t('assessment.fileEventsTitle')"
+          :title="t('assessment.fileEventsTitle')"
+          @click="openEvents(file)"
+        >
+          <ActionIcon name="list" />
+        </button>
+        <button
+          type="button"
+          class="icon-button"
+          data-testid="file-rename"
+          :aria-label="t('assessment.fileRename')"
+          :title="t('assessment.fileRename')"
+          @click="startRename(file)"
+        >
+          <ActionIcon name="pencil" />
+        </button>
+        <button
+          type="button"
+          class="icon-button danger"
+          data-testid="file-delete"
+          :aria-label="t('assessment.fileDelete')"
+          :title="t('assessment.fileDelete')"
+          @click="startDelete(file)"
+        >
+          <ActionIcon name="trash" />
+        </button>
+      </div>
+    </li>
+  </ul>
+
+  <div
+    v-if="reassignTarget"
+    class="popup-overlay"
+    data-testid="reassign-file-popup"
+    @click.self="closeReassign"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.fileReassignTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="reassign-file-close"
+          :aria-label="t('common.cancel')"
+          @click="closeReassign"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <p class="popup-file-name">{{ reassignTarget.name }}</p>
+        <fieldset class="reassign-list">
+          <legend class="hidden-visually">{{ t('assessment.fileReassignTitle') }}</legend>
+          <label
+            v-for="student in sortedStudents"
+            :key="student.id"
+            class="reassign-option"
+            :class="{ selected: selectedStudentId === student.id }"
+          >
+            <input
+              v-model="selectedStudentId"
+              type="radio"
+              name="reassign-target"
+              :value="student.id"
+              data-testid="reassign-student"
+              :disabled="isUpdating"
+            />
+            <span>{{ student.name }}</span>
+          </label>
+          <label
+            class="reassign-option"
+            :class="{ selected: selectedStudentId === NOT_FOUND }"
+          >
+            <input
+              v-model="selectedStudentId"
+              type="radio"
+              name="reassign-target"
+              :value="NOT_FOUND"
+              data-testid="reassign-not-found"
+              :disabled="isUpdating"
+            />
+            <span>{{ t('assessment.fileReassignNotFound') }}</span>
+          </label>
+        </fieldset>
+        <label v-if="selectedStudentId === NOT_FOUND" class="file-action-label" for="reassign-name-input">
+          {{ t('assessment.fileStudentPlaceholder') }}
+          <input
+            id="reassign-name-input"
+            ref="reassignNameInput"
+            v-model="newStudentName"
+            type="text"
+            class="input"
+            data-testid="reassign-name-input"
+            :disabled="isUpdating"
+          />
+        </label>
+        <p v-if="actionError" class="error-message" data-testid="reassign-file-error">{{ actionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          data-testid="reassign-file-cancel"
+          :disabled="isUpdating"
+          @click="closeReassign"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button primary"
+          data-testid="reassign-confirm"
+          :disabled="!canConfirmReassign"
+          @click="confirmReassign"
+        >
+          {{ isUpdating ? t('assessment.fileReassigning') : t('assessment.fileReassignConfirm') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="eventsTarget"
+    class="popup-overlay"
+    data-testid="file-events-popup"
+    @click.self="closeEvents"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.fileEventsTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="file-events-close"
+          :aria-label="t('common.cancel')"
+          @click="closeEvents"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <p class="popup-file-name">{{ eventsTarget.name }}</p>
+        <p v-if="eventsLoading" class="zone-empty">…</p>
+        <p v-else-if="events.length === 0" class="zone-empty" data-testid="file-events-empty">
+          {{ t('assessment.fileHistoryEmpty') }}
+        </p>
+        <ul v-else class="events-list">
+          <li v-for="event in events" :key="event.id">
+            <a
+              :href="eventUrl(event.id)"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="file-event"
+            >
+              {{ eventLabel(event) }}
+            </a>
+          </li>
+        </ul>
+        <template v-if="sessionStore.debugMode">
+          <p class="events-section" data-testid="file-menu-annexes">{{ t('assessment.fileAnnexes') }}</p>
+          <p v-if="eventsLoading" class="zone-empty">…</p>
+          <p v-else-if="annexes.length === 0" class="zone-empty" data-testid="file-menu-annexes-empty">
+            {{ t('assessment.fileAnnexesEmpty') }}
+          </p>
+          <ul v-else class="events-list">
+            <li v-for="name in annexes" :key="name">
+              <a
+                :href="annexUrl(name)"
+                target="_blank"
+                rel="noopener noreferrer"
+                :data-testid="`file-menu-annex-${name}`"
+              >
+                {{ name }}
+              </a>
+            </li>
+          </ul>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="renameTarget"
+    class="popup-overlay"
+    data-testid="rename-file-popup"
+    @click.self="closeRename"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.fileRenameTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="rename-file-close"
+          :aria-label="t('common.cancel')"
+          @click="closeRename"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <form @submit.prevent="submitRename">
+          <label class="file-action-label" for="rename-file-input">{{ t('assessment.fileRenamePlaceholder') }}</label>
+          <input
+            id="rename-file-input"
+            ref="renameInput"
+            v-model="renameDraft"
+            type="text"
+            class="input"
+            data-testid="rename-file-input"
+            :disabled="isUpdating"
+          />
+        </form>
+        <p v-if="actionError" class="error-message" data-testid="rename-file-error">{{ actionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          data-testid="rename-file-cancel"
+          :disabled="isUpdating"
+          @click="closeRename"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button primary"
+          data-testid="rename-file-save"
+          :disabled="isUpdating || !renameDraft.trim()"
+          @click="submitRename"
+        >
+          {{ isUpdating ? t('assessment.fileRenaming') : t('assessment.fileRenameSave') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="deleteTarget"
+    class="popup-overlay"
+    data-testid="delete-file-popup"
+    @click.self="closeDelete"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.fileDeleteTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="delete-file-close"
+          :aria-label="t('common.cancel')"
+          @click="closeDelete"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <p data-testid="delete-file-confirm">
+          {{ t('assessment.fileDeleteConfirm', { name: deleteTarget.name }) }}
+        </p>
+        <p v-if="actionError" class="error-message" data-testid="delete-file-error">{{ actionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          data-testid="delete-file-cancel"
+          :disabled="isUpdating"
+          @click="closeDelete"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button danger"
+          data-testid="delete-file-confirm-button"
+          :disabled="isUpdating"
+          @click="submitDelete"
+        >
+          {{ isUpdating ? t('assessment.fileDeleting') : t('assessment.fileDelete') }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import ActionIcon from '@/components/ActionIcon.vue'
+import { useSessionStore } from '@/stores/session'
+import { canReassignFile, isEditableTextFile } from '@/utils/assessmentFiles'
+import type { AssessmentFile, AssessmentStudent } from '@/types/types'
+
+const NOT_FOUND = '__not_found__'
+
+const props = defineProps<{
+  assessmentId: string
+  files: AssessmentFile[]
+  students?: AssessmentStudent[]
+  emptyText?: string
+  allowTextEdit?: boolean
+}>()
+
+const emit = defineEmits<{
+  updated: [payload: { files: AssessmentFile[]; students?: AssessmentStudent[] }]
+  editText: [file: AssessmentFile]
+}>()
+
+const { t, locale } = useI18n()
+const sessionStore = useSessionStore()
+
+const error = ref('')
+const actionError = ref('')
+const isUpdating = ref(false)
+
+const reassignTarget = ref<AssessmentFile | null>(null)
+const selectedStudentId = ref('')
+const newStudentName = ref('')
+const reassignNameInput = ref<HTMLInputElement | null>(null)
+
+const eventsTarget = ref<AssessmentFile | null>(null)
+const eventsLoading = ref(false)
+const events = ref<FileEvent[]>([])
+const annexes = ref<string[]>([])
+
+const renameTarget = ref<AssessmentFile | null>(null)
+const renameDraft = ref('')
+const renameInput = ref<HTMLInputElement | null>(null)
+const deleteTarget = ref<AssessmentFile | null>(null)
+
+interface FileEvent {
+  id: string
+  timestamp: number
+  name: string
+}
+
+interface FileDebugInfo {
+  annexes: string[]
+  events: FileEvent[]
+}
+
+const sortedFiles = computed(() =>
+  [...props.files].sort((a, b) => a.name.localeCompare(b.name, String(locale.value || 'fr')))
+)
+
+const sortedStudents = computed(() =>
+  [...(props.students ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, String(locale.value || 'fr'))
+  )
+)
+
+const canConfirmReassign = computed(() => {
+  if (isUpdating.value || !selectedStudentId.value) return false
+  if (selectedStudentId.value === NOT_FOUND) return newStudentName.value.trim() !== ''
+  return true
+})
+
+const formatFileSize = (size: number) => {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const fileViewUrl = (file: AssessmentFile) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: props.assessmentId,
+    file: file.id,
+  })
+
+const eventUrl = (eventId: string) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: props.assessmentId,
+    file: eventsTarget.value?.id ?? '',
+    event: eventId,
+  })
+
+const annexUrl = (name: string) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: props.assessmentId,
+    file: eventsTarget.value?.id ?? '',
+    annex: name,
+  })
+
+const eventLabel = (event: FileEvent) => {
+  if (!event.timestamp) return event.name
+  const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(event.timestamp * 1000))
+  return `${event.name} — ${when}`
+}
+
+const applyUpdatedFiles = (files: AssessmentFile[], students?: AssessmentStudent[]) => {
+  emit('updated', { files, students })
+}
+
+const openReassign = (file: AssessmentFile) => {
+  reassignTarget.value = file
+  const current = (file.student ?? '').trim()
+  selectedStudentId.value = sortedStudents.value.some((student) => student.id === current) ? current : ''
+  newStudentName.value = ''
+  actionError.value = ''
+  error.value = ''
+}
+
+const closeReassign = () => {
+  if (isUpdating.value) return
+  reassignTarget.value = null
+  actionError.value = ''
+}
+
+const openEvents = (file: AssessmentFile) => {
+  eventsTarget.value = file
+  events.value = []
+  annexes.value = []
+  void loadEvents(file)
+}
+
+const closeEvents = () => {
+  eventsTarget.value = null
+}
+
+const loadEvents = async (file: AssessmentFile) => {
+  eventsLoading.value = true
+  try {
+    const data = await sessionStore.getWsClient().queryWs<FileDebugInfo>('GET', '/file_annexes', {
+      id: props.assessmentId,
+      file: file.id,
+    })
+    if (eventsTarget.value?.id !== file.id) return
+    events.value = data.events ?? []
+    annexes.value = data.annexes ?? []
+  } catch (err) {
+    console.error('Error loading file events:', err)
+    if (eventsTarget.value?.id === file.id) {
+      events.value = []
+      annexes.value = []
+    }
+  } finally {
+    if (eventsTarget.value?.id === file.id) {
+      eventsLoading.value = false
+    }
+  }
+}
+
+const startRename = (file: AssessmentFile) => {
+  renameTarget.value = file
+  renameDraft.value = file.name
+  actionError.value = ''
+  void nextTick(() => {
+    renameInput.value?.focus()
+    renameInput.value?.select()
+  })
+}
+
+const closeRename = () => {
+  if (isUpdating.value) return
+  renameTarget.value = null
+  actionError.value = ''
+}
+
+const startDelete = (file: AssessmentFile) => {
+  deleteTarget.value = file
+  actionError.value = ''
+}
+
+const closeDelete = () => {
+  if (isUpdating.value) return
+  deleteTarget.value = null
+  actionError.value = ''
+}
+
+const confirmReassign = async () => {
+  if (!reassignTarget.value || !canConfirmReassign.value) return
+  const file = reassignTarget.value
+  actionError.value = ''
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const wsClient = sessionStore.getWsClient()
+    let studentId = selectedStudentId.value
+    let students = props.students
+
+    if (studentId === NOT_FOUND) {
+      const name = newStudentName.value.trim()
+      studentId =
+        (props.students ?? []).find((student) => student.name.toLowerCase() === name.toLowerCase())?.id ?? ''
+      if (!studentId) {
+        const created = await wsClient.queryWs<{
+          student?: AssessmentStudent
+          students?: AssessmentStudent[]
+        }>('POST', '/student', { id: props.assessmentId }, { name })
+        studentId = created?.student?.id ?? ''
+        students = created?.students ?? students
+        if (!studentId) {
+          throw new Error('Student create returned no id')
+        }
+      }
+    }
+
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
+      'PUT',
+      '/file',
+      { id: props.assessmentId, file: file.id },
+      { student: studentId }
+    )
+    if (response?.files) {
+      applyUpdatedFiles(response.files, response.students ?? students)
+    }
+    reassignTarget.value = null
+  } catch (err) {
+    console.error('Error reassigning file:', err)
+    actionError.value = t('assessment.fileUpdateError')
+  } finally {
+    isUpdating.value = false
+  }
+}
+
+const submitRename = async () => {
+  if (!renameTarget.value) return
+  const newName = renameDraft.value.trim()
+  if (!newName) return
+
+  actionError.value = ''
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>('PUT', '/file', { id: props.assessmentId, file: renameTarget.value.id }, { name: newName })
+    if (response?.files) {
+      applyUpdatedFiles(response.files, response.students)
+    }
+    renameTarget.value = null
+  } catch (err) {
+    console.error('Error renaming file:', err)
+    actionError.value = t('assessment.fileRenameError')
+  } finally {
+    isUpdating.value = false
+  }
+}
+
+const submitDelete = async () => {
+  if (!deleteTarget.value) return
+  const removedId = deleteTarget.value.id
+
+  actionError.value = ''
+  error.value = ''
+  isUpdating.value = true
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>('DELETE', '/file', { id: props.assessmentId, file: removedId })
+    if (response?.files) {
+      applyUpdatedFiles(response.files, response.students)
+    } else {
+      applyUpdatedFiles(props.files.filter((file) => file.id !== removedId))
+    }
+    deleteTarget.value = null
+  } catch (err) {
+    console.error('Error deleting file:', err)
+    actionError.value = t('assessment.fileDeleteError')
+  } finally {
+    isUpdating.value = false
+  }
+}
+
+watch(selectedStudentId, (value) => {
+  if (value !== NOT_FOUND) return
+  void nextTick(() => {
+    reassignNameInput.value?.focus()
+  })
+})
+</script>
+
+<style scoped>
+.error-message {
+  color: var(--danger);
+  margin: 0 0 0.75rem;
+}
+
+.zone-empty {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.entity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.entity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.entity-list li:last-child .entity-row {
+  border-bottom: none;
+}
+
+.entity-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-name-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--link);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.file-name-button:hover {
+  color: var(--link-hover);
+}
+
+.file-size,
+.file-status {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.file-status {
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+  color: var(--info);
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.icon-button {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.icon-button:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.icon-button.danger:hover {
+  color: var(--danger);
+}
+
+.icon-button :deep(svg) {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.file-action-popup {
+  width: min(440px, calc(100vw - 2rem));
+}
+
+.file-action-popup h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.popup-file-name {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-action-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.reassign-list {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.reassign-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.reassign-option.selected,
+.reassign-option:hover {
+  background: var(--hover-bg);
+}
+
+.events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.events-list a {
+  display: block;
+  padding: 0.4rem 0;
+}
+
+.events-section {
+  margin: 0.85rem 0 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+</style>

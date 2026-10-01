@@ -474,6 +474,25 @@ abstract class BaseAssessment
     }
 
     /**
+     * Remove a student and return their files to the unassigned pool.
+     *
+     * @return array Updated file list
+     */
+    public function deleteStudent(string $studentId): array
+    {
+        $student = $this->getStudent($studentId);
+        foreach ($this->listFileModels() as $file) {
+            if (($file->student ?? '') !== $studentId) {
+                continue;
+            }
+            $file->student = null;
+            $file->saveAttributes();
+        }
+        $student->delete();
+        return $this->list_files();
+    }
+
+    /**
      * Update type and/or student assignment for an existing file.
      *
      * @param string|null $student Student hash, empty string to unassign, or null to leave unchanged

@@ -602,6 +602,31 @@ class AssessmentLifecycleTest extends TestCase
         $school->delete();
     }
 
+    public function testDeleteStudentUnassignsFiles(): void
+    {
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = 'Delete Student Assessment';
+        $assessment->subject = 'History';
+        $assessment->date = '2026-05-02';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $tmp = $this->createRandomTempFile('copy_', '.png');
+        $file = $assessment->createFileFromPath(basename($tmp), $tmp, 'image/png', 'submission', null);
+        $alice = $assessment->createStudent('Alice');
+        $assessment->setFileTags($file->id, 'submission', $alice->id);
+
+        $files = $assessment->deleteStudent($alice->id);
+        $this->assertCount(1, $files);
+        $this->assertSame('submission', $files[0]['type']);
+        $this->assertNull($files[0]['student']);
+        $this->assertSame([], $assessment->list_students());
+
+        $assessment->delete();
+    }
+
     /**
      * Create a temp file with random bytes; tracked for tearDown cleanup.
      */

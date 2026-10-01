@@ -35,18 +35,16 @@ test.describe('Assessments CRUD', () => {
 
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Midterm')
-      await expect(page.getByTestId('assessment-name-value')).toHaveText('Math Midterm')
+      await expect(page.getByTestId('assessment-meta')).toContainText('2026-10-15, Math')
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Math')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-10-15')
+      await expect(page.getByTestId('assessment-edit-subject')).toBeVisible()
+      await expect(page.getByTestId('assessment-add-file')).toHaveText('Ajouter des copies')
+      await expect(page.getByTestId('students-empty')).toBeVisible()
+      await expect(page.getByTestId('unassigned-files')).toBeVisible()
+      await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
       await expect(page.getByTestId('assessment-save')).toHaveCount(0)
       await expect(page.getByTestId('assessment-name')).toHaveCount(0)
-      await expect(page.getByTestId('files-view-type')).toHaveCount(0)
-      await expect(page.getByTestId('files-view-student')).toHaveCount(0)
-      await expect(page.getByTestId('file-type-zones')).toBeVisible()
-      await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
-      await expect(page.getByTestId('add-instruction')).toBeVisible()
-      await expect(page.getByTestId('add-solution')).toBeVisible()
-      await expect(page.getByTestId('file-student-view')).toHaveCount(0)
 
       await page.goto('/assessment-list')
       await expect(page.getByTestId('assessment-item')).toHaveCount(1)
@@ -82,12 +80,12 @@ test.describe('Assessments CRUD', () => {
 
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Final')
-      await expect(page.getByTestId('assessment-name-value')).toHaveText('Math Final')
+      await expect(page.getByTestId('assessment-meta')).toContainText('2026-12-01, Physique')
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
 
       await page.reload()
-      await expect(page.getByTestId('assessment-name-value')).toHaveText('Math Final')
+      await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Final')
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
 
@@ -97,82 +95,71 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('assessment-item')).toContainText('2026-12-01')
     })
 
-    await test.step('Upload a file to the assessment', async () => {
+    await test.step('Upload copies into the unassigned list', async () => {
       await page.getByTestId('assessment-item').click()
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
 
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'corrai-assessment-'))
       const uploadPath = path.join(tmpDir, 'sample-scan.txt')
       fs.writeFileSync(uploadPath, 'Sample assessment scan content')
+      const secondPath = path.join(tmpDir, 'second-scan.txt')
+      fs.writeFileSync(secondPath, 'Second scan')
 
       await page.getByTestId('assessment-add-file').click()
       await expect(page.getByTestId('add-file-popup')).toBeVisible()
+      await expect(page.getByTestId('add-file-type')).toHaveCount(0)
       await page.getByTestId('add-file-input').setInputFiles(uploadPath)
 
-      await expect(page.getByTestId('assessment-file-item')).toContainText('sample-scan.txt', {
-        timeout: 15000
-      })
-      await expect(page.getByTestId('files-view-type')).toBeVisible()
-      await expect(page.getByTestId('files-view-student')).toBeVisible()
-      await expect(page.getByTestId('file-type-zones')).toBeVisible()
+      await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toContainText(
+        'sample-scan.txt',
+        { timeout: 15000 }
+      )
+      await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
+      await expect(page.getByTestId('unassigned-files').getByTestId('file-reassign')).toBeVisible()
 
       await page.getByTestId('add-file-cancel').click()
       await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
-      await expect(page.getByTestId('assessment-file-item')).toContainText('sample-scan.txt')
+
+      await page.getByTestId('assessment-add-file').click()
+      await page.getByTestId('add-file-input').setInputFiles(secondPath)
+      await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(2, {
+        timeout: 15000
+      })
+      await page.getByTestId('add-file-cancel').click()
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
 
-    await test.step('Group files by type and student', async () => {
-      await expect(page.getByTestId('file-zone-unknown').getByTestId('assessment-file-item')).toContainText(
-        'sample-scan.txt'
-      )
-      await expect(page.getByTestId('file-zone-subject')).toBeVisible()
-      await expect(page.getByTestId('file-zone-solution')).toBeVisible()
-      await expect(page.getByTestId('file-zone-submission')).toBeVisible()
-      await expect(page.getByTestId('file-zone-instructions')).toBeVisible()
-      await expect(page.getByTestId('file-zone-correction')).toBeVisible()
+    await test.step('Reassign copies to a new student and an existing one', async () => {
+      const firstRow = page.getByTestId('unassigned-files').getByTestId('assessment-file-item').filter({
+        hasText: 'sample-scan.txt'
+      })
+      await firstRow.getByTestId('file-reassign').click()
+      await expect(page.getByTestId('reassign-file-popup')).toBeVisible()
+      await page.getByTestId('reassign-not-found').check()
+      await expect(page.getByTestId('reassign-name-input')).toBeVisible()
+      await page.getByTestId('reassign-name-input').fill('Alice')
+      await page.getByTestId('reassign-confirm').click()
+      await expect(page.getByTestId('reassign-file-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('student-item')).toContainText('Alice')
+      await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(1)
 
-      await page.getByTestId('assessment-file-item').click()
-      await expect(page.getByTestId('file-menu')).toBeVisible()
-      await page.getByTestId('file-menu-change-type').click()
-      await page.getByTestId('file-menu-type-submission').click()
-      await expect(
-        page.getByTestId('file-zone-submission').getByTestId('assessment-file-item')
-      ).toContainText('sample-scan.txt', { timeout: 15000 })
-
-      await page.getByTestId('assessment-file-item').click()
-      await expect(page.getByTestId('file-menu-correct')).toBeVisible()
-      await page.getByTestId('file-menu-change-type').click()
-      await page.getByTestId('file-menu-type-subject').click()
-
-      await expect(
-        page.getByTestId('file-zone-subject').getByTestId('assessment-file-item')
-      ).toContainText('sample-scan.txt', { timeout: 15000 })
-      await expect(
-        page.getByTestId('file-zone-unknown').getByTestId('assessment-file-item')
-      ).toHaveCount(0)
-
-      await page.getByTestId('assessment-file-item').click()
-      await page.getByTestId('file-menu-set-student').click()
-      await page.getByTestId('file-student-input').fill('Alice')
-      await page.getByTestId('file-student-save').click()
-      await expect(page.getByTestId('file-menu')).toHaveCount(0)
-
-      await page.getByTestId('files-view-student').click()
-      await expect(page.getByTestId('file-student-item')).toContainText('Alice')
-      await page.getByTestId('file-student-item').click()
-      await expect(page.getByTestId('assessment-file-item')).toContainText('sample-scan.txt')
-      await page.getByTestId('file-student-back').click()
-      await expect(page.getByTestId('file-student-item')).toContainText('Alice')
-
-      await page.getByTestId('files-view-type').click()
-      await expect(page.getByTestId('file-type-zones')).toBeVisible()
+      await page.getByTestId('unassigned-files').getByTestId('file-reassign').click()
+      await page.getByRole('radio', { name: 'Alice' }).check()
+      await page.getByTestId('reassign-confirm').click()
+      await expect(page.getByTestId('reassign-file-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(0)
     })
 
-    await test.step('View, rename, and delete a file', async () => {
-      await page.getByTestId('assessment-file-item').click()
-      const viewLink = page.getByTestId('file-menu-view')
+    await test.step('Open the student page, then view, rename, and delete a file', async () => {
+      await page.getByTestId('student-view').click()
+      await page.waitForURL(/\/assessment\/[^/]+\/student\/[^/]+$/, { timeout: 10000 })
+      await expect(page.getByTestId('student-name')).toHaveText('Alice')
+      await expect(page.getByTestId('assessment-file-item')).toHaveCount(2)
+      await expect(page.getByTestId('student-page').getByTestId('file-reassign')).toHaveCount(2)
+
+      const sampleRow = page.getByTestId('assessment-file-item').filter({ hasText: 'sample-scan.txt' })
+      const viewLink = sampleRow.getByTestId('file-view')
       await expect(viewLink).toHaveAttribute('href', /\/file\?/)
       await expect(viewLink).toHaveAttribute('target', '_blank')
 
@@ -184,8 +171,12 @@ test.describe('Assessments CRUD', () => {
       await expect(popup.locator('body')).toContainText('Sample assessment scan content')
       await popup.close()
 
-      await page.getByTestId('assessment-file-item').click()
-      await page.getByTestId('file-menu-rename').click()
+      await sampleRow.getByTestId('file-events').click()
+      await expect(page.getByTestId('file-events-popup')).toBeVisible()
+      await page.getByTestId('file-events-close').click()
+      await expect(page.getByTestId('file-events-popup')).toHaveCount(0)
+
+      await sampleRow.getByTestId('file-rename').click()
       await expect(page.getByTestId('rename-file-popup')).toBeVisible()
       await expect(page.getByTestId('rename-file-input')).toHaveValue('sample-scan.txt')
       await page.getByTestId('rename-file-input').fill('renamed-scan.txt')
@@ -193,56 +184,71 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('rename-file-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(page.getByTestId('assessment-file-item')).toContainText('renamed-scan.txt')
 
-      await page.getByTestId('assessment-file-item').click()
-      await page.getByTestId('file-menu-delete').click()
+      const renamedRow = page.getByTestId('assessment-file-item').filter({ hasText: 'renamed-scan.txt' })
+      await renamedRow.getByTestId('file-delete').click()
       await expect(page.getByTestId('delete-file-popup')).toBeVisible()
       await expect(page.getByTestId('delete-file-confirm')).toContainText('renamed-scan.txt')
       await page.getByTestId('delete-file-cancel').click()
       await expect(page.getByTestId('delete-file-popup')).toHaveCount(0)
-      await expect(page.getByTestId('assessment-file-item')).toContainText('renamed-scan.txt')
 
-      await page.getByTestId('assessment-file-item').click()
-      await page.getByTestId('file-menu-delete').click()
+      await renamedRow.getByTestId('file-delete').click()
       await page.getByTestId('delete-file-confirm-button').click()
-      await expect(page.getByTestId('assessment-file-item')).toHaveCount(0, { timeout: 15000 })
-      await expect(page.getByTestId('files-view-type')).toHaveCount(0)
-      await expect(page.getByTestId('files-view-student')).toHaveCount(0)
-      await expect(page.getByTestId('file-type-zones')).toBeVisible()
-      await expect(page.getByTestId('add-instruction')).toBeVisible()
-      await expect(page.getByTestId('add-solution')).toBeVisible()
-      await expect(page.getByTestId('file-student-view')).toHaveCount(0)
+      await expect(page.getByTestId('assessment-file-item')).toHaveCount(1, { timeout: 15000 })
+
+      await page.getByTestId('student-back').click()
+      await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
+    })
+
+    await test.step('Rename and delete the student', async () => {
+      await page.getByTestId('student-rename').click()
+      await expect(page.getByTestId('rename-student-popup')).toBeVisible()
+      await page.getByTestId('rename-student-input').fill('Alicia')
+      await page.getByTestId('rename-student-save').click()
+      await expect(page.getByTestId('rename-student-popup')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('student-item')).toContainText('Alicia')
+
+      await page.getByTestId('student-delete').click()
+      await expect(page.getByTestId('delete-student-popup')).toBeVisible()
+      await page.getByTestId('delete-student-confirm-button').click()
+      await expect(page.getByTestId('student-item')).toHaveCount(0, { timeout: 15000 })
+      await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toContainText(
+        'second-scan.txt'
+      )
     })
 
     await test.step('Create and edit an instruction file', async () => {
+      await page.getByTestId('assessment-edit-subject').click()
+      await page.waitForURL(/\/assessment\/[^/]+\/sujet$/, { timeout: 10000 })
+      await expect(page.getByTestId('subject-page')).toBeVisible()
+      await expect(page.getByTestId('file-zone-subject').getByTestId('file-reassign')).toHaveCount(0)
+
       await page.getByTestId('add-instruction').click()
       await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
-      await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 1')
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Consigne 1')
       await page.getByTestId('instruction-body').fill('Bring a calculator.')
       await page.getByTestId('instruction-editor-save').click()
       await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(
         page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item')
-      ).toContainText('Instruction 1.txt')
+      ).toContainText('Consigne 1.txt')
 
-      await page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item').click()
-      await expect(page.getByTestId('file-menu-edit')).toBeVisible()
-      await page.getByTestId('file-menu-edit').click()
+      await page.getByTestId('file-zone-instructions').getByTestId('assessment-file-edit').click()
       await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
-      await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 1')
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Consigne 1')
       await expect(page.getByTestId('instruction-body')).toHaveValue('Bring a calculator.')
-      await page.getByTestId('instruction-title').fill('Instruction 2')
+      await page.getByTestId('instruction-title').fill('Consigne 2')
       await page.getByTestId('instruction-body').fill('No phones during the assessment.')
       await page.getByTestId('instruction-editor-save').click()
       await expect(page.getByTestId('instruction-editor-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(
         page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item')
-      ).toContainText('Instruction 2.txt')
+      ).toContainText('Consigne 2.txt')
       await expect(
         page.getByTestId('file-zone-instructions').getByTestId('assessment-file-item')
-      ).not.toContainText('Instruction 1.txt')
+      ).not.toContainText('Consigne 1.txt')
 
       await page.getByTestId('add-instruction').click()
-      await expect(page.getByTestId('instruction-title')).toHaveValue('Instruction 3')
+      await expect(page.getByTestId('instruction-title')).toHaveValue('Consigne 3')
       await page.getByTestId('instruction-editor-cancel').click()
     })
 
@@ -257,9 +263,7 @@ test.describe('Assessments CRUD', () => {
         page.getByTestId('file-zone-solution').getByTestId('assessment-file-item')
       ).toContainText('Corrigé 1.txt')
 
-      await page.getByTestId('file-zone-solution').getByTestId('assessment-file-item').click()
-      await expect(page.getByTestId('file-menu-edit')).toBeVisible()
-      await page.getByTestId('file-menu-edit').click()
+      await page.getByTestId('file-zone-solution').getByTestId('assessment-file-edit').click()
       await expect(page.getByTestId('instruction-editor-popup')).toBeVisible()
       await expect(page.getByTestId('instruction-title')).toHaveValue('Corrigé 1')
       await expect(page.getByTestId('instruction-body')).toHaveValue('The expected answer is 42.')
@@ -270,11 +274,14 @@ test.describe('Assessments CRUD', () => {
       await expect(
         page.getByTestId('file-zone-solution').getByTestId('assessment-file-item')
       ).toContainText('Corrigé 2.txt')
+
+      await page.getByTestId('subject-back').click()
+      await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
     })
 
     await test.step('Delete the assessment', async () => {
       page.once('dialog', async (dialog) => {
-        expect(dialog.message()).toContain('Are you sure')
+        expect(dialog.message()).toContain('supprimer cette évaluation')
         await dialog.accept()
       })
 
