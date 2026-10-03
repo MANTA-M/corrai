@@ -92,6 +92,7 @@ const uk: I18nSchema = {
         uploading: "Завантаження...",
         uploadDone: "Завантажено",
         uploadError: "Не вдалося завантажити файл",
+        uploadProgress: "{current} / {total}",
         viewByType: "За типом",
         viewByStudent: "За учнем",
         fileTypeSubject: "Завдання",

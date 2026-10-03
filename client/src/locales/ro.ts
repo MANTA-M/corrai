@@ -92,6 +92,7 @@ const ro: I18nSchema = {
         uploading: "Se încarcă...",
         uploadDone: "Încărcat",
         uploadError: "Încărcarea fișierului a eșuat",
+        uploadProgress: "{current} / {total}",
         viewByType: "După tip",
         viewByStudent: "După elev",
         fileTypeSubject: "Subiect",

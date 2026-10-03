@@ -92,6 +92,7 @@ const es: I18nSchema = {
         uploading: "Subiendo...",
         uploadDone: "Subido",
         uploadError: "Error al subir el archivo",
+        uploadProgress: "{current} / {total}",
         viewByType: "Por tipo",
         viewByStudent: "Por alumno",
         fileTypeSubject: "Enunciado",

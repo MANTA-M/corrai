@@ -121,6 +121,7 @@ export interface I18nSchema {
         uploading: string
         uploadDone: string
         uploadError: string
+        uploadProgress: string
         viewByType: string
         viewByStudent: string
         fileTypeSubject: string

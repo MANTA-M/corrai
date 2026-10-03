@@ -6,7 +6,7 @@
   >
     <div class="assessment-name">{{ assessment.name || '—' }}</div>
     <div class="assessment-subject">{{ subjectLabel(assessment.subject) }}</div>
-    <div class="assessment-date">{{ assessment.date || '—' }}</div>
+    <div class="assessment-date">{{ assessment.date || '' }}</div>
   </router-link>
 </template>
 

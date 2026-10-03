@@ -92,6 +92,7 @@ const de: I18nSchema = {
         uploading: "Wird hochgeladen...",
         uploadDone: "Hochgeladen",
         uploadError: "Datei konnte nicht hochgeladen werden",
+        uploadProgress: "{current} / {total}",
         viewByType: "Nach Typ",
         viewByStudent: "Nach Schüler",
         fileTypeSubject: "Aufgabenstellung",

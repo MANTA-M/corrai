@@ -92,6 +92,7 @@ const pt: I18nSchema = {
         uploading: "A carregar...",
         uploadDone: "Carregado",
         uploadError: "Falha ao carregar o ficheiro",
+        uploadProgress: "{current} / {total}",
         viewByType: "Por tipo",
         viewByStudent: "Por aluno",
         fileTypeSubject: "Enunciado",

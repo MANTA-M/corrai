@@ -48,7 +48,7 @@
                 >
                   <span class="assessment-name">{{ assessment.name || '—' }}</span>
                   <span class="assessment-subject">{{ subjectLabel(assessment.subject) }}</span>
-                  <span class="assessment-date">{{ assessment.date || '—' }}</span>
+                  <span class="assessment-date">{{ assessment.date || '' }}</span>
                 </button>
               </li>
             </ul>

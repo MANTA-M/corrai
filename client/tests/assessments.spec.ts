@@ -37,6 +37,8 @@ test.describe('Assessments CRUD', () => {
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Midterm')
       await expect(page.getByTestId('assessment-meta')).toContainText('2026-10-15, Math')
+      await expect(page.getByTestId('assessment-meta')).not.toContainText('—')
+      await expect(page.getByTestId('assessment-level-value')).toHaveCount(0)
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Math')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-10-15')
       await expect(page.getByTestId('assessment-edit')).toHaveCount(0)
@@ -85,6 +87,9 @@ test.describe('Assessments CRUD', () => {
       await page.getByTestId('subject-subject-input').selectOption('Physics')
       await page.getByTestId('subject-subject-save').click()
       await expect(page.getByTestId('subject-subject-value')).toHaveText('Physique')
+
+      await expect(page.getByTestId('subject-level-value')).toHaveText('')
+      await expect(page.getByTestId('subject-level-value')).not.toContainText('—')
 
       await page.getByTestId('subject-level-edit').click()
       await page.getByTestId('subject-level-input').selectOption('cm2')
@@ -285,6 +290,38 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('assessments-empty')).toBeVisible()
       await expect(page.getByTestId('assessment-item')).toHaveCount(0)
     })
+  })
+
+  test('does not show dash when date or level is missing', async ({ page }) => {
+    await initProfile(page, 'No Dash Tester')
+    await page.getByTestId('assessment-create-button').click()
+    await page.waitForURL('**/create_assessment', { timeout: 10000 })
+
+    await page.getByTestId('assessment-no-subject').click()
+    await page.getByTestId('assessment-name').fill('Undated Exam')
+    await page.getByTestId('assessment-subject').selectOption('English')
+    await page.getByTestId('assessment-submit').click()
+
+    await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
+    await expect(page.getByTestId('assessment-meta')).toHaveText('Anglais')
+    await expect(page.getByTestId('assessment-meta')).not.toContainText('—')
+    await expect(page.getByTestId('assessment-date-value')).toHaveCount(0)
+    await expect(page.getByTestId('assessment-level-value')).toHaveCount(0)
+
+    await page.goto('assessment-list')
+    const item = page.getByTestId('assessment-item').first()
+    await expect(item.locator('.assessment-date')).toHaveText('')
+    await expect(item.locator('.assessment-date')).not.toContainText('—')
+
+    await item.click()
+    await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
+    await page.getByTestId('assessment-edit-subject').click()
+    await page.waitForURL(/\/assessment\/[^/]+\/sujet$/, { timeout: 10000 })
+
+    await expect(page.getByTestId('subject-level-value')).toHaveText('')
+    await expect(page.getByTestId('subject-level-value')).not.toContainText('—')
+    await expect(page.getByTestId('subject-date-value')).toHaveText('')
+    await expect(page.getByTestId('subject-date-value')).not.toContainText('—')
   })
 
   test('migrates a legacy public-key session to a server user id', async ({ page }) => {

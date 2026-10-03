@@ -92,6 +92,7 @@ const fr: I18nSchema = {
         uploading: "Téléversement...",
         uploadDone: "Téléversé",
         uploadError: "Échec du téléversement du fichier",
+        uploadProgress: "{current} / {total}",
         viewByType: "Par type",
         viewByStudent: "Par élève",
         fileTypeSubject: "Sujet",

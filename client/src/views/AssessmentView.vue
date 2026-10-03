@@ -16,10 +16,12 @@
           <div>
             <h1 data-testid="assessment-details-heading">{{ assessment.name || t('assessment.details') }}</h1>
             <p class="assessment-meta" data-testid="assessment-meta">
-              <span data-testid="assessment-date-value">{{ assessment.date || '—' }}</span>,
-              <span data-testid="assessment-subject-value">{{ subjectLabel(assessment.subject) }}</span><template
-                v-if="assessment.level"
-                >, <span data-testid="assessment-level-value">{{ levelLabel(assessment.subject, assessment.country, assessment.level) }}</span></template>
+              <template v-if="assessment.date"
+                ><span data-testid="assessment-date-value">{{ assessment.date }}</span>, </template
+              ><span data-testid="assessment-subject-value">{{ subjectLabel(assessment.subject) }}</span
+              ><template v-if="assessment.level"
+                >, <span data-testid="assessment-level-value">{{ levelLabel(assessment.subject, assessment.country, assessment.level) }}</span></template
+              >
             </p>
           </div>
         <div v-if="headerMenu.length" class="header-actions">
@@ -295,7 +297,7 @@ const subjectLabel = (subject: string) => {
 }
 
 const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) => {
-  if (!level) return '—'
+  if (!level) return ''
   const fromEducation = country ? educationLevelName(country, level) : null
   if (fromEducation) return fromEducation
   return levelName(subject, country, level) || level

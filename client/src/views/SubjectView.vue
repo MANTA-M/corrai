@@ -167,7 +167,7 @@
               </button>
             </template>
             <template v-else>
-              <span class="meta-value" data-testid="subject-date-value">{{ assessment.date || '—' }}</span>
+              <span class="meta-value" data-testid="subject-date-value">{{ assessment.date || '' }}</span>
               <MenuIconButton
                 :item="pencilItem"
                 test-id="subject-date-edit"
@@ -333,7 +333,7 @@ const subjectLabel = (subject: string) => {
 }
 
 const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) => {
-  if (!level) return '—'
+  if (!level) return ''
   const fromEducation = country ? educationLevelName(country, level) : null
   if (fromEducation) return fromEducation
   return levelName(subject, country, level) || level

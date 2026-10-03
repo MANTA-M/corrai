@@ -92,6 +92,7 @@ const ru: I18nSchema = {
         uploading: "Загрузка...",
         uploadDone: "Загружено",
         uploadError: "Не удалось загрузить файл",
+        uploadProgress: "{current} / {total}",
         viewByType: "По типу",
         viewByStudent: "По ученику",
         fileTypeSubject: "Задание",
