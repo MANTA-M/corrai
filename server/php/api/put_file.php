@@ -6,9 +6,9 @@ use Corrai\Utils\Request;
 use Corrai\Utils\WSException;
 
 try {
-    $assessmentId = Request::getStringParam("id");
+    $assessmentId = Request::getStringParam("assessment");
     if (!$assessmentId) {
-        Request::add_error_message("error", "No id parameter provided");
+        Request::add_error_message("error", "No assessment parameter provided");
         Request::output_all();
         exit();
     }

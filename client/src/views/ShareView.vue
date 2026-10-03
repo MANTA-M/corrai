@@ -117,7 +117,7 @@ const uploadToAssessment = async (assessmentId: string) => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: assessmentId, locale: String(locale.value) },
+        { assessment: assessmentId, locale: String(locale.value) },
         formData,
         'form'
       )

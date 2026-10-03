@@ -41,6 +41,8 @@ class Task1Correcting extends PathQueueItemTask
                 throw new WSException('Invalid OCR result JSON', 400);
             }
 
+            $unclassified = ObjectStore::assessmentFileArea($file->type, $file->student) === 'unclassified';
+
             $copyPath = $store->downloadToTemp($file->contentKey());
             $subjectFiles = $this->downloadSubjectFiles($assessment, $store);
 
@@ -52,6 +54,10 @@ class Task1Correcting extends PathQueueItemTask
                 $ocrWords,
                 $subjectFiles
             );
+
+            if ($unclassified) {
+                $this->assignUnclassifiedCopy($file, $assessment, $correction);
+            }
 
             $store->putContents(
                 $file->foundErrorsKey(),
@@ -105,6 +111,26 @@ class Task1Correcting extends PathQueueItemTask
     }
 
     /**
+     * When the copy is still unclassified, move its whole directory under the named student.
+     */
+    public function assignUnclassifiedCopy(File $file, BaseAssessment $assessment, string $correction): void
+    {
+        $data = json_decode($correction, true);
+        if (!is_array($data)) {
+            return;
+        }
+        $studentName = trim((string) ($data['student_name'] ?? ''));
+        if ($studentName === '') {
+            return;
+        }
+
+        $student = $assessment->findOrCreateStudentByName($studentName);
+        $file->student = $student->id;
+        $file->saveAttributes();
+        $file->appendEvent('Assigned to student ' . $student->name);
+    }
+
+    /**
      * @param list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}> $ocrWords
      * @param list<array{path: string, name: string}> $subjectFiles
      */
@@ -126,7 +152,9 @@ class Task1Correcting extends PathQueueItemTask
         $instructionText = $assessment->instructionFilesText();
         $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
-            'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
+            'First step, read the student name: Read the full name written at the top of the copy. '
+            . 'Return it as student_name. If no name is written or it is unreadable, return an empty string. '
+            . 'Second step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
             . 'Gather the coordinates of the box containing the error in the original image. '
@@ -134,9 +162,9 @@ class Task1Correcting extends PathQueueItemTask
             . 'For every error, look for the OCR word that holds the student writing of the error and reuse its box as is. '
             . 'The OCR text may be misspelled or partial: match on position in the dictation as well as on the letters or the line or the order in the text. '
             . 'Only when no OCR word matches, estimate the box yourself from the image using the main lines of the grid. '
-            . 'Second step, filter the errors: Do not get missing space errors. '
+            . 'Third step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
-            . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
+            . 'Fourth step, write the correction: Do not rewrite the full dictation. List only the errors. '
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
             . 'Write text fields in ' . $languageName . '. '
             . 'All coordinates are pixels of the image you receive, origin (0,0) is top-left. '
@@ -146,8 +174,12 @@ class Task1Correcting extends PathQueueItemTask
         $request->set_json_response('dictation_errors', [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['errors'],
+            'required' => ['student_name', 'errors'],
             'properties' => [
+                'student_name' => [
+                    'type' => 'string',
+                    'description' => 'Full name written at the top of the copy, or an empty string when none is readable.',
+                ],
                 'errors' => [
                     'type' => 'array',
                     'description' => 'Clear spelling or grammar errors only. Omit missing spaces and badly written letters. Do not rewrite the dictation.',

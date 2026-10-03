@@ -367,20 +367,20 @@ const formatFileSize = (size: number) => {
 
 const fileViewUrl = (file: AssessmentFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.assessmentId,
+    assessment: props.assessmentId,
     file: file.id,
   })
 
 const eventUrl = (eventId: string) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.assessmentId,
+    assessment: props.assessmentId,
     file: eventsTarget.value?.id ?? '',
     event: eventId,
   })
 
 const annexUrl = (name: string) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.assessmentId,
+    assessment: props.assessmentId,
     file: eventsTarget.value?.id ?? '',
     annex: name,
   })
@@ -440,7 +440,7 @@ const loadEvents = async (file: AssessmentFile) => {
   eventsLoading.value = true
   try {
     const data = await sessionStore.getWsClient().queryWs<FileDebugInfo>('GET', '/file_annexes', {
-      id: props.assessmentId,
+      assessment: props.assessmentId,
       file: file.id,
       locale: String(locale.value),
     })
@@ -518,7 +518,7 @@ const confirmReassign = async () => {
     const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'PUT',
       '/file',
-      { id: props.assessmentId, file: file.id, locale: String(locale.value) },
+      { assessment: props.assessmentId, file: file.id, locale: String(locale.value) },
       { student: studentId }
     )
     if (response?.files) {
@@ -545,7 +545,7 @@ const submitRename = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('PUT', '/file', { id: props.assessmentId, file: renameTarget.value.id, locale: String(locale.value) }, { name: newName })
+    }>('PUT', '/file', { assessment: props.assessmentId, file: renameTarget.value.id, locale: String(locale.value) }, { name: newName })
     if (response?.files) {
       applyUpdatedFiles(response.files, response.students)
     }
@@ -569,7 +569,7 @@ const submitDelete = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('DELETE', '/file', { id: props.assessmentId, file: removedId, locale: String(locale.value) })
+    }>('DELETE', '/file', { assessment: props.assessmentId, file: removedId, locale: String(locale.value) })
     if (response?.files) {
       applyUpdatedFiles(response.files, response.students)
     } else {

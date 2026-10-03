@@ -4,9 +4,9 @@ use Corrai\Model\Assessment;
 use Corrai\Utils\Request;
 
 try {
-    $assessmentId = Request::getStringParam("id");
+    $assessmentId = Request::getStringParam("assessment");
     if (!$assessmentId) {
-        Request::add_error_message("error", "No id parameter provided");
+        Request::add_error_message("error", "No assessment parameter provided");
         Request::output_all();
         exit();
     }

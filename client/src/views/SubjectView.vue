@@ -370,7 +370,7 @@ const adjustTextareaHeight = () => {
 
 const fileViewUrl = (file: AssessmentFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: assessmentId.value,
+    assessment: assessmentId.value,
     file: file.id,
   })
 
@@ -450,7 +450,7 @@ const saveInstructionContent = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: assessment.value.id, locale: String(locale.value) },
+        { assessment: assessment.value.id, locale: String(locale.value) },
         formData,
         'form'
       )
@@ -462,7 +462,7 @@ const saveInstructionContent = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
-        { id: assessment.value.id, file: targetFile.id, locale: String(locale.value) },
+        { assessment: assessment.value.id, file: targetFile.id, locale: String(locale.value) },
         { content: contentToSave }
       )
       if (response?.files) {

@@ -251,7 +251,7 @@ const uploadFiles = async (files: File[]) => {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const params: Record<string, string> = { id: props.assessmentId, locale: String(locale.value) }
+        const params: Record<string, string> = { assessment: props.assessmentId, locale: String(locale.value) }
         if (fileType.value) params.type = fileType.value
         const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
           'POST',

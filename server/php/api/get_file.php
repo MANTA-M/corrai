@@ -6,10 +6,10 @@ use Corrai\Utils\Request;
 use Corrai\Utils\Utils;
 
 try {
-    $assessmentId = Request::getStringParam("id");
+    $assessmentId = Request::getStringParam("assessment");
     if (!$assessmentId) {
         http_response_code(400);
-        exit('No id parameter provided.');
+        exit('No assessment parameter provided.');
     }
 
     $fileId = Request::getStringParam("file");

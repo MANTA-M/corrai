@@ -148,7 +148,7 @@ const nextInstructionTitle = () => {
 
 const fileViewUrl = (file: AssessmentFile) =>
   sessionStore.getWsClient().getWsUrl('/file', {
-    id: props.assessmentId,
+    assessment: props.assessmentId,
     file: file.id,
   })
 
@@ -199,7 +199,7 @@ const save = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: props.assessmentId, locale: String(locale.value) },
+        { assessment: props.assessmentId, locale: String(locale.value) },
         formData,
         'form'
       )
@@ -212,7 +212,7 @@ const save = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
-        { id: props.assessmentId, file: props.existingFile.id, locale: String(locale.value) },
+        { assessment: props.assessmentId, file: props.existingFile.id, locale: String(locale.value) },
         patch
       )
       files = response?.files
