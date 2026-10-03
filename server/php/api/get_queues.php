@@ -99,6 +99,13 @@ try {
         $fileId = is_array($decoded) && isset($decoded['file_id']) && is_string($decoded['file_id'])
             ? $decoded['file_id']
             : '';
+        if ($fileId === '' && is_array($decoded) && isset($decoded['path']) && is_string($decoded['path'])) {
+            try {
+                $fileId = queues_file_id_from_content_path($decoded['path']);
+            } catch (\Throwable $th) {
+                $fileId = '';
+            }
+        }
         if ($fileId === '') {
             $phpItems[] = [
                 'file_id' => '',

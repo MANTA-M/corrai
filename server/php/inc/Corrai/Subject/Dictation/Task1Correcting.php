@@ -10,7 +10,7 @@ use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
-class CorrectingTask extends PathQueueItemTask
+class Task1Correcting extends PathQueueItemTask
 {
 
     protected function process(object $queue_item_data, string $s3_path): void
@@ -28,6 +28,7 @@ class CorrectingTask extends PathQueueItemTask
 
         $copyPath = null;
         $solutionPath = null;
+        $subjectFiles = [];
         try {
             $assessment = $this->loadAssessment($file);
             $store = ObjectStore::getInstance();
@@ -35,13 +36,15 @@ class CorrectingTask extends PathQueueItemTask
 
             $solution = $this->firstSolutionFile($assessment);
             $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
+            $subjectFiles = $this->downloadSubjectFiles($assessment, $store);
             $correction = $this->findErrors(
                 $assessment,
                 $copyPath,
                 $file->name,
                 $solutionPath,
                 $solution['name'],
-                $this->languageName($file)
+                $this->languageName($file),
+                $subjectFiles
             );
             $store->putContents(
                 $file->foundErrorsKey(),
@@ -52,7 +55,7 @@ class CorrectingTask extends PathQueueItemTask
             $file->status = 'errors_found';
             $file->saveAttributes();
             $file->appendEvent('Errors found');
-            RedisQueue::getInstance()->enqueueFile($file->id);
+            RedisQueue::getInstance()->enqueueFile($file->id, Task2Annotating::class);
         } catch (Throwable $th) {
             $this->failCorrection($file, $th);
         } finally {
@@ -62,16 +65,52 @@ class CorrectingTask extends PathQueueItemTask
             if ($solutionPath !== null) {
                 @unlink($solutionPath);
             }
+            foreach ($subjectFiles as $subjectFile) {
+                @unlink($subjectFile['path']);
+            }
         }
     }
 
+    /**
+     * Every file stored under the assessment subject/ folder.
+     *
+     * @return list<array{path: string, name: string}>
+     */
+    private function downloadSubjectFiles(BaseAssessment $assessment, ObjectStore $store): array
+    {
+        $prefix = ObjectStore::assessmentSubjectFilesPrefix(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id
+        );
+        $files = [];
+        try {
+            foreach ($store->listChildPrefixes($prefix) as $fileId) {
+                $subjectFile = $assessment->getFile($fileId);
+                $path = $store->downloadToTemp($subjectFile->contentKey());
+                $files[] = ['path' => $path, 'name' => $subjectFile->name];
+            }
+        } catch (Throwable $error) {
+            foreach ($files as $subjectFile) {
+                @unlink($subjectFile['path']);
+            }
+            throw $error;
+        }
+
+        return $files;
+    }
+
+    /**
+     * @param list<array{path: string, name: string}> $subjectFiles
+     */
     private function findErrors(
         BaseAssessment $assessment,
         string $copyPath,
         string $copyName,
         string $solutionPath,
         string $solutionName,
-        string $languageName
+        string $languageName,
+        array $subjectFiles = []
     ): string {
         $instructionText = $assessment->instructionFilesText();
         $request = new ClaudeSonnetClient();
@@ -89,6 +128,10 @@ class CorrectingTask extends PathQueueItemTask
         );
         $request->add_text('Official corrigé:');
         $request->add_file($solutionPath, $solutionName);
+        foreach ($subjectFiles as $subjectFile) {
+            $request->add_text($subjectFile['name'] . ':');
+            $request->add_file($subjectFile['path'], $subjectFile['name']);
+        }
         $request->add_text('Student copy to decipher:');
         $request->add_file($copyPath, $copyName);
         return $request->call_text();

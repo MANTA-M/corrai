@@ -399,7 +399,7 @@ const createAssessment = async () => {
     const response = await wsClient.queryWs<{ hash?: string }>(
       'POST',
       '/assessment',
-      undefined,
+      { locale: String(locale.value) },
       payload
     )
 

@@ -32,16 +32,7 @@ try {
         throw new WSException("Not authorized", 403);
     }
 
-    $language = Request::getStringParam("language");
-    $body = Request::getPostDataArray();
-    if (is_array($body) && isset($body['language']) && is_string($body['language'])) {
-        $language = $body['language'];
-    }
-    if ($language === null || $language === '') {
-        $language = 'French';
-    }
-
-    $files = $assessment->correctSubmission($fileId, $language);
+    $files = $assessment->correctSubmission($fileId);
 
     Request::add_output("id", $assessmentId);
     Request::add_output("file", $fileId);

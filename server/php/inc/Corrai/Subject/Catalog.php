@@ -122,7 +122,14 @@ class Catalog
         $classes = [];
         foreach (AssessmentFactory::classes() as $assessmentClass) {
             $prefix = substr($assessmentClass, 0, -strlen('Assessment'));
-            foreach (['TranscribingTask', 'CorrectingTask', 'AnnotatingTask', 'RenderingTask'] as $suffix) {
+            foreach ([
+                'Task1Transcribing',
+                'Task1Correcting',
+                'Task2Correcting',
+                'Task2Annotating',
+                'Task3Annotating',
+                'Task3Rendering',
+            ] as $suffix) {
                 $class = $prefix . $suffix;
                 if (self::taskExists($class)) {
                     $classes[] = $class;
@@ -148,13 +155,13 @@ class Catalog
         $prefix = $assessmentClass === \Corrai\Model\Assessment::class
             ? 'Corrai\\Subject\\Other\\'
             : substr($assessmentClass, 0, -strlen('Assessment'));
-        foreach (['TranscribingTask', 'CorrectingTask'] as $suffix) {
+        foreach (['Task1Transcribing', 'Task1Correcting'] as $suffix) {
             $class = $prefix . $suffix;
             if (self::taskExists($class)) {
                 return $class;
             }
         }
-        return \Corrai\Subject\Other\TranscribingTask::class;
+        return \Corrai\Subject\Other\Task1Transcribing::class;
     }
 
     /**

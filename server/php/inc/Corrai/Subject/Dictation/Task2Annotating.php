@@ -9,7 +9,7 @@ use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
-class AnnotatingTask extends PathQueueItemTask
+class Task2Annotating extends PathQueueItemTask
 {
 
     protected function process(object $queue_item_data, string $s3_path): void
@@ -45,7 +45,7 @@ class AnnotatingTask extends PathQueueItemTask
             $file->status = 'annotations';
             $file->saveAttributes();
             $file->appendEvent('Annotations written');
-            RedisQueue::getInstance()->enqueueFile($file->id);
+            RedisQueue::getInstance()->enqueueFile($file->id, Task3Rendering::class);
         } catch (Throwable $th) {
             $this->failCorrection($file, $th);
         } finally {

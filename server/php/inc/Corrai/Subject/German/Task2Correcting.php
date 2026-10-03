@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\German;
 
-class CorrectingTask extends \Corrai\Subject\Other\CorrectingTask
+class Task2Correcting extends \Corrai\Subject\Other\Task2Correcting
 {
 
 }

@@ -31,6 +31,9 @@ try {
     }
 
     $assessment = Assessment::from_array($assessment_data);
+    if (!isset($assessment_data['correction_language']) || !is_string($assessment_data['correction_language']) || trim($assessment_data['correction_language']) === '') {
+        $assessment->correction_language = Assessment::normalizeLocale(Request::getStringParam('locale') ?? 'fr');
+    }
     $assessment->school_id = $user->school_id;
     $assessment->user_id = $user->id;
     $assessment->validate();

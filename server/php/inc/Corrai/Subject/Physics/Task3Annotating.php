@@ -12,7 +12,7 @@ use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
-class AnnotatingTask extends PathQueueItemTask
+class Task3Annotating extends PathQueueItemTask
 {
     protected function process(object $queue_item_data, string $s3_path): void
     {

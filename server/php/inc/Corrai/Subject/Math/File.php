@@ -20,7 +20,7 @@ class File extends BaseFile
         if ($this->type !== 'submission') {
             return;
         }
-        (new TranscribingTask())->transcribeSubmission($this);
+        (new Task1Transcribing())->transcribeSubmission($this);
     }
 
     public function on_transcribed(): void
@@ -28,7 +28,7 @@ class File extends BaseFile
         if ($this->type !== 'submission') {
             return;
         }
-        (new CorrectingTask())->correctSubmission($this);
+        (new Task2Correcting())->correctSubmission($this);
     }
 
     public function on_correction_ready(): void
@@ -36,6 +36,6 @@ class File extends BaseFile
         if ($this->type !== 'submission') {
             return;
         }
-        (new AnnotatingTask())->annotateSubmission($this);
+        (new Task3Annotating())->annotateSubmission($this);
     }
 }

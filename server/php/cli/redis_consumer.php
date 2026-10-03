@@ -59,10 +59,18 @@ while (true) {
         if ($ticket === null) {
             continue;
         }
-        error_log('Treating file ticket ' . $ticket['file_id']);
-        RedisConsumer::treat($ticket['file_id']);
+        if (isset($ticket['path'], $ticket['task'])) {
+            error_log('Treating path task ' . $ticket['task'] . ' on ' . $ticket['path']);
+            $start = microtime(true);
+            RedisConsumer::treatPathTask($ticket['path'], $ticket['task']);
+            error_log('Task treated in ' . round((microtime(true) - $start)*1000, 0) . ' ms');
+        } else {
+            error_log('Missing path or task on ticket');
+            RedisConsumer::reject($ticket);
+        }
     } catch (Throwable $e) {
-        error_log('Redis consumer error: ' . $e->getMessage());
+        error_log('Error treating path task ' . ($ticket['task'] ?? 'unknown') . ' on ' . ($ticket['path'] ?? 'unknown'). ': ' . $e->getMessage());
         error_log($e->getTraceAsString());
+        RedisConsumer::reject($ticket);
     }
 }

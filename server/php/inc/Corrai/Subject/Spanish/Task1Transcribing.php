@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\Spanish;
 
-class TranscribingTask extends \Corrai\Subject\Other\TranscribingTask
+class Task1Transcribing extends \Corrai\Subject\Other\Task1Transcribing
 {
 
 }

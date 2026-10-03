@@ -12,7 +12,7 @@ use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
-class TranscribingTask extends PathQueueItemTask
+class Task1Transcribing extends PathQueueItemTask
 {
     protected function process(object $queue_item_data, string $s3_path): void
     {
@@ -41,7 +41,7 @@ class TranscribingTask extends PathQueueItemTask
             $file->status = 'transcribed';
             $file->saveAttributes();
             $file->appendEvent('Transcription written');
-            RedisQueue::getInstance()->enqueueFile($file->id);
+            RedisQueue::getInstance()->enqueueFile($file->id, Task2Correcting::class);
         } catch (Throwable $th) {
             $this->failCorrection($file, $th);
         } finally {

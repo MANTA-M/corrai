@@ -7,7 +7,7 @@ use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
-class RenderingTask extends PathQueueItemTask
+class Task3Rendering extends PathQueueItemTask
 {
     private const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
 

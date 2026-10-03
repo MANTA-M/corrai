@@ -13,11 +13,8 @@ use Throwable;
 /**
  * Find dictation errors after OCR. Same step as File::on_ocr_done.
  */
-class CorrectingTask extends PathQueueItemTask
+class Task1Correcting extends PathQueueItemTask
 {
-
-    private const LANGUAGE_NAME = 'French';
-
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $this->correct($this->loadFile($s3_path));
@@ -31,6 +28,7 @@ class CorrectingTask extends PathQueueItemTask
 
         $copyPath = null;
         $solutionPath = null;
+        $subjectFiles = [];
         try {
             $assessment = $this->loadAssessment($file);
             $store = ObjectStore::getInstance();
@@ -47,6 +45,7 @@ class CorrectingTask extends PathQueueItemTask
             $copyPath = $store->downloadToTemp($file->contentKey());
             $solution = $this->firstSolutionFile($assessment);
             $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
+            $subjectFiles = $this->downloadSubjectFiles($assessment, $store);
 
             $correction = $this->findErrors(
                 $assessment,
@@ -54,8 +53,9 @@ class CorrectingTask extends PathQueueItemTask
                 $file->name,
                 $solutionPath,
                 $solution['name'],
-                self::LANGUAGE_NAME,
-                $ocrWords
+                $assessment->correctionLanguageName(),
+                $ocrWords,
+                $subjectFiles
             );
 
             $store->putContents(
@@ -67,7 +67,7 @@ class CorrectingTask extends PathQueueItemTask
             $file->status = 'errors_found';
             $file->saveAttributes();
             $file->appendEvent('Errors found');
-            RedisQueue::getInstance()->enqueueFile($file->id);
+            RedisQueue::getInstance()->enqueueFile($file->id, Task2Annotating::class);
         } catch (Throwable $th) {
             $this->failCorrection($file, $th);
         } finally {
@@ -77,11 +77,44 @@ class CorrectingTask extends PathQueueItemTask
             if ($solutionPath !== null) {
                 @unlink($solutionPath);
             }
+            foreach ($subjectFiles as $subjectFile) {
+                @unlink($subjectFile['path']);
+            }
         }
     }
 
     /**
+     * Every file stored under the assessment subject/ folder.
+     *
+     * @return list<array{path: string, name: string}>
+     */
+    private function downloadSubjectFiles(BaseAssessment $assessment, ObjectStore $store): array
+    {
+        $prefix = ObjectStore::assessmentSubjectFilesPrefix(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id
+        );
+        $files = [];
+        try {
+            foreach ($store->listChildPrefixes($prefix) as $fileId) {
+                $subjectFile = $assessment->getFile($fileId);
+                $path = $store->downloadToTemp($subjectFile->contentKey());
+                $files[] = ['path' => $path, 'name' => $subjectFile->name];
+            }
+        } catch (Throwable $error) {
+            foreach ($files as $subjectFile) {
+                @unlink($subjectFile['path']);
+            }
+            throw $error;
+        }
+
+        return $files;
+    }
+
+    /**
      * @param list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}> $ocrWords
+     * @param list<array{path: string, name: string}> $subjectFiles
      */
     public function findErrors(
         BaseAssessment $assessment,
@@ -90,7 +123,8 @@ class CorrectingTask extends PathQueueItemTask
         string $solutionPath,
         string $solutionName,
         string $languageName,
-        array $ocrWords = []
+        array $ocrWords = [],
+        array $subjectFiles = []
     ): string {
         $size = @getimagesize($copyPath);
         $width = is_array($size) ? (int) $size[0] : 0;
@@ -164,6 +198,10 @@ class CorrectingTask extends PathQueueItemTask
         ]);
         $request->add_text('Official corrigé:');
         $request->add_file($solutionPath, $solutionName);
+        foreach ($subjectFiles as $subjectFile) {
+            $request->add_text($subjectFile['name'] . ':');
+            $request->add_file($subjectFile['path'], $subjectFile['name']);
+        }
         $request->add_text('Student copy to decipher:');
         $request->add_file($copyPath, $copyName);
         $request->add_text("OCR words of the student copy:\n" . $this->ocrJson($ocrWords));

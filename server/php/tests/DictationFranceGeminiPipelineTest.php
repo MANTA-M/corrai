@@ -7,7 +7,7 @@ namespace Corrai\Tests;
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Llm\Openrouter\Gemini2FlashLiteClient;
 use Corrai\Subject\Catalog;
-use Corrai\Subject\DictationFranceGemini\CorrectingTask;
+use Corrai\Subject\DictationFranceGemini\Task1Correcting;
 use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +16,7 @@ class DictationFranceGeminiPipelineTest extends TestCase
     public function testPipelineIsSelectedForDictationFranceGemini(): void
     {
         $this->assertSame(
-            CorrectingTask::class,
+            Task1Correcting::class,
             Catalog::pipelineClass('Dictation', 'fr', 'Gemini')
         );
     }
@@ -147,6 +147,47 @@ class DictationFranceGeminiPipelineTest extends TestCase
         return $path;
     }
 
+    public function testFindErrorsSendsEverySubjectFile(): void
+    {
+        $claude = new GeminiCapturedClaudeSonnetClient();
+        $pipeline = new TestableGeminiPipeline([], $claude);
+
+        $assessment = $this->createMock(\Corrai\Model\Assessment::class);
+        $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
+
+        $path = $this->writeMarkedPng();
+        $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
+        copy($path, $solutionPath);
+        $subjectPath = tempnam(sys_get_temp_dir(), 'test_subject_');
+        file_put_contents($subjectPath, "Le texte de la dictée.");
+
+        try {
+            $pipeline->callFindErrors(
+                $assessment,
+                $path,
+                'copy.png',
+                $solutionPath,
+                'sol.png',
+                'French',
+                [['path' => $subjectPath, 'name' => 'dictee.txt']]
+            );
+        } finally {
+            if (is_file($path)) {
+                @unlink($path);
+            }
+            if (is_file($solutionPath)) {
+                @unlink($solutionPath);
+            }
+            if (is_file($subjectPath)) {
+                @unlink($subjectPath);
+            }
+        }
+
+        $userText = $claude->userText();
+        $this->assertStringContainsString('dictee.txt:', $userText);
+        $this->assertStringContainsString('Le texte de la dictée.', $userText);
+    }
+
     /**
      * @return array{0: int, 1: int, 2: int}
      */
@@ -158,7 +199,7 @@ class DictationFranceGeminiPipelineTest extends TestCase
     }
 }
 
-class TestableGeminiPipeline extends CorrectingTask
+class TestableGeminiPipeline extends Task1Correcting
 {
     /**
      * @param list<Gemini2FlashLiteClient> $geminiClients
@@ -203,9 +244,10 @@ class TestableGeminiPipeline extends CorrectingTask
         string $copyName,
         string $solutionPath,
         string $solutionName,
-        string $languageName
+        string $languageName,
+        array $subjectFiles = []
     ): string {
-        return $this->findErrors($assessment, $copyPath, $copyName, $solutionPath, $solutionName, $languageName);
+        return $this->findErrors($assessment, $copyPath, $copyName, $solutionPath, $solutionName, $languageName, $subjectFiles);
     }
 }
 
@@ -274,6 +316,23 @@ class GeminiCapturedClaudeSonnetClient extends ClaudeSonnetClient
         }
 
         return '';
+    }
+
+    public function userText(): string
+    {
+        $text = '';
+        foreach ($this->payload['messages'] as $message) {
+            if (($message['role'] ?? '') !== 'user' || !is_array($message['content'] ?? null)) {
+                continue;
+            }
+            foreach ($message['content'] as $part) {
+                if (is_array($part) && ($part['type'] ?? '') === 'text') {
+                    $text .= (string) ($part['text'] ?? '') . "\n";
+                }
+            }
+        }
+
+        return $text;
     }
 
     public function call_text(): string

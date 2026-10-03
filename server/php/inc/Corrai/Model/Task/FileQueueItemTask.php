@@ -28,9 +28,7 @@ abstract class FileQueueItemTask
             error_log('File content is null');
             return;
         }
-        error_log('Processing task: ' . $queue_item_data->task_id);
         $this->process($queue_item_data, $file_content);
-        error_log('Task processed: ' . $queue_item_data->task_id);
     }
 
     protected abstract function process(object $queue_item_data, string $file_content): void;

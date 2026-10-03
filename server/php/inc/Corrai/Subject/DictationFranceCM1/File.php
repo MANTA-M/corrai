@@ -21,7 +21,7 @@ class File extends BaseFile
         }
 
         $this->appendEvent('OCR queued');
-        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'pre-ocr', self::OCR_LANG);
+        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'pre-ocr', '', self::OCR_LANG);
     }
 
     public function on_correction_asked(): void
@@ -31,22 +31,22 @@ class File extends BaseFile
         }
 
         $this->appendEvent('OCR queued');
-        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'ocr', self::OCR_LANG);
+        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'ocr', Task1Correcting::class, self::OCR_LANG);
     }
 
     public function on_ocr_done(): void
     {
-        (new CorrectingTask())->correct($this);
+        (new Task1Correcting())->correct($this);
     }
 
     public function on_errors_found(): void
     {
-        (new AnnotatingTask())->annotate($this);
+        (new Task2Annotating())->annotate($this);
     }
 
     public function on_annotations(): void
     {
-        (new RenderingTask())->render($this);
+        (new Task3Rendering())->render($this);
     }
 
 }

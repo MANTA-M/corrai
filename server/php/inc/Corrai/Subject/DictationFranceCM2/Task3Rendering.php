@@ -10,7 +10,7 @@ use Throwable;
 /**
  * Render the corrected copy. Same step as File::on_annotations.
  */
-class RenderingTask extends PathQueueItemTask
+class Task3Rendering extends PathQueueItemTask
 {
     private const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
 

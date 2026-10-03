@@ -46,11 +46,14 @@ class RedisQueue
     }
 
     /**
-     * Enqueue a ticket for a file that was just stored.
+     * Enqueue a ticket for a file with a given task.
      */
-    public function enqueueFile(string $fileId): void
+    public function enqueueFile(string $fileId, string $task): void
     {
-        $payload = json_encode(['file_id' => $fileId], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($task === null) {
+            throw new InvalidArgumentException('Task is required');
+        }
+        $payload = json_encode(['file_id' => $fileId, 'task' => $task], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($payload === false) {
             throw new RedisException('Failed to encode file queue ticket');
         }
@@ -60,6 +63,9 @@ class RedisQueue
 
     /**
      * Enqueue a content path for the Python OCR consumer.
+     *
+     * ``$operation`` is stored but ignored. When OCR finishes, the Python
+     * consumer enqueues ``$after_task`` on this same path in the PHP queue.
      */
     public function enqueueOcr(string $contentPath, string $operation, string $after_task = '', string $lang = 'fr'): void
     {
@@ -77,7 +83,10 @@ class RedisQueue
     /**
      * Blocking pop of the next ticket. Returns null on timeout.
      *
-     * @return array{file_id: string}|null
+     * A ticket is either a file-status job (``file_id``) or a path task
+     * (``path`` plus ``task``) enqueued after OCR.
+     *
+     * @return array{file_id?: string, path?: string, task?: string}|null
      */
     public function blockingPop(int $timeoutSeconds = 5): ?array
     {
@@ -93,12 +102,30 @@ class RedisQueue
         }
 
         $decoded = json_decode($raw, true);
-        if (!is_array($decoded) || !isset($decoded['file_id']) || !is_string($decoded['file_id'])) {
+        if (!is_array($decoded)) {
             error_log('Invalid Redis file queue ticket: ' . $raw);
             return null;
         }
 
-        return ['file_id' => $decoded['file_id']];
+        $ticket = [];
+        if (isset($decoded['file_id']) && is_string($decoded['file_id']) && $decoded['file_id'] !== '') {
+            $ticket['file_id'] = $decoded['file_id'];
+        }
+        if (isset($decoded['path']) && is_string($decoded['path']) && $decoded['path'] !== '') {
+            $ticket['path'] = $decoded['path'];
+        }
+        if (isset($decoded['task']) && is_string($decoded['task']) && $decoded['task'] !== '') {
+            $ticket['task'] = $decoded['task'];
+        }
+
+        $hasFile = isset($ticket['file_id']);
+        $hasPathTask = isset($ticket['path'], $ticket['task']);
+        if (!$hasFile && !$hasPathTask) {
+            error_log('Invalid Redis file queue ticket: ' . $raw);
+            return null;
+        }
+
+        return $ticket;
     }
 
     /**

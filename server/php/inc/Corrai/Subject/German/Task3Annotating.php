@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\German;
 
-class AnnotatingTask extends \Corrai\Subject\Other\AnnotatingTask
+class Task3Annotating extends \Corrai\Subject\Other\Task3Annotating
 {
 
 }

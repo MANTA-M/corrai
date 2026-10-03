@@ -25,7 +25,7 @@ FILES_KEY="corrai:files"
 OCR_KEY="corrai:ocr"
 
 INTERVAL=1
-PEEK=8
+PEEK=40
 ONCE=0
 
 usage() {

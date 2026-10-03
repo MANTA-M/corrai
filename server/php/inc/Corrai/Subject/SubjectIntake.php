@@ -41,6 +41,7 @@ class SubjectIntake
             $assessment->country = $user->country;
             $assessment->name = '';
             $assessment->date = '';
+            $assessment->correction_language = Assessment::normalizeLocale($locale);
             $assessment->save();
 
             $assessment->createFileFromPath($filename, $localPath, $contentType, 'subject', null);

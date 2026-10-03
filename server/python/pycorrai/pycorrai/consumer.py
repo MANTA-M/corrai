@@ -39,9 +39,10 @@ def env(key: str, default: str = "") -> str:
 
 
 def parse_ticket(raw: str | bytes) -> dict[str, str]:
-    """Decode a queue ticket into ``{"path": ..., "lang": ...}``.
+    """Decode a queue ticket into path, language, and optional follow-up task.
 
-    Accepts JSON ``{"path": "..."}`` (optional ``lang``) or a bare path string.
+    Accepts JSON ``{"path": "..."}`` (optional ``lang`` and ``after_task``) or a
+    bare path string. ``operation`` is ignored.
     """
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8")
@@ -51,6 +52,7 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
 
     path: str
     lang = DEFAULT_LANG
+    after_task = ""
 
     if text.startswith("{"):
         decoded = json.loads(text)
@@ -63,6 +65,9 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
         ticket_lang = decoded.get("lang")
         if isinstance(ticket_lang, str) and ticket_lang.strip() != "":
             lang = ticket_lang.strip()
+        ticket_after = decoded.get("after_task")
+        if isinstance(ticket_after, str):
+            after_task = ticket_after.strip()
     else:
         path = text
 
@@ -70,7 +75,7 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
     if path == "":
         raise ValueError("OCR ticket path is empty")
 
-    return {"path": path, "lang": lang}
+    return {"path": path, "lang": lang, "after_task": after_task}
 
 
 def file_prefix(content_path: str) -> str:
@@ -201,14 +206,24 @@ class ObjectStore:
         self.put_bytes(key, body, "application/json")
 
 
+def php_task_ticket(content_path: str, after_task: str) -> str:
+    """PHP queue ticket that runs ``after_task`` on the same content path."""
+    return json.dumps(
+        {"path": content_path, "task": after_task},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
 def treat(
     content_path: str,
     lang: str,
     store: ObjectStore,
     redis: Redis,
     recognize=recognize_bytes,
+    after_task: str = "",
 ) -> None:
-    """OCR one file path and enqueue it for the PHP consumer."""
+    """OCR one file path and, when set, enqueue ``after_task`` for PHP."""
     logger.info("OCR starting for %s lang=%s", content_path, lang)
     attr_key = attributes_key(content_path)
     store.get_json(attr_key)
@@ -233,10 +248,16 @@ def treat(
         attrs["status"] = "ocr_done"
         store.put_json(attr_key, attrs)
 
-        file_id = file_id_from_path(content_path)
-        ticket = json.dumps({"file_id": file_id}, ensure_ascii=False, separators=(",", ":"))
-        redis.lpush(PHP_LIST_KEY, ticket)
-        logger.info("OCR finished for %s, enqueued file_id=%s", content_path, file_id)
+        follow_up = after_task.strip()
+        if follow_up != "":
+            redis.lpush(PHP_LIST_KEY, php_task_ticket(content_path, follow_up))
+            logger.info(
+                "OCR finished for %s, enqueued task=%s",
+                content_path,
+                follow_up,
+            )
+        else:
+            logger.info("OCR finished for %s, no follow-up task", content_path)
     except Exception:
         try:
             attrs = store.get_json(attr_key)
@@ -289,6 +310,7 @@ def run_forever(
                 store,
                 redis,
                 recognize=recognize,
+                after_task=ticket["after_task"],
             )
         except Exception:
             logger.exception("OCR consumer error")

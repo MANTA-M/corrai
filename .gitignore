@@ -59,3 +59,4 @@ doc/test_files/
 .env
 .env.local
 client/vite.config.ts
+server/php/.phpunit.cache/test-results

@@ -25,17 +25,8 @@ try {
         throw new WSException("Not authorized", 403);
     }
 
-    $language = Request::getStringParam("language");
-    $body = Request::getPostDataArray();
-    if (is_array($body) && isset($body['language']) && is_string($body['language'])) {
-        $language = $body['language'];
-    }
-    if ($language === null || $language === '') {
-        $language = 'French';
-    }
-
     $locale = Request::getStringParam('locale');
-    $files = $assessment->correctUnclassifiedFiles($language);
+    $files = $assessment->correctUnclassifiedFiles();
 
     Request::add_output("id", $assessmentId);
     Request::add_output("files", $files);

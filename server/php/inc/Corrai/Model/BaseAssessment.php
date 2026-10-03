@@ -10,12 +10,12 @@ use Corrai\Utils\MenuLabels;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\Subject\Catalog;
-use Corrai\Subject\Dictation\CorrectingTask as Dictation;
+use Corrai\Subject\Dictation\Task1Correcting as Dictation;
 use Corrai\Subject\AssessmentFactory;
-use Corrai\Subject\Law\TranscribingTask as Law;
-use Corrai\Subject\Math\TranscribingTask as MathPipeline;
-use Corrai\Subject\Other\TranscribingTask as Other;
-use Corrai\Subject\Physics\TranscribingTask as Physics;
+use Corrai\Subject\Law\Task1Transcribing as Law;
+use Corrai\Subject\Math\Task1Transcribing as MathPipeline;
+use Corrai\Subject\Other\Task1Transcribing as Other;
+use Corrai\Subject\Physics\Task1Transcribing as Physics;
 
 /**
  * Shared assessment model. Subject packages provide a concrete Assessment.
@@ -56,6 +56,27 @@ abstract class BaseAssessment
      * Optional level for this assessment's subject. Null when not specified.
      */
     public ?string $level = null;
+
+    /**
+     * Locale code of the correction feedback written by the LLM. Set at creation.
+     */
+    public string $correction_language = 'fr';
+
+    /**
+     * English language names used as LLM directives.
+     *
+     * @var array<string, string>
+     */
+    public const LOCALE_NAMES = [
+        'en' => 'English',
+        'fr' => 'French',
+        'ru' => 'Russian',
+        'uk' => 'Ukrainian',
+        'es' => 'Spanish',
+        'pt' => 'Portuguese',
+        'ro' => 'Romanian',
+        'de' => 'German',
+    ];
 
     /**
      * The date of the assessment (YYYY-MM-DD).
@@ -161,6 +182,7 @@ abstract class BaseAssessment
             'subject' => $this->subject,
             'country' => self::optionalAttribute($this->country),
             'level' => self::optionalAttribute($this->level),
+            'correction_language' => $this->correction_language,
             'date' => $this->date,
             'created_at' => $this->created_at,
             'class' => $this->storedClass(),
@@ -177,6 +199,7 @@ abstract class BaseAssessment
         $assessment->subject = $data['subject'] ?? '';
         $assessment->country = self::optionalAttribute($data['country'] ?? null);
         $assessment->level = self::optionalAttribute($data['level'] ?? null);
+        $assessment->correction_language = self::normalizeLocale($data['correction_language'] ?? null);
         $assessment->date = $data['date'] ?? '';
         $assessment->created_at = $data['created_at'] ?? '';
         return $assessment;
@@ -192,6 +215,33 @@ abstract class BaseAssessment
         }
         $trimmed = trim($value);
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * A supported locale code. Missing or unknown values fall back to French.
+     */
+    public static function normalizeLocale(mixed $value): string
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return 'fr';
+        }
+        $locale = strtolower(trim($value));
+        $dash = strpos($locale, '-');
+        if ($dash !== false) {
+            $locale = substr($locale, 0, $dash);
+        }
+        if (!isset(self::LOCALE_NAMES[$locale])) {
+            return 'fr';
+        }
+        return $locale;
+    }
+
+    /**
+     * English language name for LLM prompts.
+     */
+    public function correctionLanguageName(): string
+    {
+        return self::LOCALE_NAMES[$this->correction_language] ?? self::LOCALE_NAMES['fr'];
     }
 
     /**
@@ -317,6 +367,7 @@ abstract class BaseAssessment
             'subject' => $this->subject,
             'country' => self::optionalAttribute($this->country),
             'level' => self::optionalAttribute($this->level),
+            'correction_language' => $this->correction_language,
             'date' => $this->date,
             'created_at' => $this->created_at,
             'label' => $this->localizedLabel($locale),
@@ -708,7 +759,7 @@ abstract class BaseAssessment
         $store->putContents($file->contentKey(), $content, $file->content_type);
         $file->saveAttributes(false);
         $file->appendEvent('Stored');
-        RedisQueue::getInstance()->enqueueFile($file->id);
+        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
 
         return $file;
     }
@@ -761,7 +812,7 @@ abstract class BaseAssessment
         $store->put($file->contentKey(), $localPath, $file->content_type);
         $file->saveAttributes(false);
         $file->appendEvent('Stored');
-        RedisQueue::getInstance()->enqueueFile($file->id);
+        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
 
         return $file;
     }
@@ -902,7 +953,7 @@ abstract class BaseAssessment
      *
      * @return array Updated file list
      */
-    public function correctSubmission(string $fileId, string $language): array
+    public function correctSubmission(string $fileId): array
     {
         $file = $this->getFile($fileId);
         if ($file->type !== 'submission') {
@@ -913,12 +964,6 @@ abstract class BaseAssessment
         if (!$store->exists($file->contentKey())) {
             throw new WSException("File '$fileId' does not exist for assessment {$this->id}", 404);
         }
-
-        $store->putContents(
-            rtrim($file->prefix(), '/') . '/correction_language.txt',
-            $language,
-            'text/plain; charset=utf-8'
-        );
 
         $subjectFileClass = $this->fileClass();
         if ($subjectFileClass !== $file::class) {
@@ -932,7 +977,7 @@ abstract class BaseAssessment
             $file->status = 'correction_asked';
             $file->saveAttributes();
             $file->on_correction_asked();
-            RedisQueue::getInstance()->enqueueFile($file->id);
+            RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
             return $this->list_files();
         }
 
@@ -946,7 +991,7 @@ abstract class BaseAssessment
      *
      * @return array Updated file list
      */
-    public function correctUnclassifiedFiles(string $language): array
+    public function correctUnclassifiedFiles(): array
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
             throw new WSException('Assessment id, school_id and user_id are required', 400);
@@ -978,14 +1023,6 @@ abstract class BaseAssessment
 
             if ($storedClass === null) {
                 $file->saveAttributes();
-            }
-
-            if ($store->exists($file->contentKey())) {
-                $store->putContents(
-                    rtrim($file->prefix(), '/') . '/correction_language.txt',
-                    $language,
-                    'text/plain; charset=utf-8'
-                );
             }
 
             $file->on_correction_asked();

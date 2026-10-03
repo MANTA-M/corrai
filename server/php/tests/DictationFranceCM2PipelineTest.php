@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
-use Corrai\Subject\DictationFranceCM2\AnnotatingTask;
-use Corrai\Subject\DictationFranceCM2\CorrectingTask;
+use Corrai\Subject\DictationFranceCM2\Task1Correcting;
+use Corrai\Subject\DictationFranceCM2\Task2Annotating;
 use Corrai\Subject\DictationFranceCM2\Pipeline;
 use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;
@@ -245,6 +245,44 @@ class DictationFranceCM2PipelineTest extends TestCase
         $this->assertStringContainsString('no OCR word matches', $system);
     }
 
+    public function testFindErrorsSendsEverySubjectFile(): void
+    {
+        $mockClient = new CapturedClaudeSonnetClient();
+        $task = new TestableCorrectingTask($mockClient);
+
+        $assessment = $this->createMock(\Corrai\Model\Assessment::class);
+        $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
+
+        $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
+        copy($this->tempImagePath, $solutionPath);
+        $subjectPath = tempnam(sys_get_temp_dir(), 'test_subject_');
+        file_put_contents($subjectPath, "Le texte de la dictée.");
+
+        try {
+            $task->findErrors(
+                $assessment,
+                $this->tempImagePath,
+                'copy.png',
+                $solutionPath,
+                'sol.png',
+                'French',
+                [],
+                [['path' => $subjectPath, 'name' => 'dictee.txt']]
+            );
+        } finally {
+            if (is_file($solutionPath)) {
+                @unlink($solutionPath);
+            }
+            if (is_file($subjectPath)) {
+                @unlink($subjectPath);
+            }
+        }
+
+        $promptText = $mockClient->sentPromptText();
+        $this->assertStringContainsString('dictee.txt:', $promptText);
+        $this->assertStringContainsString('Le texte de la dictée.', $mockClient->userText());
+    }
+
     /**
      * @return array{0: int, 1: int, 2: int}
      */
@@ -256,7 +294,7 @@ class DictationFranceCM2PipelineTest extends TestCase
     }
 }
 
-class TestableCorrectingTask extends CorrectingTask
+class TestableCorrectingTask extends Task1Correcting
 {
     public function __construct(private readonly ClaudeSonnetClient $mockClient)
     {
@@ -268,7 +306,7 @@ class TestableCorrectingTask extends CorrectingTask
     }
 }
 
-class TestableAnnotatingTask extends AnnotatingTask
+class TestableAnnotatingTask extends Task2Annotating
 {
     public function __construct(private readonly ClaudeSonnetClient $mockClient)
     {
@@ -293,6 +331,23 @@ class CapturedClaudeSonnetClient extends ClaudeSonnetClient
     public function sentPromptText(): string
     {
         return $this->promptText;
+    }
+
+    public function userText(): string
+    {
+        $text = '';
+        foreach ($this->payload['messages'] as $message) {
+            if (($message['role'] ?? '') !== 'user' || !is_array($message['content'] ?? null)) {
+                continue;
+            }
+            foreach ($message['content'] as $part) {
+                if (is_array($part) && ($part['type'] ?? '') === 'text') {
+                    $text .= (string) ($part['text'] ?? '') . "\n";
+                }
+            }
+        }
+
+        return $text;
     }
 
     public function systemContent(): string

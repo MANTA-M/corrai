@@ -73,16 +73,6 @@ abstract class PathQueueItemTask
 
     protected function languageName(BaseFile $file): string
     {
-        $key = rtrim($file->prefix(), '/') . '/correction_language.txt';
-        $store = ObjectStore::getInstance();
-        if (!$store->exists($key)) {
-            return 'French';
-        }
-        $value = trim($store->getContents($key));
-        if ($value === '') {
-            return 'French';
-        }
-
-        return $value;
+        return $this->loadAssessment($file)->correctionLanguageName();
     }
 }

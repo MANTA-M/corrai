@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Restart Corrai consumer services.
+#
+# Services:
+#   corrai-ocr-consumer    Python OCR Redis consumer
+#   corrai-redis-consumer  PHP Redis file-status consumer
+#
+# Usage:
+#   bin/restart-consumers             # restart both consumers
+#   bin/restart-consumers --ocr       # restart Python OCR consumer only
+#   bin/restart-consumers --php       # restart PHP Redis consumer only
+#   bin/restart-consumers --status    # print service status after restart
+#
+# Automatically uses sudo for systemctl when run as non-root.
+# Falls back to docker compose restart when running in a Docker setup.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+TARGET_OCR=""
+TARGET_PHP=""
+SHOW_STATUS=0
+
+usage() {
+  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --ocr|ocr)
+      TARGET_OCR=1
+      shift
+      ;;
+    --php|php)
+      TARGET_PHP=1
+      shift
+      ;;
+    -s|--status)
+      SHOW_STATUS=1
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$TARGET_OCR" && -z "$TARGET_PHP" ]]; then
+  TARGET_OCR=1
+  TARGET_PHP=1
+else
+  TARGET_OCR="${TARGET_OCR:-0}"
+  TARGET_PHP="${TARGET_PHP:-0}"
+fi
+
+USE_SYSTEMD=0
+USE_DOCKER=0
+
+if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files corrai-ocr-consumer.service >/dev/null 2>&1; then
+  USE_SYSTEMD=1
+elif command -v docker >/dev/null 2>&1 && [[ -f "$ROOT/docker-compose.yml" ]]; then
+  USE_DOCKER=1
+else
+  echo "Error: neither systemd units (corrai-*.service) nor Docker Compose found" >&2
+  exit 1
+fi
+
+if [[ "$USE_SYSTEMD" -eq 1 ]]; then
+  SUDO=""
+  if [[ $EUID -ne 0 ]]; then
+    if command -v sudo >/dev/null 2>&1; then
+      SUDO="sudo"
+    else
+      echo "Warning: not running as root and sudo is not available" >&2
+    fi
+  fi
+
+  units=()
+  [[ "$TARGET_OCR" -eq 1 ]] && units+=("corrai-ocr-consumer")
+  [[ "$TARGET_PHP" -eq 1 ]] && units+=("corrai-redis-consumer")
+
+  echo "Restarting Corrai consumer service(s): ${units[*]}..."
+  $SUDO systemctl restart "${units[@]}"
+
+  failed=0
+  for unit in "${units[@]}"; do
+    state="$($SUDO systemctl show -p ActiveState,SubState,MainPID "$unit")"
+    active_state="$(echo "$state" | awk -F= '/^ActiveState=/ {print $2}')"
+    sub_state="$(echo "$state" | awk -F= '/^SubState=/ {print $2}')"
+    pid="$(echo "$state" | awk -F= '/^MainPID=/ {print $2}')"
+
+    if [[ "$active_state" == "active" ]]; then
+      printf '  ✓ %s: %s (%s) [pid %s]\n' "$unit" "$active_state" "$sub_state" "$pid"
+    else
+      printf '  ✗ %s: %s (%s) [pid %s]\n' "$unit" "$active_state" "$sub_state" "$pid" >&2
+      failed=1
+    fi
+  done
+
+  if [[ "$SHOW_STATUS" -eq 1 ]]; then
+    echo ""
+    $SUDO systemctl status --no-pager "${units[@]}"
+  fi
+
+  if [[ "$failed" -ne 0 ]]; then
+    exit 1
+  fi
+else
+  services=()
+  [[ "$TARGET_OCR" -eq 1 ]] && services+=("ocr-consumer")
+  [[ "$TARGET_PHP" -eq 1 ]] && services+=("php-consumer")
+
+  echo "Restarting Docker Compose consumer service(s): ${services[*]}..."
+  docker compose -f "$ROOT/docker-compose.yml" restart "${services[@]}"
+
+  if [[ "$SHOW_STATUS" -eq 1 ]]; then
+    echo ""
+    docker compose -f "$ROOT/docker-compose.yml" ps "${services[@]}"
+  fi
+fi

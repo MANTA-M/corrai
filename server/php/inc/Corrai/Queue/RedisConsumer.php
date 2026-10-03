@@ -14,6 +14,25 @@ use Exception;
 class RedisConsumer
 {
     /**
+     * Run a path task class enqueued after OCR on the same content path.
+     */
+    public static function treatPathTask(string $path, string $taskClass): void
+    {
+        if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
+            throw new Exception("Unknown task class $taskClass");
+        }
+        $task = new $taskClass();
+        if (!method_exists($task, 'process_task')) {
+            throw new Exception("Task $taskClass cannot process a queue item");
+        }
+        $task->process_task((object) [
+            'path' => $path,
+            'task' => $taskClass,
+            'task_id' => $taskClass,
+        ]);
+    }
+
+    /**
      * Load file and assessment from S3 attributes, then dispatch on_{status}.
      */
     public static function treat(string $fileId): void

@@ -20,6 +20,7 @@ from pycorrai.consumer import (
     make_redis_client,
     ocr_json_key,
     parse_ticket,
+    php_task_ticket,
     treat,
 )
 
@@ -31,25 +32,37 @@ class ParseTicketTest(unittest.TestCase):
     def test_json_path(self) -> None:
         self.assertEqual(
             parse_ticket('{"path": "schools/a/files/b/content"}'),
-            {"path": "schools/a/files/b/content", "lang": "fr"},
+            {"path": "schools/a/files/b/content", "lang": "fr", "after_task": ""},
         )
 
     def test_json_path_with_lang(self) -> None:
         self.assertEqual(
             parse_ticket('{"path": "x/content", "lang": "en"}'),
-            {"path": "x/content", "lang": "en"},
+            {"path": "x/content", "lang": "en", "after_task": ""},
+        )
+
+    def test_json_ignores_operation_and_keeps_after_task(self) -> None:
+        self.assertEqual(
+            parse_ticket(
+                '{"path": "x/content", "operation": "ocr", "after_task": "Corrai\\\\Subject\\\\Dictation\\\\Task1Correcting", "lang": "fr"}'
+            ),
+            {
+                "path": "x/content",
+                "lang": "fr",
+                "after_task": "Corrai\\Subject\\Dictation\\Task1Correcting",
+            },
         )
 
     def test_bare_path(self) -> None:
         self.assertEqual(
             parse_ticket(CONTENT_PATH),
-            {"path": CONTENT_PATH, "lang": "fr"},
+            {"path": CONTENT_PATH, "lang": "fr", "after_task": ""},
         )
 
     def test_bytes_and_leading_slash(self) -> None:
         self.assertEqual(
             parse_ticket(b"/schools/a/content"),
-            {"path": "schools/a/content", "lang": "fr"},
+            {"path": "schools/a/content", "lang": "fr", "after_task": ""},
         )
 
     def test_empty_rejected(self) -> None:
@@ -161,6 +174,7 @@ class TreatTest(unittest.TestCase):
                 store,
                 redis,
                 recognize=lambda data, lang: words,
+                after_task=r"Corrai\Subject\Dictation\Task1Correcting",
             )
 
         put_keys = [call.kwargs["Key"] for call in client.put_object.call_args_list]
@@ -197,8 +211,34 @@ class TreatTest(unittest.TestCase):
 
         redis.lpush.assert_called_once_with(
             "corrai:files",
-            '{"file_id":"f1"}',
+            php_task_ticket(
+                CONTENT_PATH,
+                r"Corrai\Subject\Dictation\Task1Correcting",
+            ),
         )
+
+    def test_treat_skips_php_enqueue_without_after_task(self) -> None:
+        client = MagicMock()
+        attrs = {"name": "copy.png", "status": "loaded", "schema": 1}
+        attrs_body = json.dumps(attrs).encode("utf-8")
+        client.get_object.side_effect = [
+            {"Body": io.BytesIO(attrs_body)},
+            {"Body": io.BytesIO(b"\xff\xd8\xfffakejpeg")},
+            {"Body": io.BytesIO(attrs_body)},
+            {"Body": io.BytesIO(attrs_body)},
+        ]
+        store = ObjectStore(client=client, bucket="corrai")
+        redis = MagicMock()
+
+        treat(
+            CONTENT_PATH,
+            "fr",
+            store,
+            redis,
+            recognize=lambda data, lang: [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}],
+        )
+
+        redis.lpush.assert_not_called()
 
     def test_treat_skips_php_enqueue_when_attributes_missing(self) -> None:
         client = MagicMock()

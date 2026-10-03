@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Purge Corrai Redis work queues (delete every pending ticket).
+#
+# Queues:
+#   corrai:files  PHP file-status consumer
+#   corrai:ocr    Python OCR consumer
+#
+# Usage:
+#   bin/purge-redis-queues              # ask before deleting when a terminal
+#   bin/purge-redis-queues --yes        # delete without asking
+#   bin/purge-redis-queues --dry-run    # print depths only
+#
+# Connection: redis-cli against REDIS_HOST:REDIS_PORT (default 127.0.0.1:6379).
+# If redis-cli is missing, falls back to `docker compose exec` on the redis service.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+
+FILES_KEY="corrai:files"
+OCR_KEY="corrai:ocr"
+KEYS=("$FILES_KEY" "$OCR_KEY")
+
+YES=0
+DRY_RUN=0
+
+usage() {
+  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -y|--yes)
+      YES=1
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+USE_DOCKER=0
+if [[ -n "${REDIS_CLI:-}" ]]; then
+  REDIS_BIN="$REDIS_CLI"
+elif command -v redis-cli >/dev/null 2>&1; then
+  REDIS_BIN="$(command -v redis-cli)"
+else
+  USE_DOCKER=1
+  REDIS_BIN=""
+fi
+
+redis_cmd() {
+  if [[ "$USE_DOCKER" -eq 1 ]]; then
+    docker compose -f "$ROOT/docker-compose.yml" exec -T redis redis-cli "$@"
+  else
+    "$REDIS_BIN" -h "$REDIS_HOST" -p "$REDIS_PORT" "$@"
+  fi
+}
+
+connection_label() {
+  if [[ "$USE_DOCKER" -eq 1 ]]; then
+    echo "docker compose service redis"
+  else
+    echo "${REDIS_HOST}:${REDIS_PORT}"
+  fi
+}
+
+check_redis() {
+  local pong
+  if ! pong="$(redis_cmd PING 2>&1)"; then
+    echo "Cannot reach Redis ($(connection_label)): ${pong}" >&2
+    exit 1
+  fi
+  if [[ "$pong" != "PONG" ]]; then
+    echo "Unexpected Redis PING reply ($(connection_label)): ${pong}" >&2
+    exit 1
+  fi
+}
+
+check_redis
+
+echo "Redis ($(connection_label))"
+total=0
+for key in "${KEYS[@]}"; do
+  depth="$(redis_cmd LLEN "$key")"
+  if ! [[ "$depth" =~ ^[0-9]+$ ]]; then
+    echo "Unexpected LLEN for ${key}: ${depth}" >&2
+    exit 1
+  fi
+  printf '  %s  depth=%s\n' "$key" "$depth"
+  total=$((total + depth))
+done
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Dry run: ${total} ticket(s) would be removed."
+  exit 0
+fi
+
+if [[ "$YES" -eq 0 ]]; then
+  if [[ ! -t 0 ]]; then
+    echo "Refusing to purge without --yes when stdin is not a terminal." >&2
+    exit 2
+  fi
+  read -r -p "Delete ${total} ticket(s) from ${#KEYS[@]} queues? [y/N] " answer
+  case "$answer" in
+    y|Y|yes|YES) ;;
+    *)
+      echo "Aborted."
+      exit 0
+      ;;
+  esac
+fi
+
+removed=0
+for key in "${KEYS[@]}"; do
+  deleted="$(redis_cmd DEL "$key")"
+  if ! [[ "$deleted" =~ ^[0-9]+$ ]]; then
+    echo "Unexpected DEL for ${key}: ${deleted}" >&2
+    exit 1
+  fi
+  removed=$((removed + deleted))
+done
+
+echo "Purged ${removed} queue key(s); ${total} ticket(s) removed."
