@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Model\Student;
+use Corrai\Subject\DictationFranceCM2\Assessment;
+use Corrai\Subject\DictationFranceCM2\File;
 use Corrai\Subject\DictationFranceCM2\Task1Correcting;
 use Corrai\Subject\DictationFranceCM2\Task2Annotating;
 use Corrai\Subject\DictationFranceCM2\Pipeline;
@@ -171,7 +174,7 @@ class DictationFranceCM2PipelineTest extends TestCase
         $this->assertSame(800, $sent['errors'][0]['box']['y2']);
     }
 
-    public function testFindErrorsSchemaAsksOnlyForErrors(): void
+    public function testFindErrorsSchemaAsksForTheStudentNameAndErrors(): void
     {
         $mockClient = new CapturedClaudeSonnetClient();
         $task = new TestableCorrectingTask($mockClient);
@@ -182,16 +185,66 @@ class DictationFranceCM2PipelineTest extends TestCase
         $task->findErrors($assessment, $this->tempImagePath, 'copy.png', 'French');
 
         $schema = $mockClient->responseFormat()['json_schema']['schema'];
-        $this->assertSame(['errors'], $schema['required']);
-        $this->assertSame(['errors'], array_keys($schema['properties']));
+        $this->assertSame(['student_name', 'errors'], $schema['required']);
+        $this->assertSame(['student_name', 'errors'], array_keys($schema['properties']));
+        $this->assertSame('string', $schema['properties']['student_name']['type']);
         $this->assertSame(
             ['student', 'expected', 'kind', 'box'],
             $schema['properties']['errors']['items']['required']
         );
 
         $system = $mockClient->systemContent();
+        $this->assertStringContainsString('full name written at the top of the copy', $system);
         $this->assertStringContainsString('origin (0,0) is top-left', strtolower($system));
         $this->assertStringNotContainsStringIgnoringCase('magenta', $system);
+    }
+
+    public function testAssignUnclassifiedCopyMovesTheDirectoryUnderTheNamedStudent(): void
+    {
+        $task = new TestableCorrectingTask(new CapturedClaudeSonnetClient());
+        $student = new Student();
+        $student->id = 'st1';
+        $student->name = 'Jeanne Martin';
+
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->once())
+            ->method('findOrCreateStudentByName')
+            ->with('Jeanne Martin')
+            ->willReturn($student);
+
+        $file = $this->createMock(File::class);
+        $file->expects($this->once())
+            ->method('saveAttributes')
+            ->willReturnCallback(function () use ($file): void {
+                $this->assertSame('st1', $file->student);
+            });
+        $file->expects($this->once())
+            ->method('appendEvent')
+            ->with('Assigned to student Jeanne Martin');
+
+        $task->assignUnclassifiedCopy($file, $assessment, json_encode([
+            'student_name' => '  Jeanne Martin  ',
+            'errors' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame('st1', $file->student);
+    }
+
+    public function testAssignUnclassifiedCopyLeavesTheCopyWhenNoNameIsReadable(): void
+    {
+        $task = new TestableCorrectingTask(new CapturedClaudeSonnetClient());
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->never())->method('findOrCreateStudentByName');
+
+        $file = $this->createMock(File::class);
+        $file->expects($this->never())->method('saveAttributes');
+        $file->expects($this->never())->method('appendEvent');
+
+        $task->assignUnclassifiedCopy($file, $assessment, json_encode([
+            'student_name' => '   ',
+            'errors' => [],
+        ], JSON_THROW_ON_ERROR));
+        $task->assignUnclassifiedCopy($file, $assessment, 'not json');
     }
 
     public function testFindErrorsSendsTheOcrWordsToTheModel(): void
