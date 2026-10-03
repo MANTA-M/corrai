@@ -72,13 +72,18 @@ class File extends BaseFile
             return;
         }
 
-        $this->appendEvent('OCR queued');
-        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), self::OCR_LANG);
+        $this->appendEvent('Pre-OCR queued');
+        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'pre-ocr', '', self::OCR_LANG);
     }
 
     public function on_correction_asked(): void
     {
-        $this->on_stored();
+        if ($this->type !== 'submission') {
+            return;
+        }
+
+        $this->appendEvent('OCR queued');
+        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'ocr', self::OCR_LANG);
     }
 
     public function on_ocr_done(): void

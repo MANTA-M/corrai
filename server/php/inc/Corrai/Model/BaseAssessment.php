@@ -101,6 +101,33 @@ abstract class BaseAssessment
     }
 
     /**
+     * File class used for submissions that have no stored class.
+     *
+     * Generic Assessment instances resolve via AssessmentFactory, same as fileClass().
+     *
+     * @return class-string<File>
+     */
+    public function submissionClass(): string
+    {
+        $assessmentClass = AssessmentFactory::assessmentClass(
+            $this->subject,
+            $this->country ?? '',
+            $this->level ?? ''
+        );
+        if ($assessmentClass !== static::class) {
+            $method = new \ReflectionMethod($assessmentClass, 'submissionClass');
+            if ($method->getDeclaringClass()->getName() !== self::class) {
+                /** @var BaseAssessment $subjectAssessment */
+                $subjectAssessment = new $assessmentClass();
+
+                return $subjectAssessment->submissionClass();
+            }
+        }
+
+        return File::class;
+    }
+
+    /**
      * Concrete assessment class stored in S3 for this subject, country, and level.
      *
      * The runtime class is kept when it is that catalog class or a subclass of it.
@@ -893,23 +920,78 @@ abstract class BaseAssessment
             'text/plain; charset=utf-8'
         );
 
-        if (!method_exists($file, 'on_correction_asked')) {
-            $subjectFileClass = $this->fileClass();
-            if ($subjectFileClass !== $file::class && method_exists($subjectFileClass, 'on_correction_asked')) {
-                $file = $file->asClass($subjectFileClass);
-                $file->saveAttributes();
-            }
+        $subjectFileClass = $this->fileClass();
+        if ($subjectFileClass !== $file::class) {
+            $file = $file->asClass($subjectFileClass);
+            $file->saveAttributes();
         }
 
-        if (method_exists($file, 'on_correction_asked')) {
+        $method = new \ReflectionMethod($file, 'on_correction_asked');
+        if ($method->getDeclaringClass()->getName() !== BaseFile::class) {
             $file->appendEvent('Correction started');
             $file->status = 'correction_asked';
             $file->saveAttributes();
+            $file->on_correction_asked();
             RedisQueue::getInstance()->enqueueFile($file->id);
             return $this->list_files();
         }
 
         throw new WSException('This subject has no correction task', 400);
+    }
+
+    /**
+     * Start correction for every file stored under unclassified/.
+     *
+     * A stored class is kept. A file with no class becomes submissionClass().
+     *
+     * @return array Updated file list
+     */
+    public function correctUnclassifiedFiles(string $language): array
+    {
+        if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
+            throw new WSException('Assessment id, school_id and user_id are required', 400);
+        }
+
+        $fallback = $this->submissionClass();
+        if (!BaseFile::isFileClass($fallback)) {
+            $fallback = File::class;
+        }
+
+        $store = ObjectStore::getInstance();
+        $prefix = ObjectStore::assessmentUnclassifiedFilesPrefix($this->school_id, $this->user_id, $this->id);
+        foreach ($store->listChildPrefixes($prefix) as $fileId) {
+            $attrKey = $prefix . $fileId . '/' . ObjectStore::ATTR_FILE;
+            if (!$store->exists($attrKey)) {
+                continue;
+            }
+
+            $loaded = $store->getJson($attrKey);
+            $data = $loaded['data'];
+            $storedClass = BaseFile::classFromPayload($data);
+            $class = $storedClass ?? $fallback;
+            $file = $class::from_array($data);
+            $file->id = $fileId;
+            $file->school_id = $this->school_id;
+            $file->user_id = $this->user_id;
+            $file->assessment_id = $this->id;
+            $file->etag = $loaded['etag'];
+
+            if ($storedClass === null) {
+                $file->saveAttributes();
+            }
+
+            if ($store->exists($file->contentKey())) {
+                $store->putContents(
+                    rtrim($file->prefix(), '/') . '/correction_language.txt',
+                    $language,
+                    'text/plain; charset=utf-8'
+                );
+            }
+
+            $file->on_correction_asked();
+        }
+
+        return $this->list_files();
     }
 
     public function instructionFilesText(): string

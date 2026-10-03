@@ -25,6 +25,9 @@
     <template v-else-if="name === 'pencil'">
       <path d="M4 20l4.1-1.1L19.2 7.8a1.8 1.8 0 0 0 0-2.5l-.5-.5a1.8 1.8 0 0 0-2.5 0L5.1 15.9 4 20z" />
     </template>
+    <template v-else-if="name === 'plus'">
+      <path d="M12 5v14M5 12h14" />
+    </template>
     <template v-else>
       <path d="M5 7h14" />
       <path d="M9 7V5h6v2" />

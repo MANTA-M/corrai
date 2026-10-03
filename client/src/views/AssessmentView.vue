@@ -404,21 +404,17 @@ const closeStartCorrection = () => {
 }
 
 const launchCorrection = async () => {
-  if (!assessment.value?.id || !copyFiles.value.length) return
+  if (!assessment.value?.id) return
   startCorrectionError.value = ''
   isStartingCorrection.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    let latest: AssessmentFile[] | null = null
-    for (const file of copyFiles.value) {
-      const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
-        'POST',
-        '/correction',
-        { id: assessment.value.id, file: file.id, locale: String(locale.value) }
-      )
-      if (response?.files) latest = response.files
-    }
-    if (latest) applyUpdate(latest)
+    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
+      'POST',
+      '/assessment_correction',
+      { id: assessment.value.id, locale: String(locale.value) }
+    )
+    if (response?.files) applyUpdate(response.files, response.students)
     showStartCorrection.value = false
   } catch (err) {
     console.error('Error starting correction:', err)

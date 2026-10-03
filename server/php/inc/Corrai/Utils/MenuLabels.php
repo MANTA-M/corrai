@@ -200,8 +200,8 @@ class MenuLabels
             'de' => 'Abgabe',
         ],
         'file_type_instructions' => [
-            'en' => 'Instructions',
-            'fr' => 'Consignes',
+            'en' => 'Personal instructions',
+            'fr' => 'Consignes personnelles',
             'ru' => 'Инструкции',
             'uk' => 'Інструкції',
             'es' => 'Instrucciones',

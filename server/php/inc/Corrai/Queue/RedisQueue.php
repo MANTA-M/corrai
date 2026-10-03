@@ -61,10 +61,10 @@ class RedisQueue
     /**
      * Enqueue a content path for the Python OCR consumer.
      */
-    public function enqueueOcr(string $contentPath, string $lang = 'fr'): void
+    public function enqueueOcr(string $contentPath, string $operation, string $after_task = '', string $lang = 'fr'): void
     {
         $payload = json_encode(
-            ['path' => $contentPath, 'lang' => $lang],
+            ['path' => $contentPath, 'operation' => $operation, 'after_task' => $after_task, 'lang' => $lang],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
         if ($payload === false) {

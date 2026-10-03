@@ -554,4 +554,11 @@ abstract class BaseFile
      * Called when the file is stored.
      */
     abstract public function on_stored(): void;
+
+    /**
+     * Called when the file is asked for correction.
+     */
+    public function on_correction_asked(): void
+    {
+    }
 }

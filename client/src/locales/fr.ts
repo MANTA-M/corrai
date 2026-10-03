@@ -97,7 +97,7 @@ const fr: I18nSchema = {
         fileTypeSubject: "Sujet",
         fileTypeSolution: "Corrigé",
         fileTypeSubmission: "Copie",
-        fileTypeInstructions: "Consignes",
+        fileTypeInstructions: "Consignes personnelles",
         fileTypeCorrection: "Correction",
         fileTypeDebug: "Debug",
         fileTypeUnknown: "Inconnu",

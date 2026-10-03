@@ -14,8 +14,7 @@
       <div v-else-if="assessment" class="subject-page" data-testid="subject-page">
         <div class="header">
           <div class="heading">
-            <h1>{{ t('assessment.subjectPageTitle') }}</h1>
-            <div class="editable-line">
+            <div class="editable-line title-line">
               <template v-if="editing === 'name'">
                 <input
                   ref="editControl"
@@ -39,7 +38,7 @@
                 </button>
               </template>
               <template v-else>
-                <p class="title-value" data-testid="subject-name-value">{{ assessment.name || '—' }}</p>
+                <h1 data-testid="subject-page-title">{{ t('assessment.subjectPageTitle') + (assessment.name ? ': ' + assessment.name : '') }}</h1>
                 <MenuIconButton
                   :item="pencilItem"
                   test-id="subject-name-edit"
@@ -184,11 +183,14 @@
             <h2>{{ t('assessment.subjectFiles') }}</h2>
             <button
               type="button"
-              class="button primary"
+              class="icon-button section-add-button"
               data-testid="add-subject-file"
+              :aria-label="t('assessment.addSubjectFile')"
+              :title="t('assessment.addSubjectFile')"
               @click="openUpload('subject')"
             >
-              {{ t('assessment.addSubjectFile') }}
+              <ActionIcon name="plus" />
+              <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ t('assessment.addSubjectFile') }}</span>
             </button>
           </div>
           <AssessmentFileList
@@ -206,19 +208,14 @@
             <div class="section-actions">
               <button
                 type="button"
-                class="button"
+                class="icon-button section-add-button"
                 data-testid="add-solution-file"
+                :aria-label="t('assessment.addSolutionFile')"
+                :title="t('assessment.addSolutionFile')"
                 @click="openUpload('solution')"
               >
-                {{ t('assessment.addSolutionFile') }}
-              </button>
-              <button
-                type="button"
-                class="button primary"
-                data-testid="add-solution"
-                @click="openCreateText('solution')"
-              >
-                {{ t('assessment.addSolution') }}
+                <ActionIcon name="plus" />
+                <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ t('assessment.addSolutionFile') }}</span>
               </button>
             </div>
           </div>
@@ -236,25 +233,21 @@
         <section class="section" data-testid="file-zone-instructions">
           <div class="section-header">
             <h2>{{ t('assessment.fileTypeInstructions') }}</h2>
-            <button
-              type="button"
-              class="button primary"
-              data-testid="add-instruction"
-              :aria-label="t('assessment.addInstruction')"
-              @click="openCreateText('instructions')"
-            >
-              {{ t('assessment.addInstruction') }}
-            </button>
+            <span v-if="isSavingInstruction" class="instruction-saving-indicator">{{ t('assessment.saving') }}</span>
           </div>
-          <AssessmentFileList
-            :assessment-id="assessment.id || ''"
-            :files="instructionFiles"
-            :students="students"
-            :empty-text="t('assessment.fileZoneEmpty')"
-            allow-text-edit
-            @updated="onFilesUpdated"
-            @edit-text="openEditText"
-          />
+          <div class="instruction-editor-wrapper">
+            <textarea
+              ref="instructionTextareaRef"
+              v-model="instructionText"
+              class="instruction-textarea"
+              data-testid="instruction-body"
+              :placeholder="t('assessment.instructionBody')"
+              :disabled="isLoadingInstruction"
+              @input="onInstructionInput"
+              @blur="onInstructionBlur"
+            />
+          </div>
+          <p v-if="instructionError" class="error-message">{{ instructionError }}</p>
         </section>
       </div>
 
@@ -286,10 +279,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AddFilePopup from '@/components/AddFilePopup.vue'
+import ActionIcon from '@/components/ActionIcon.vue'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import InstructionEditorPopup from '@/components/InstructionEditorPopup.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
@@ -300,7 +294,7 @@ import { useSessionStore } from '@/stores/session'
 import { isAssessmentSubject, type Assessment, type AssessmentFile, type AssessmentStudent, type MenuItem } from '@/types/types'
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
 const { subjects, load: loadSubjects, levelName } = useSubjectCatalog()
@@ -353,6 +347,161 @@ const textKind = ref<'instructions' | 'solution'>('instructions')
 const subjectFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'subject'))
 const solutionFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'solution'))
 const instructionFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'instructions'))
+
+const instructionFile = computed<AssessmentFile | null>(() => {
+  return instructionFiles.value[0] || null
+})
+
+const instructionText = ref('')
+const isLoadingInstruction = ref(false)
+const isSavingInstruction = ref(false)
+const instructionError = ref('')
+const instructionTextareaRef = ref<HTMLTextAreaElement | null>(null)
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+let lastLoadedFileId: string | null = null
+let lastSavedContent = ''
+
+const adjustTextareaHeight = () => {
+  const el = instructionTextareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+const fileViewUrl = (file: AssessmentFile) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    id: assessmentId.value,
+    file: file.id,
+  })
+
+const loadInstructionContent = async () => {
+  const file = instructionFile.value
+  if (!file) {
+    lastLoadedFileId = null
+    instructionText.value = ''
+    lastSavedContent = ''
+    await nextTick()
+    adjustTextareaHeight()
+    return
+  }
+
+  if (file.id === lastLoadedFileId && instructionText.value !== '') {
+    return
+  }
+
+  lastLoadedFileId = file.id
+  isLoadingInstruction.value = true
+  instructionError.value = ''
+  try {
+    const response = await fetch(fileViewUrl(file))
+    if (!response.ok) throw new Error('Failed to load instruction file')
+    const text = await response.text()
+    instructionText.value = text
+    lastSavedContent = text
+    await nextTick()
+    adjustTextareaHeight()
+  } catch (err) {
+    console.error('Error loading instruction:', err)
+    instructionError.value = t('assessment.instructionLoadError')
+  } finally {
+    isLoadingInstruction.value = false
+  }
+}
+
+watch(
+  () => instructionFile.value?.id,
+  () => {
+    loadInstructionContent()
+  },
+  { immediate: true }
+)
+
+const saveInstructionContent = async () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
+
+  const contentToSave = instructionText.value
+  if (contentToSave === lastSavedContent && lastLoadedFileId) {
+    return
+  }
+
+  if (!assessment.value?.id) return
+
+  isSavingInstruction.value = true
+  instructionError.value = ''
+
+  try {
+    const wsClient = sessionStore.getWsClient()
+    const targetFile = instructionFile.value
+
+    if (!targetFile) {
+      if (!contentToSave.trim()) {
+        isSavingInstruction.value = false
+        return
+      }
+      const filename = 'Consigne.txt'
+      const blob = new Blob([contentToSave], { type: 'text/plain;charset=utf-8' })
+      const file = new File([blob], filename, { type: 'text/plain' })
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', 'instructions')
+      const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
+        'POST',
+        '/file',
+        { id: assessment.value.id, locale: String(locale.value) },
+        formData,
+        'form'
+      )
+      if (response?.files) {
+        lastSavedContent = contentToSave
+        applyUpdate(response.files)
+      }
+    } else {
+      const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
+        'PUT',
+        '/file',
+        { id: assessment.value.id, file: targetFile.id, locale: String(locale.value) },
+        { content: contentToSave }
+      )
+      if (response?.files) {
+        lastSavedContent = contentToSave
+        applyUpdate(response.files)
+      }
+    }
+  } catch (err) {
+    console.error('Error saving instruction content:', err)
+    instructionError.value = t('assessment.instructionSaveError')
+  } finally {
+    isSavingInstruction.value = false
+  }
+}
+
+const onInstructionInput = () => {
+  adjustTextareaHeight()
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+  }
+  saveTimeout = setTimeout(() => {
+    saveInstructionContent()
+  }, 1200)
+}
+
+const onInstructionBlur = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
+  void saveInstructionContent()
+}
+
+onBeforeUnmount(() => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveInstructionContent()
+  }
+})
 
 const goBack = () => {
   router.push({ name: 'assessment', params: { id: assessmentId.value } })
@@ -460,10 +609,8 @@ loadSubjects()
   margin: 0;
 }
 
-.title-value {
-  margin: 0.35rem 0 0;
-  font-size: 1.15rem;
-  font-weight: 700;
+.title-line {
+  min-height: unset;
 }
 
 .meta-list {
@@ -529,6 +676,90 @@ loadSubjects()
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.section-add-button {
+  color: var(--accent);
+}
+
+.icon-button {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.icon-button :deep(svg) {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.icon-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0.35rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg, #fff);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.icon-button:hover .icon-tooltip,
+.icon-button:focus-visible .icon-tooltip {
+  opacity: 1;
+}
+
+.instruction-editor-wrapper {
+  margin-top: 0.5rem;
+}
+
+.instruction-saving-indicator {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.instruction-textarea {
+  width: 100%;
+  min-height: 8rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color, #ccc);
+  background: var(--input-bg, transparent);
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  box-sizing: border-box;
+  resize: vertical;
+  overflow-y: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.instruction-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .loading,
