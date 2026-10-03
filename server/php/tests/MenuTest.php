@@ -83,6 +83,12 @@ class MenuTest extends TestCase
         $this->assertSame('Gespeichert', $generic->get_status_label('de'));
         $generic->status = 'ocr_done';
         $this->assertSame('ocr_done', $generic->get_status_label('fr'));
+        $generic->status = 'corrected';
+        $this->assertSame('Corrigé', $generic->get_status_label('fr'));
+        $this->assertSame('Corrected', $generic->to_output(null, 'en')['status_label']);
+        $generic->status = 'error';
+        $this->assertSame('Erreur', $generic->get_status_label('fr'));
+        $this->assertSame('Fehler', $generic->get_status_label('de'));
 
         $subject = new File();
         $subject->type = 'subject';

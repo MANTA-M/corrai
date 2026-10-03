@@ -474,6 +474,26 @@ abstract class BaseFile
             'ro' => 'Stocat',
             'de' => 'Gespeichert',
         ],
+        'corrected' => [
+            'en' => 'Corrected',
+            'fr' => 'Corrigé',
+            'ru' => 'Исправлено',
+            'uk' => 'Виправлено',
+            'es' => 'Corregido',
+            'pt' => 'Corrigido',
+            'ro' => 'Corectat',
+            'de' => 'Korrigiert',
+        ],
+        'error' => [
+            'en' => 'Error',
+            'fr' => 'Erreur',
+            'ru' => 'Ошибка',
+            'uk' => 'Помилка',
+            'es' => 'Error',
+            'pt' => 'Erro',
+            'ro' => 'Eroare',
+            'de' => 'Fehler',
+        ],
     ];
 
     /**
