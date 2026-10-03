@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { WSClient, type ApiMessage } from '@/backend/WSClient'
-import type { Assessment } from '@/types/types'
+import type { Assessment, MenuItem } from '@/types/types'
 
 import { DEFAULT_LOCALE, type AvailableLocale } from '@/i18n'
 
@@ -33,6 +33,8 @@ interface ServerAssessment {
   level?: string | null
   date: string
   created_at?: string
+  label?: string
+  menu?: MenuItem[]
   files?: Assessment['files']
   students?: Assessment['students']
 }
@@ -64,6 +66,8 @@ function normalizeAssessment(raw: ServerAssessment): Assessment {
     country: raw.country || null,
     level: raw.level || null,
     date: raw.date,
+    label: raw.label,
+    menu: raw.menu,
     files: raw.files ?? [],
     students: raw.students ?? [],
   }
@@ -215,44 +219,6 @@ export const useSessionStore = defineStore('session', () => {
     clearSession()
   }
 
-  async function getCryptoKeys(): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey } | null> {
-    if (!keyPair.value) {
-      return null
-    }
-
-    try {
-      const publicKeyArrayBuffer = base64ToArrayBuffer(keyPair.value.publicKey)
-      const privateKeyArrayBuffer = base64ToArrayBuffer(keyPair.value.privateKey)
-
-      const publicKey = await crypto.subtle.importKey(
-        'spki',
-        publicKeyArrayBuffer,
-        {
-          name: 'ECDSA',
-          namedCurve: 'P-256',
-        },
-        true,
-        ['verify']
-      )
-
-      const privateKey = await crypto.subtle.importKey(
-        'pkcs8',
-        privateKeyArrayBuffer,
-        {
-          name: 'ECDSA',
-          namedCurve: 'P-256',
-        },
-        true,
-        ['sign']
-      )
-
-      return { publicKey, privateKey }
-    } catch (error) {
-      console.error('Error importing crypto keys:', error)
-      return null
-    }
-  }
-
   function clearSession(): void {
     keyPair.value = null
     user_id.value = null
@@ -274,7 +240,9 @@ export const useSessionStore = defineStore('session', () => {
   async function load_assessments(): Promise<Assessment[]> {
     try {
       const wsClient = getWsClient()
-      const response = await wsClient.queryWs<{ assessments: ServerAssessment[] }>('GET', '/assessments')
+      const response = await wsClient.queryWs<{ assessments: ServerAssessment[] }>('GET', '/assessments', {
+        locale: locale.value,
+      })
       const assessments = (response?.assessments ?? []).map(normalizeAssessment)
       own_assessments.value = assessments
       return assessments
@@ -291,7 +259,7 @@ export const useSessionStore = defineStore('session', () => {
         assessment: ServerAssessment
         files?: Assessment['files']
         students?: Assessment['students']
-      }>('GET', '/assessment', { hash })
+      }>('GET', '/assessment', { hash, locale: locale.value })
 
       if (!response || !response.assessment || !response.assessment.id) {
         console.error('Assessment loaded but missing id')
@@ -348,7 +316,6 @@ export const useSessionStore = defineStore('session', () => {
     setLocale,
     setDebugMode,
     logout,
-    getCryptoKeys,
     clearSession,
     getWsClient,
     get_assessment,

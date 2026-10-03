@@ -102,6 +102,7 @@ const uk: I18nSchema = {
         fileTypeDebug: "Налагодження",
         fileTypeUnknown: "Невідомо",
         fileStatus: "Статус",
+        fileStored: "Збережено",
         fileChangeType: "Змінити тип",
         fileSetStudent: "Вказати учня",
         fileStudentPlaceholder: "Ім'я учня",

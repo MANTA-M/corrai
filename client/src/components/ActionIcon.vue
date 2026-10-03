@@ -35,6 +35,6 @@
 
 <script setup lang="ts">
 defineProps<{
-  name: 'eye' | 'person' | 'list' | 'pencil' | 'trash'
+  name: string
 }>()
 </script>

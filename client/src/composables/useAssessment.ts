@@ -27,7 +27,7 @@ export function useAssessment() {
     }
     const id = assessment.value.id
     if (!id) return
-    const index = sessionStore.own_assessments.findIndex((item) => item.id === id)
+    const index = sessionStore.own_assessments.findIndex((item: Assessment) => item.id === id)
     if (index !== -1) {
       sessionStore.own_assessments[index] = {
         ...sessionStore.own_assessments[index],
@@ -82,6 +82,5 @@ export function useAssessment() {
     files,
     students,
     applyUpdate,
-    loadAssessment,
   }
 }

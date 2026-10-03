@@ -6,15 +6,16 @@ use Exception;
 use Corrai\Llm\Openrouter\LlmClientFactory;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\HashId;
+use Corrai\Utils\MenuLabels;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Corrai\Subject\Catalog;
-use Corrai\Subject\Dictation\Pipeline as Dictation;
+use Corrai\Subject\Dictation\CorrectingTask as Dictation;
 use Corrai\Subject\AssessmentFactory;
-use Corrai\Subject\Law\Pipeline as Law;
-use Corrai\Subject\Math\Pipeline as MathPipeline;
-use Corrai\Subject\Other\Pipeline as Other;
-use Corrai\Subject\Physics\Pipeline as Physics;
+use Corrai\Subject\Law\TranscribingTask as Law;
+use Corrai\Subject\Math\TranscribingTask as MathPipeline;
+use Corrai\Subject\Other\TranscribingTask as Other;
+use Corrai\Subject\Physics\TranscribingTask as Physics;
 
 /**
  * Shared assessment model. Subject packages provide a concrete Assessment.
@@ -42,7 +43,7 @@ abstract class BaseAssessment
     public string $name = '';
 
     /**
-     * Pipeline name for this assessment (MathPipeline, Physics, Dictation, Law, Other).
+     * Subject name for this assessment (Math, Physics, Dictation, Law, Other).
      */
     public string $subject = '';
 
@@ -72,19 +73,6 @@ abstract class BaseAssessment
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'];
 
     /**
-     * Pipeline name => pipeline class. Unknown subjects use Other.
-     *
-     * @var array<string, class-string>
-     */
-    public const SUBJECT_PIPELINES = [
-        'MathPipeline' => MathPipeline::class,
-        'Physics' => Physics::class,
-        'Dictation' => Dictation::class,
-        'Law' => Law::class,
-        'Other' => Other::class,
-    ];
-
-    /**
      * Concrete File class for this assessment's subject.
      *
      * Generic Assessment instances resolve via AssessmentFactory so uploads still get the
@@ -110,6 +98,46 @@ abstract class BaseAssessment
         }
 
         return File::class;
+    }
+
+    /**
+     * Concrete assessment class stored in S3 for this subject, country, and level.
+     *
+     * The runtime class is kept when it is that catalog class or a subclass of it.
+     * A generic Assessment with Dictation / fr / CM2 therefore stores
+     * Corrai\Subject\DictationFranceCM2\Assessment.
+     *
+     * @return class-string<BaseAssessment>
+     */
+    public function storedClass(): string
+    {
+        $resolved = AssessmentFactory::assessmentClass(
+            $this->subject,
+            $this->country ?? '',
+            $this->level ?? ''
+        );
+        if (is_a(static::class, $resolved, true)) {
+            return static::class;
+        }
+        return $resolved;
+    }
+
+    /**
+     * Attribute document written to S3, including the concrete class.
+     *
+     * @return array<string, mixed>
+     */
+    public function attributePayload(): array
+    {
+        return [
+            'name' => $this->name,
+            'subject' => $this->subject,
+            'country' => self::optionalAttribute($this->country),
+            'level' => self::optionalAttribute($this->level),
+            'date' => $this->date,
+            'created_at' => $this->created_at,
+            'class' => $this->storedClass(),
+        ];
     }
 
     public static function from_array(array $data): static
@@ -165,9 +193,11 @@ abstract class BaseAssessment
     }
 
     /**
-     * Load an Assessment from its hash via the _id pointer.
+     * Load an assessment from its hash via the _id pointer.
+     *
+     * The concrete class is the class attribute stored in S3.
      */
-    public static function from_hash(string $hash): static
+    public static function from_hash(string $hash): self
     {
         $store = ObjectStore::getInstance();
         $prefix = $store->resolveIdPointer($hash);
@@ -185,11 +215,7 @@ abstract class BaseAssessment
         }
 
         $loaded = $store->getJson($attrKey);
-        $assessment = static::from_array($loaded['data']);
-        $assessment->id = $assessmentId;
-        $assessment->school_id = $schoolId;
-        $assessment->user_id = $userId;
-        return $assessment;
+        return AssessmentFactory::fromAttributes($loaded['data'], $schoolId, $userId, $assessmentId);
     }
 
     /**
@@ -207,8 +233,55 @@ abstract class BaseAssessment
         return $assessments;
     }
 
-    public function to_output(): array
+    /**
+     * Localized subject name from the concrete assessment's NAMES table.
+     */
+    public function localizedLabel(string $locale): string
     {
+        $names = [];
+        if (defined(static::class . '::NAMES')) {
+            $value = constant(static::class . '::NAMES');
+            if (is_array($value)) {
+                $names = $value;
+            }
+        }
+        return MenuLabels::pick($names, $locale, $this->subject);
+    }
+
+    /**
+     * Actions shown on the assessment page.
+     *
+     * Text buttons leave icon empty. Start correction appears only when a submission exists.
+     *
+     * @return array<int, array{key: string, label: string, icon: string, color: string}>
+     */
+    public function get_menu(string $locale): array
+    {
+        $items = [
+            MenuLabels::item('edit', $locale, '', MenuLabels::BLUE),
+            MenuLabels::item('delete', $locale, '', MenuLabels::DANGER),
+            MenuLabels::item('edit_subject', $locale, '', MenuLabels::MUTED),
+            MenuLabels::item('add_copies', $locale, '', MenuLabels::BLUE),
+        ];
+        if ($this->hasSubmission()) {
+            $items[] = MenuLabels::item('start_correction', $locale, '', MenuLabels::BLUE);
+        }
+        return $items;
+    }
+
+    private function hasSubmission(): bool
+    {
+        foreach ($this->listFileModels() as $file) {
+            if ($file->type === 'submission') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function to_output(?string $locale = null): array
+    {
+        $locale = MenuLabels::locale($locale);
         return [
             'id' => $this->id,
             'school_id' => $this->school_id,
@@ -219,6 +292,8 @@ abstract class BaseAssessment
             'level' => self::optionalAttribute($this->level),
             'date' => $this->date,
             'created_at' => $this->created_at,
+            'label' => $this->localizedLabel($locale),
+            'menu' => $this->get_menu($locale),
         ];
     }
 
@@ -237,21 +312,43 @@ abstract class BaseAssessment
         $this->validate();
 
         $store = ObjectStore::getInstance();
-        $store->putJson(
-            ObjectStore::assessmentAttrKey($this->school_id, $this->user_id, $this->id),
-            [
-                'name' => $this->name,
-                'subject' => $this->subject,
-                'country' => self::optionalAttribute($this->country),
-                'level' => self::optionalAttribute($this->level),
-                'date' => $this->date,
-                'created_at' => $this->created_at,
-            ]
-        );
+        $attrKey = ObjectStore::assessmentAttrKey($this->school_id, $this->user_id, $this->id);
+        $previousClass = null;
+        if ($store->exists($attrKey)) {
+            try {
+                $previous = $store->getJson($attrKey);
+                $previousClass = $previous['data']['class'] ?? null;
+            } catch (\Throwable $e) {
+                $previousClass = null;
+            }
+        }
+
+        $payload = $this->attributePayload();
+        $store->putJson($attrKey, $payload);
         $store->setIdPointer(
             $this->id,
             ObjectStore::assessmentPrefix($this->school_id, $this->user_id, $this->id)
         );
+        if ($previousClass !== $payload['class']) {
+            $this->syncFileClasses();
+        }
+    }
+
+    /**
+     * Rewrite file attribute documents so their class matches this assessment.
+     */
+    private function syncFileClasses(): void
+    {
+        $expected = $this->fileClass();
+        if (!BaseFile::isFileClass($expected)) {
+            return;
+        }
+        foreach ($this->listFileModels() as $file) {
+            if ($file->hasStoredClass && $file::class === $expected) {
+                continue;
+            }
+            $file->asClass($expected)->saveAttributes();
+        }
     }
 
     /**
@@ -389,8 +486,9 @@ abstract class BaseAssessment
      *
      * @return array Array of file output arrays
      */
-    public function list_files(): array
+    public function list_files(?string $locale = null): array
     {
+        $locale = MenuLabels::locale($locale);
         $names = $this->studentNameMap();
         $out = [];
         foreach ($this->listFileModels() as $file) {
@@ -398,7 +496,7 @@ abstract class BaseAssessment
             if ($file->student !== null && isset($names[$file->student])) {
                 $studentName = $names[$file->student];
             }
-            $out[] = $file->to_output($studentName);
+            $out[] = $file->to_output($studentName, $locale);
         }
         return $out;
     }
@@ -406,11 +504,12 @@ abstract class BaseAssessment
     /**
      * @return array Array of student output arrays
      */
-    public function list_students(): array
+    public function list_students(?string $locale = null): array
     {
+        $locale = MenuLabels::locale($locale);
         $out = [];
         foreach ($this->listStudentModels() as $student) {
-            $out[] = $student->to_output();
+            $out[] = $student->to_output($locale);
         }
         return $out;
     }
@@ -573,7 +672,7 @@ abstract class BaseAssessment
         $file->name = $filename;
         $file->type = $type ?? '';
         $file->student = $studentHash;
-        $file->status = 'loaded';
+        $file->status = 'stored';
         $file->content_type = $contentType !== '' ? $contentType : 'application/octet-stream';
         $file->size = strlen($content);
         $file->created = time();
@@ -581,7 +680,7 @@ abstract class BaseAssessment
         $store = ObjectStore::getInstance();
         $store->putContents($file->contentKey(), $content, $file->content_type);
         $file->saveAttributes(false);
-        $file->appendEvent('Loaded');
+        $file->appendEvent('Stored');
         RedisQueue::getInstance()->enqueueFile($file->id);
 
         return $file;
@@ -624,7 +723,7 @@ abstract class BaseAssessment
         $file->name = $filename;
         $file->type = $type ?? '';
         $file->student = $studentHash;
-        $file->status = 'loaded';
+        $file->status = 'stored';
         $file->content_type = ($contentType !== null && $contentType !== '')
             ? $contentType
             : 'application/octet-stream';
@@ -634,7 +733,7 @@ abstract class BaseAssessment
         $store = ObjectStore::getInstance();
         $store->put($file->contentKey(), $localPath, $file->content_type);
         $file->saveAttributes(false);
-        $file->appendEvent('Loaded');
+        $file->appendEvent('Stored');
         RedisQueue::getInstance()->enqueueFile($file->id);
 
         return $file;
@@ -645,7 +744,10 @@ abstract class BaseAssessment
      */
     public function fileFromAttributes(array $data, string $fileId, ?string $etag = null): File
     {
-        $class = $this->fileClass();
+        $class = BaseFile::classFromPayload($data) ?? $this->fileClass();
+        if (!BaseFile::isFileClass($class)) {
+            $class = File::class;
+        }
         $file = $class::from_array($data);
         $file->id = $fileId;
         $file->school_id = $this->school_id;
@@ -759,59 +861,7 @@ abstract class BaseAssessment
     }
 
     /**
-     * Answer assessment questions from the attached files via the LLM client.
-     *
-     * @param array $questions List of question arrays with a 'text' key, or plain strings
-     */
-    public function verify(array $questions = []): array
-    {
-        $request = LlmClientFactory::create($_ENV['OPENROUTER_MODEL'] ?? null);
-        $system = <<<EOT
-            # SYSTEM:
-            You are a file data analyser.
-            Parse the given files and answer the given questions by user.
-            Answer the given questions under the form of a JSON array with the answers in the same order as the questions.
-            Returns ONLY a valid JSON respecting SCHEMA_STRICT below with NO extra comment text.
-            SCHEMA_STRICT:
-            { responses: [
-                { response: boolean, confidence: float between 0 and 1, explanation: "string, in the same language as the question" }
-            ]}
-            If looking for numbers, make sure to read the number linked to the question.
-            Use equivalence beween currency symbols dans abrevations like "USD" and "$" and "EUR" and "€".
-            Analyse the whole file content to answer the questions and do not make assumptions. Do not use information from other questions to answer the current question.
-            When reading a number or a date, use the text context to link it to the question.
-            Use the number format and the date format of the langage of the file.
-        EOT;
-
-        $request->set_system_content($system);
-        $store = ObjectStore::getInstance();
-        $tempFiles = [];
-        try {
-            foreach ($this->listFileModels() as $file) {
-                $tmpPath = $store->downloadToTemp($file->contentKey());
-                $tempFiles[] = $tmpPath;
-                $request->add_file($tmpPath, $file->name);
-            }
-
-            $instruction = '';
-            $question_index = 0;
-            foreach ($questions as $question) {
-                $text = is_array($question) ? ($question['text'] ?? '') : (string) $question;
-                $instruction .= 'Question ' . $question_index . ': ' . $text . "\n";
-                $question_index++;
-            }
-
-            $request->add_text($instruction);
-            return $request->call();
-        } finally {
-            foreach ($tempFiles as $tmpPath) {
-                @unlink($tmpPath);
-            }
-        }
-    }
-
-    /**
-     * Pipeline class for this assessment's subject. Unknown subjects use Other.
+     * Entry task class for this assessment's subject. Unknown subjects use Other.
      *
      * @return class-string
      */
@@ -821,11 +871,7 @@ abstract class BaseAssessment
     }
 
     /**
-     * Grade a submission with the pipeline stored for the assessment subject.
-     *
-     * When the file class implements on_correction_asked, correction runs
-     * asynchronously through the Redis status machine instead of blocking
-     * the HTTP request.
+     * Grade a submission through the subject file status machine.
      *
      * @return array Updated file list
      */
@@ -841,6 +887,20 @@ abstract class BaseAssessment
             throw new WSException("File '$fileId' does not exist for assessment {$this->id}", 404);
         }
 
+        $store->putContents(
+            rtrim($file->prefix(), '/') . '/correction_language.txt',
+            $language,
+            'text/plain; charset=utf-8'
+        );
+
+        if (!method_exists($file, 'on_correction_asked')) {
+            $subjectFileClass = $this->fileClass();
+            if ($subjectFileClass !== $file::class && method_exists($subjectFileClass, 'on_correction_asked')) {
+                $file = $file->asClass($subjectFileClass);
+                $file->saveAttributes();
+            }
+        }
+
         if (method_exists($file, 'on_correction_asked')) {
             $file->appendEvent('Correction started');
             $file->status = 'correction_asked';
@@ -849,29 +909,7 @@ abstract class BaseAssessment
             return $this->list_files();
         }
 
-        $file->appendEvent('Correction started');
-        $file->status = 'correcting';
-        $file->saveAttributes();
-
-        try {
-            $class = $this->pipelineClass();
-            $result = (new $class())->run($this, $fileId, $language);
-            $file = $this->getFile($fileId);
-            $file->appendEvent('Correction ended');
-            $file->status = 'corrected';
-            $file->saveAttributes();
-            return $result;
-        } catch (\Throwable $e) {
-            try {
-                $file = $this->getFile($fileId);
-                $file->appendEvent('Correction failed');
-                $file->status = 'error';
-                $file->saveAttributes();
-            } catch (\Throwable $ignore) {
-                // Best-effort status update
-            }
-            throw $e;
-        }
+        throw new WSException('This subject has no correction task', 400);
     }
 
     public function instructionFilesText(): string

@@ -344,7 +344,7 @@ class CsvTreeMigrator
                 'name' => $filename,
                 'type' => $fileType,
                 'student' => $studentHash,
-                'status' => 'loaded',
+                'status' => 'stored',
                 'content_type' => $head['ContentType'] ?: 'application/octet-stream',
                 'size' => $head['ContentLength'] ?: $source['size'],
                 'created' => $source['created'] ?: time(),

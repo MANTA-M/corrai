@@ -380,8 +380,8 @@ class AssessmentLifecycleTest extends TestCase
         $this->assertContains('copy_correction_1.txt', $names);
 
         $assessment->createFile(
-            'copy_directives.php',
-            '<?php $GD_directives = [];',
+            'copy_annotations.php',
+            '<?php $GD_annotations = [];',
             'text/plain; charset=utf-8',
             'debug',
             $carol->id
@@ -399,13 +399,13 @@ class AssessmentLifecycleTest extends TestCase
         $leftNames = array_column($left, 'name');
         $this->assertNotContains('copy_correction.txt', $leftNames);
         $this->assertNotContains('copy_correction_1.txt', $leftNames);
-        $this->assertContains('copy_directives.php', $leftNames);
+        $this->assertContains('copy_annotations.php', $leftNames);
         $this->assertContains('other_correction.txt', $leftNames);
         $this->assertContains($filename, $leftNames);
 
         $assessment->deleteFilesOfType('debug', $carol->id);
         $afterDebug = array_column($assessment->list_files(), 'name');
-        $this->assertNotContains('copy_directives.php', $afterDebug);
+        $this->assertNotContains('copy_annotations.php', $afterDebug);
         $this->assertContains('other_correction.txt', $afterDebug);
 
         $assessment->delete();

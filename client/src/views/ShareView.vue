@@ -66,9 +66,9 @@ import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { clearSharedFiles, loadSharedFiles } from '@/services/shareTarget'
-import { isAssessmentSubject, type AssessmentFile } from '@/types/types'
+import { isAssessmentSubject, type Assessment, type AssessmentFile } from '@/types/types'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const sessionStore = useSessionStore()
 const { subjects, load: loadSubjects } = useSubjectCatalog()
@@ -117,7 +117,7 @@ const uploadToAssessment = async (assessmentId: string) => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: assessmentId },
+        { id: assessmentId, locale: String(locale.value) },
         formData,
         'form'
       )
@@ -127,7 +127,7 @@ const uploadToAssessment = async (assessmentId: string) => {
     }
 
     if (latestFiles) {
-      const existingIndex = sessionStore.own_assessments.findIndex((e) => e.id === assessmentId)
+      const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === assessmentId)
       if (existingIndex !== -1) {
         sessionStore.own_assessments[existingIndex] = {
           ...sessionStore.own_assessments[existingIndex],

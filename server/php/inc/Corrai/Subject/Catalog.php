@@ -13,11 +13,12 @@ class Catalog
     public static function tree(string $locale): array
     {
         $grouped = [];
-        foreach (self::classes() as $class) {
+        foreach (AssessmentFactory::classes() as $class) {
+            $defaults = (new \ReflectionClass($class))->getDefaultProperties();
             $entry = [
-                'subject' => $class::SUBJECT,
-                'country' => $class::COUNTRY,
-                'level' => $class::LEVEL,
+                'subject' => (string) ($defaults['subject'] ?? ''),
+                'country' => self::blank($defaults['country'] ?? null),
+                'level' => self::blank($defaults['level'] ?? null),
                 'names' => $class::NAMES,
             ];
             $grouped[$entry['subject']][] = $entry;
@@ -112,52 +113,77 @@ class Catalog
     }
 
     /**
-     * Every subject pipeline class, including country and level variants.
+     * Every subject task class, including country and level variants.
      *
      * @return list<class-string>
      */
     public static function classes(): array
     {
         $classes = [];
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator(__DIR__, \FilesystemIterator::SKIP_DOTS)
-        );
-        foreach ($iterator as $file) {
-            if (!$file->isFile() || $file->getFilename() !== 'Pipeline.php') {
-                continue;
+        foreach (AssessmentFactory::classes() as $assessmentClass) {
+            $prefix = substr($assessmentClass, 0, -strlen('Assessment'));
+            foreach (['TranscribingTask', 'CorrectingTask', 'AnnotatingTask', 'RenderingTask'] as $suffix) {
+                $class = $prefix . $suffix;
+                if (self::taskExists($class)) {
+                    $classes[] = $class;
+                }
             }
-            $relative = substr($file->getPathname(), strlen(__DIR__) + 1, -strlen('/Pipeline.php'));
-            $classes[] = 'Corrai\\Subject\\' . str_replace('/', '\\', $relative) . '\\Pipeline';
         }
+        $classes = array_values(array_unique($classes));
         sort($classes);
         return $classes;
     }
 
     /**
-     * Most specific pipeline for a subject, country, and level.
+     * Entry task for a subject, country, and level.
+     *
+     * The subject tree lives on each package Assessment. The entry task is the
+     * first task class in that same package.
      *
      * @return class-string
      */
     public static function pipelineClass(string $subject, string $country, string $level): string
     {
-        $countryOnly = null;
-        $bare = null;
-        foreach (self::classes() as $class) {
-            if ($class::SUBJECT !== $subject) {
-                continue;
-            }
-            $entryCountry = $class::COUNTRY;
-            $entryLevel = $class::LEVEL;
-            if ($entryCountry === $country && $entryLevel === $level) {
+        $assessmentClass = AssessmentFactory::assessmentClass($subject, $country, $level);
+        $prefix = $assessmentClass === \Corrai\Model\Assessment::class
+            ? 'Corrai\\Subject\\Other\\'
+            : substr($assessmentClass, 0, -strlen('Assessment'));
+        foreach (['TranscribingTask', 'CorrectingTask'] as $suffix) {
+            $class = $prefix . $suffix;
+            if (self::taskExists($class)) {
                 return $class;
             }
-            if ($entryCountry === $country && $entryLevel === '') {
-                $countryOnly = $class;
-            }
-            if ($entryCountry === '' && $entryLevel === '') {
-                $bare = $class;
-            }
         }
-        return $countryOnly ?? $bare ?? \Corrai\Subject\Other\Pipeline::class;
+        return \Corrai\Subject\Other\TranscribingTask::class;
+    }
+
+    /**
+     * True when the task class has a PHP file, including TaskNName.php for NameTask.
+     */
+    private static function taskExists(string $class): bool
+    {
+        if (!str_starts_with($class, 'Corrai\\')) {
+            return false;
+        }
+        $relative = substr($class, strlen('Corrai\\'));
+        $file = dirname(__DIR__) . '/' . str_replace('\\', '/', $relative) . '.php';
+        if (is_file($file)) {
+            return true;
+        }
+        $short = basename(str_replace('\\', '/', $relative));
+        if (!str_ends_with($short, 'Task')) {
+            return false;
+        }
+        $stem = substr($short, 0, -strlen('Task'));
+        $matches = glob(dirname($file) . '/Task*' . $stem . '.php');
+        return is_array($matches) && $matches !== [];
+    }
+
+    private static function blank(mixed $value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+        return trim($value);
     }
 }

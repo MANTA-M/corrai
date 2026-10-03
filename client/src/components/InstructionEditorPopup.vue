@@ -81,7 +81,7 @@ const emit = defineEmits<{
   saved: [files: AssessmentFile[]]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 
 const labels = computed(() =>
@@ -199,7 +199,7 @@ const save = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/file',
-        { id: props.assessmentId },
+        { id: props.assessmentId, locale: String(locale.value) },
         formData,
         'form'
       )
@@ -212,7 +212,7 @@ const save = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
-        { id: props.assessmentId, file: props.existingFile.id },
+        { id: props.assessmentId, file: props.existingFile.id, locale: String(locale.value) },
         patch
       )
       files = response?.files

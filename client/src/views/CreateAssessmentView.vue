@@ -236,7 +236,10 @@ const refreshSubjects = async () => {
   await loadSubjects()
 }
 
+let editLoadSeq = 0
+
 const loadAssessmentForEdit = async (hash: string) => {
+  const seq = ++editLoadSeq
   error.value = ''
   formLoaded.value = false
   try {
@@ -248,9 +251,16 @@ const loadAssessmentForEdit = async (hash: string) => {
       isLoading.value = true
     }
     const loaded = await sessionStore.load_assessment(hash)
+    if (seq !== editLoadSeq) return
     if (loaded) {
       formLoaded.value = true
-      syncForm(loaded)
+      const untouched = !cached || (
+        form.name === (cached.name || '') &&
+        form.subject === (cached.subject || '') &&
+        form.level === (cached.level || '') &&
+        form.date === (cached.date || '')
+      )
+      if (untouched) syncForm(loaded)
     } else if (!cached) {
       error.value = t('assessment.notFoundMessage', { hash })
     }
@@ -375,7 +385,7 @@ const createAssessment = async () => {
     const payload = assessmentPayload()
     if (draftId.value) {
       await wsClient.queryWs('PUT', '/assessment', { hash: draftId.value }, payload)
-      const existingIndex = sessionStore.own_assessments.findIndex(e => e.id === draftId.value)
+      const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === draftId.value)
       if (existingIndex !== -1) {
         sessionStore.own_assessments[existingIndex] = {
           ...sessionStore.own_assessments[existingIndex],
@@ -428,7 +438,7 @@ const saveAssessment = async () => {
     const payload = assessmentPayload()
     await wsClient.queryWs('PUT', '/assessment', { hash: assessmentId.value }, payload)
 
-    const existingIndex = sessionStore.own_assessments.findIndex(e => e.id === assessmentId.value)
+    const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === assessmentId.value)
     if (existingIndex !== -1) {
       sessionStore.own_assessments[existingIndex] = {
         ...sessionStore.own_assessments[existingIndex],
@@ -475,9 +485,6 @@ watch(locale, () => {
 
 onMounted(() => {
   refreshSubjects()
-  if (isEditMode.value && assessmentId.value) {
-    loadAssessmentForEdit(assessmentId.value)
-  }
 })
 
 watch(
@@ -488,7 +495,8 @@ watch(
     } else if (name === 'create-assessment') {
       resetCreateForm()
     }
-  }
+  },
+  { immediate: true }
 )
 </script>
 

@@ -102,6 +102,7 @@ const ro: I18nSchema = {
         fileTypeDebug: "Debug",
         fileTypeUnknown: "Necunoscut",
         fileStatus: "Stare",
+        fileStored: "Stocat",
         fileChangeType: "Schimbă tipul",
         fileSetStudent: "Setează elevul",
         fileStudentPlaceholder: "Numele elevului",

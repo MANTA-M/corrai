@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Subject\DictationFranceCM2\AnnotatingTask;
+use Corrai\Subject\DictationFranceCM2\CorrectingTask;
 use Corrai\Subject\DictationFranceCM2\Pipeline;
 use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;
@@ -29,7 +31,7 @@ class DictationFranceCM2PipelineTest extends TestCase
         }
     }
 
-    public function testGdDirectivesForwardsTheErrorBoxesToTheModel(): void
+    public function testGdAnnotationsForwardsTheErrorBoxesToTheModel(): void
     {
         $inputCorrection = json_encode([
             'errors' => [
@@ -48,9 +50,9 @@ class DictationFranceCM2PipelineTest extends TestCase
         ]);
 
         $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
+        $task = new TestableAnnotatingTask($mockClient);
 
-        $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
+        $task->gdAnnotations($this->tempImagePath, 'copy.png', $inputCorrection);
 
         $promptText = $mockClient->sentPromptText();
         $this->assertStringContainsString('Correction listing the errors to mark:', $promptText);
@@ -113,14 +115,14 @@ class DictationFranceCM2PipelineTest extends TestCase
         }
     }
 
-    public function testGdDirectivesThrowsExceptionOnInvalidJson(): void
+    public function testGdAnnotationsThrowsExceptionOnInvalidJson(): void
     {
         $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
+        $task = new TestableAnnotatingTask($mockClient);
 
         $this->expectException(WSException::class);
         $this->expectExceptionMessage('Invalid correction JSON');
-        $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', 'Not a valid JSON');
+        $task->gdAnnotations($this->tempImagePath, 'copy.png', 'Not a valid JSON');
     }
 
     public function testCoordinatesPastTheImageAreLimitedToItsDimensions(): void
@@ -139,12 +141,12 @@ class DictationFranceCM2PipelineTest extends TestCase
         ]);
 
         $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
+        $task = new TestableAnnotatingTask($mockClient);
 
         $log = tempnam(sys_get_temp_dir(), 'coord_log_');
         $previousLog = ini_set('error_log', $log);
         try {
-            $pipeline->callGdDirectives($this->tempImagePath, 'copy.png', $inputCorrection);
+            $task->gdAnnotations($this->tempImagePath, 'copy.png', $inputCorrection);
         } finally {
             if ($previousLog === false) {
                 ini_restore('error_log');
@@ -172,7 +174,7 @@ class DictationFranceCM2PipelineTest extends TestCase
     public function testFindErrorsSchemaAsksOnlyForErrors(): void
     {
         $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
+        $task = new TestableCorrectingTask($mockClient);
 
         $assessment = $this->createMock(\Corrai\Model\Assessment::class);
         $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
@@ -181,7 +183,7 @@ class DictationFranceCM2PipelineTest extends TestCase
         copy($this->tempImagePath, $solutionPath);
 
         try {
-            $pipeline->callFindErrors($assessment, $this->tempImagePath, 'copy.png', $solutionPath, 'sol.png', 'French');
+            $task->findErrors($assessment, $this->tempImagePath, 'copy.png', $solutionPath, 'sol.png', 'French');
 
             $schema = $mockClient->responseFormat()['json_schema']['schema'];
             $this->assertSame(['errors'], $schema['required']);
@@ -204,7 +206,7 @@ class DictationFranceCM2PipelineTest extends TestCase
     public function testFindErrorsSendsTheOcrWordsToTheModel(): void
     {
         $mockClient = new CapturedClaudeSonnetClient();
-        $pipeline = new TestablePipeline($mockClient);
+        $task = new TestableCorrectingTask($mockClient);
 
         $assessment = $this->createMock(\Corrai\Model\Assessment::class);
         $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
@@ -213,7 +215,7 @@ class DictationFranceCM2PipelineTest extends TestCase
         copy($this->tempImagePath, $solutionPath);
 
         try {
-            $pipeline->callFindErrors(
+            $task->findErrors(
                 $assessment,
                 $this->tempImagePath,
                 'copy.png',
@@ -254,7 +256,7 @@ class DictationFranceCM2PipelineTest extends TestCase
     }
 }
 
-class TestablePipeline extends Pipeline
+class TestableCorrectingTask extends CorrectingTask
 {
     public function __construct(private readonly ClaudeSonnetClient $mockClient)
     {
@@ -264,22 +266,17 @@ class TestablePipeline extends Pipeline
     {
         return $this->mockClient;
     }
+}
 
-    public function callFindErrors(
-        \Corrai\Model\BaseAssessment $assessment,
-        string $copyPath,
-        string $copyName,
-        string $solutionPath,
-        string $solutionName,
-        string $languageName,
-        array $ocrWords = []
-    ): string {
-        return $this->findErrors($assessment, $copyPath, $copyName, $solutionPath, $solutionName, $languageName, $ocrWords);
+class TestableAnnotatingTask extends AnnotatingTask
+{
+    public function __construct(private readonly ClaudeSonnetClient $mockClient)
+    {
     }
 
-    public function callGdDirectives(string $copyPath, string $copyName, string $correction): string
+    protected function createClaudeSonnetClient(): ClaudeSonnetClient
     {
-        return $this->gdDirectives($copyPath, $copyName, $correction);
+        return $this->mockClient;
     }
 }
 
@@ -310,6 +307,6 @@ class CapturedClaudeSonnetClient extends ClaudeSonnetClient
 
     public function call_text(): string
     {
-        return '<?php $GD_directives = [];';
+        return '<?php $GD_annotations = [];';
     }
 }

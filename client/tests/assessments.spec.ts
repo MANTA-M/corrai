@@ -6,6 +6,7 @@ import os from 'os'
 
 test.describe('Assessments CRUD', () => {
   test('list, create, edit, upload file, and delete an assessment', async ({ page }) => {
+    test.setTimeout(60000)
     await test.step('List shows empty state after profile init', async () => {
       await initProfile(page, 'Assessment Tester')
       await expect(page.getByTestId('assessments-heading')).toHaveText('Évaluations')
@@ -38,6 +39,7 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('assessment-meta')).toContainText('2026-10-15, Math')
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Math')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-10-15')
+      await expect(page.getByTestId('assessment-edit')).toHaveCount(0)
       await expect(page.getByTestId('assessment-edit-subject')).toBeVisible()
       await expect(page.getByTestId('assessment-add-file')).toHaveText('Ajouter des copies')
       await expect(page.getByTestId('students-empty')).toBeVisible()
@@ -46,7 +48,7 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('assessment-save')).toHaveCount(0)
       await expect(page.getByTestId('assessment-name')).toHaveCount(0)
 
-      await page.goto('/assessment-list')
+      await page.goto('assessment-list')
       await expect(page.getByTestId('assessment-item')).toHaveCount(1)
       await expect(page.getByTestId('assessment-item')).toContainText('Math Midterm')
       await expect(page.getByTestId('assessment-item')).toContainText('Math')
@@ -66,30 +68,49 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('assessment-item')).toContainText('Math Midterm')
     })
 
-    await test.step('Edit the assessment via Edit button', async () => {
+    await test.step('Edit the assessment from the subject page', async () => {
       await page.getByTestId('assessment-item').click()
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 10000 })
+      await expect(page.getByTestId('assessment-edit')).toHaveCount(0)
 
-      await page.getByTestId('assessment-edit').click()
-      await page.waitForURL(/\/assessment\/[^/]+\/edit$/, { timeout: 10000 })
+      await page.getByTestId('assessment-edit-subject').click()
+      await page.waitForURL(/\/assessment\/[^/]+\/sujet$/, { timeout: 10000 })
 
-      await page.getByTestId('assessment-name').fill('Math Final')
-      await page.getByTestId('assessment-subject').selectOption('Physics')
-      await page.getByTestId('assessment-date').fill('2026-12-01')
-      await page.getByTestId('assessment-save').click()
+      await page.getByTestId('subject-name-edit').click()
+      await page.getByTestId('subject-name-input').fill('Math Final')
+      await page.getByTestId('subject-name-save').click()
+      await expect(page.getByTestId('subject-name-value')).toHaveText('Math Final', { timeout: 15000 })
 
+      await page.getByTestId('subject-subject-edit').click()
+      await page.getByTestId('subject-subject-input').selectOption('Physics')
+      await page.getByTestId('subject-subject-save').click()
+      await expect(page.getByTestId('subject-subject-value')).toHaveText('Physique')
+
+      await page.getByTestId('subject-level-edit').click()
+      await page.getByTestId('subject-level-input').selectOption('cm2')
+      await page.getByTestId('subject-level-save').click()
+      await expect(page.getByTestId('subject-level-value')).toHaveText('CM2')
+
+      await page.getByTestId('subject-date-edit').click()
+      await page.getByTestId('subject-date-input').fill('2026-12-01')
+      await page.getByTestId('subject-date-save').click()
+      await expect(page.getByTestId('subject-date-value')).toHaveText('2026-12-01')
+
+      await page.getByTestId('subject-back').click()
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Final')
       await expect(page.getByTestId('assessment-meta')).toContainText('2026-12-01, Physique')
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
+      await expect(page.getByTestId('assessment-level-value')).toHaveText('CM2')
 
       await page.reload()
       await expect(page.getByTestId('assessment-details-heading')).toContainText('Math Final')
       await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
+      await expect(page.getByTestId('assessment-level-value')).toHaveText('CM2')
 
-      await page.goto('/assessment-list')
+      await page.goto('assessment-list')
       await expect(page.getByTestId('assessment-item')).toContainText('Math Final')
       await expect(page.getByTestId('assessment-item')).toContainText('Physique')
       await expect(page.getByTestId('assessment-item')).toContainText('2026-12-01')
@@ -145,7 +166,7 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(1)
 
       await page.getByTestId('unassigned-files').getByTestId('file-reassign').click()
-      await page.getByRole('radio', { name: 'Alice' }).check()
+      await page.locator('.reassign-option', { hasText: 'Alice' }).click()
       await page.getByTestId('reassign-confirm').click()
       await expect(page.getByTestId('reassign-file-popup')).toHaveCount(0, { timeout: 15000 })
       await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(0)
@@ -182,7 +203,7 @@ test.describe('Assessments CRUD', () => {
       await page.getByTestId('rename-file-input').fill('renamed-scan.txt')
       await page.getByTestId('rename-file-save').click()
       await expect(page.getByTestId('rename-file-popup')).toHaveCount(0, { timeout: 15000 })
-      await expect(page.getByTestId('assessment-file-item')).toContainText('renamed-scan.txt')
+      await expect(page.getByTestId('assessment-file-item').filter({ hasText: 'renamed-scan.txt' })).toBeVisible()
 
       const renamedRow = page.getByTestId('assessment-file-item').filter({ hasText: 'renamed-scan.txt' })
       await renamedRow.getByTestId('file-delete').click()
@@ -315,7 +336,7 @@ test.describe('Assessments CRUD', () => {
       )
     }, publicKey)
 
-    await page.goto('/assessment-list')
+    await page.goto('assessment-list')
     await expect(page.getByTestId('assessments-heading')).toHaveText('Assessments', { timeout: 20000 })
     await expect(page.getByTestId('assessments-empty')).toBeVisible({ timeout: 15000 })
 

@@ -71,7 +71,7 @@ class RestClientResponseLogTest extends TestCase
                     'index' => 0,
                     'message' => [
                         'role' => 'assistant',
-                        'content' => "<?php\n\$GD_directives = [\n    ['fn' => 'imageline']\n];",
+                        'content' => "<?php\n\$GD_annotations = [\n    ['fn' => 'imageline']\n];",
                     ],
                 ],
             ],
@@ -81,7 +81,7 @@ class RestClientResponseLogTest extends TestCase
 
         // Content should have real line breaks
         $this->assertStringContainsString("<?php\n", $formatted);
-        $this->assertStringContainsString("\$GD_directives = [\n", $formatted);
+        $this->assertStringContainsString("\$GD_annotations = [\n", $formatted);
         $this->assertStringNotContainsString('<?php\n', $formatted);
     }
 

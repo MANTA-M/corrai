@@ -35,7 +35,7 @@ class ObjectStore
     public const CONTENT_FILE = 'content';
     public const OCR_RESULT_FILE = 'ocr_result.json';
     public const FOUND_ERRORS_FILE = 'found_errors.json';
-    public const MARKUP_DIRECTIVES_FILE = 'markup_directives.php';
+    public const MARKUP_ANNOTATIONS_FILE = 'markup_annotations.php';
     public const SCHEMA = 1;
 
     private static ?self $instance = null;
@@ -254,7 +254,7 @@ class ObjectStore
             . self::FOUND_ERRORS_FILE;
     }
 
-    public static function assessmentFileMarkupDirectivesKey(
+    public static function assessmentFileMarkupAnnotationsKey(
         string $schoolId,
         string $teacherId,
         string $assessmentId,
@@ -263,7 +263,7 @@ class ObjectStore
         ?string $studentId = null
     ): string {
         return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
-            . self::MARKUP_DIRECTIVES_FILE;
+            . self::MARKUP_ANNOTATIONS_FILE;
     }
 
     public static function assessmentFileEventsPrefix(

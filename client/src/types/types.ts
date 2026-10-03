@@ -4,11 +4,6 @@ export interface Persona {
   key: string,
 }
 
-export interface CryptoAddress {
-  blockchain: string,
-  public_key: string,
-}
-
 /** Stored assessment subject values. These are pipeline names, not display labels. */
 export const ASSESSMENT_SUBJECTS = [
   'MathPipeline',
@@ -33,6 +28,13 @@ export type AssessmentFileType = (typeof ASSESSMENT_FILE_TYPES)[number]
 export const ASSESSMENT_FILE_TYPE_ZONES = [...ASSESSMENT_FILE_TYPES, 'unknown'] as const
 export type AssessmentFileTypeZone = (typeof ASSESSMENT_FILE_TYPE_ZONES)[number]
 
+export interface MenuItem {
+  key: string
+  label: string
+  icon: string
+  color: string
+}
+
 export interface AssessmentFile {
   id: string
   name: string
@@ -43,7 +45,12 @@ export interface AssessmentFile {
   student?: string | null
   student_name?: string | null
   status?: string
+  /** Localized status, returned by the server and shown as-is */
+  status_label?: string
   content_type?: string
+  /** Localized type name */
+  label?: string
+  menu?: MenuItem[]
 }
 
 export interface AssessmentStudent {
@@ -51,6 +58,7 @@ export interface AssessmentStudent {
   name: string
   status?: string
   mark?: number | null
+  menu?: MenuItem[]
 }
 
 export interface AssessmentQuestion {
@@ -91,4 +99,7 @@ export interface Assessment {
   questions?: AssessmentQuestion[]
   files?: AssessmentFile[]
   students?: AssessmentStudent[]
+  /** Localized subject name */
+  label?: string
+  menu?: MenuItem[]
 }

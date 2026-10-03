@@ -234,7 +234,9 @@ class User
     /**
      * List assessments belonging to this user.
      *
-     * @return Assessment[]
+     * Each item is the concrete class stored on that assessment.
+     *
+     * @return BaseAssessment[]
      */
     public function assessments(): array
     {

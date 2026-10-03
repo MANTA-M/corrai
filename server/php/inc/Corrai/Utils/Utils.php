@@ -95,22 +95,6 @@ class Utils
         return [$key, $value];
     }
 
-    /**
-     * Cast stdClass to concrete object instance.
-     */
-    public static function recast($className, object $object)
-    {
-        if (!class_exists($className))
-            throw new Exception(sprintf('Inexistant class %s.', $className));
-
-        $new = new $className();
-
-        foreach ($object as $property => &$value) {
-            $new->$property = &$value;
-        }
-        return $new;
-    }
-
     public static function objectPropertiesCopy(object $source, object &$destination): object
     {
         foreach ($source as $property => $value) {

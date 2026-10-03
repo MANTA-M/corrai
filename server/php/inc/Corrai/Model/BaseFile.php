@@ -4,6 +4,7 @@ namespace Corrai\Model;
 
 use Exception;
 use Corrai\Utils\HashId;
+use Corrai\Utils\MenuLabels;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\StoreConflictException;
 use Corrai\Utils\WSException;
@@ -11,7 +12,7 @@ use Corrai\Utils\WSException;
 /**
  * Shared assessment file model. Subject packages may provide a concrete File.
  */
-class BaseFile
+abstract class BaseFile
 {
     public ?string $id = null;
     public string $school_id = '';
@@ -44,6 +45,11 @@ class BaseFile
     /** @var string|null Last known ETag for conditional attribute updates */
     public ?string $etag = null;
 
+    /**
+     * True when the attribute document named this instance's class.
+     */
+    public bool $hasStoredClass = false;
+
     public static function from_array(array $data): static
     {
         $file = new static();
@@ -61,9 +67,109 @@ class BaseFile
         } else {
             $file->student = null;
         }
-        $file->status = (string) ($data['status'] ?? '');
+        $status = (string) ($data['status'] ?? '');
+        $file->status = $status === 'loaded' ? 'stored' : $status;
         $file->content_type = (string) ($data['content_type'] ?? 'application/octet-stream');
+        $storedClass = $data['class'] ?? null;
+        $file->hasStoredClass = is_string($storedClass) && $storedClass === static::class;
         return $file;
+    }
+
+    /**
+     * Concrete file class named by an attribute document.
+     *
+     * @return class-string<BaseFile>|null
+     */
+    public static function classFromPayload(array $data): ?string
+    {
+        $class = $data['class'] ?? null;
+        if (!is_string($class) || !self::isFileClass($class)) {
+            return null;
+        }
+        return $class;
+    }
+
+    /**
+     * True when $class can be constructed as a file.
+     */
+    public static function isFileClass(string $class): bool
+    {
+        if (!str_starts_with($class, 'Corrai\\') || str_contains($class, '@')) {
+            return false;
+        }
+        if (!class_exists($class)) {
+            return false;
+        }
+        $reflection = new \ReflectionClass($class);
+        return !$reflection->isAbstract()
+            && ($class === File::class || $reflection->isSubclassOf(File::class));
+    }
+
+    /**
+     * Class written to S3 for this file.
+     *
+     * @return class-string<File>
+     */
+    public function storedClass(): string
+    {
+        $class = static::class;
+        if (self::isFileClass($class)) {
+            return $class;
+        }
+        return File::class;
+    }
+
+    /**
+     * Attribute document written to S3, including the concrete class.
+     *
+     * @return array<string, mixed>
+     */
+    public function attributePayload(): array
+    {
+        return [
+            'name' => $this->name,
+            'type' => $this->type,
+            'student' => $this->student,
+            'status' => $this->status,
+            'content_type' => $this->content_type,
+            'size' => $this->size,
+            'created' => $this->created,
+            'class' => $this->storedClass(),
+        ];
+    }
+
+    /**
+     * Copy of this file as $class, keeping the stored fields and etag.
+     */
+    public function asClass(string $class): self
+    {
+        if (!self::isFileClass($class)) {
+            throw new Exception('Invalid file class ' . $class);
+        }
+        $copy = $class::from_array($this->attributeState());
+        $copy->etag = $this->etag;
+        $copy->hasStoredClass = false;
+        return $copy;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function attributeState(): array
+    {
+        return [
+            'id' => $this->id,
+            'school_id' => $this->school_id,
+            'user_id' => $this->user_id,
+            'assessment_id' => $this->assessment_id,
+            'name' => $this->name,
+            'type' => $this->type,
+            'student' => $this->student,
+            'status' => $this->status,
+            'content_type' => $this->content_type,
+            'size' => $this->size,
+            'created' => $this->created,
+        ];
     }
 
     public function validate(): void
@@ -94,13 +200,44 @@ class BaseFile
         }
 
         $loaded = $store->getJson($attrKey);
-        $file = static::from_array($loaded['data']);
+        $class = self::resolveFileClass($loaded['data'], $parsed);
+        if (!is_a($class, static::class, true)) {
+            $class = static::class;
+        }
+        $file = $class::from_array($loaded['data']);
         $file->id = $parsed['file_id'];
         $file->school_id = $parsed['school_id'];
         $file->user_id = $parsed['teacher_id'];
         $file->assessment_id = $parsed['assessment_id'];
         $file->etag = $loaded['etag'];
         return $file;
+    }
+
+    /**
+     * Stored class, or the parent assessment's file class when the attribute is absent.
+     *
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $parsed
+     * @return class-string<File>
+     */
+    private static function resolveFileClass(array $data, array $parsed): string
+    {
+        $stored = self::classFromPayload($data);
+        if ($stored !== null) {
+            return $stored;
+        }
+        $assessmentId = $parsed['assessment_id'] ?? '';
+        if (is_string($assessmentId) && $assessmentId !== '') {
+            try {
+                $class = BaseAssessment::from_hash($assessmentId)->fileClass();
+                if (self::isFileClass($class)) {
+                    return $class;
+                }
+            } catch (\Throwable $e) {
+                // The generic file remains readable when the assessment cannot be loaded.
+            }
+        }
+        return File::class;
     }
 
     public function attrKey(): string
@@ -151,9 +288,9 @@ class BaseFile
         );
     }
 
-    public function markupDirectivesKey(): string
+    public function markupAnnotationsKey(): string
     {
-        return ObjectStore::assessmentFileMarkupDirectivesKey(
+        return ObjectStore::assessmentFileMarkupAnnotationsKey(
             $this->school_id,
             $this->user_id,
             $this->assessment_id,
@@ -185,15 +322,7 @@ class BaseFile
         }
         $this->validate();
 
-        $payload = [
-            'name' => $this->name,
-            'type' => $this->type,
-            'student' => $this->student,
-            'status' => $this->status,
-            'content_type' => $this->content_type,
-            'size' => $this->size,
-            'created' => $this->created,
-        ];
+        $payload = $this->attributePayload();
 
         $attempts = $retry ? 5 : 1;
         $store = ObjectStore::getInstance();
@@ -273,7 +402,7 @@ class BaseFile
                 $timestamp = (int) ($loaded['data']['timestamp'] ?? 0);
                 $eventName = $loaded['data']['name'] ?? '';
                 if (is_string($eventName) && $eventName !== '') {
-                    $label = $eventName;
+                    $label = MenuLabels::fileEventLabel($eventName);
                 }
             } catch (\Throwable $e) {
                 // Keep the object visible in debug history even if its JSON is unreadable.
@@ -329,8 +458,68 @@ class BaseFile
         $store->deleteIdPointer($this->id);
     }
 
-    public function to_output(?string $studentName = null): array
+    /**
+     * Base status labels. Subject files add their own statuses by overriding get_status_label().
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected const STATUS_LABELS = [
+        'stored' => [
+            'en' => 'Stored',
+            'fr' => 'Stocké',
+            'ru' => 'Сохранено',
+            'uk' => 'Збережено',
+            'es' => 'Almacenado',
+            'pt' => 'Armazenado',
+            'ro' => 'Stocat',
+            'de' => 'Gespeichert',
+        ],
+    ];
+
+    /**
+     * Localized name of this file's type.
+     */
+    public function localizedLabel(string $locale): string
     {
+        $type = $this->type === '' ? 'unknown' : $this->type;
+        return MenuLabels::text('file_type_' . $type, $locale);
+    }
+
+    /**
+     * Localized label of the current status. An unknown status is returned unchanged.
+     */
+    public function get_status_label(?string $locale = null): string
+    {
+        $status = $this->status === 'loaded' ? 'stored' : $this->status;
+        $labels = self::STATUS_LABELS[$status] ?? null;
+        if (!is_array($labels)) {
+            return $status;
+        }
+        return MenuLabels::pick($labels, MenuLabels::locale($locale), $status);
+    }
+
+    /**
+     * Actions the client can offer for this file.
+     *
+     * @return array<int, array{key: string, label: string, icon: string, color: string}>
+     */
+    public function get_menu(string $locale): array
+    {
+        $items = [
+            MenuLabels::item('view', $locale, 'eye', MenuLabels::BLUE),
+        ];
+        if ($this->canReassign()) {
+            $items[] = MenuLabels::item('reassign', $locale, 'person', MenuLabels::BLUE);
+        }
+        $items[] = MenuLabels::item('events', $locale, 'list', MenuLabels::MUTED);
+        $items[] = MenuLabels::item('rename', $locale, 'pencil', MenuLabels::BLUE);
+        $items[] = MenuLabels::item('delete', $locale, 'trash', MenuLabels::DANGER, 'file_delete');
+        return $items;
+    }
+
+    public function to_output(?string $studentName = null, ?string $locale = null): array
+    {
+        $locale = MenuLabels::locale($locale);
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -340,7 +529,29 @@ class BaseFile
             'student' => $this->student,
             'student_name' => $studentName,
             'status' => $this->status,
+            'status_label' => $this->get_status_label($locale),
             'content_type' => $this->content_type,
+            'label' => $this->localizedLabel($locale),
+            'menu' => $this->get_menu($locale),
         ];
     }
+
+    /**
+     * Subject material stays with the assessment. Copies can move between students.
+     */
+    public function canReassign(): bool
+    {
+        if (in_array($this->type, ['subject', 'solution', 'instructions'], true)) {
+            return false;
+        }
+        if ($this->type === 'submission' || $this->type === '') {
+            return true;
+        }
+        return trim((string) $this->student) === '';
+    }
+
+    /**
+     * Called when the file is stored.
+     */
+    abstract public function on_stored(): void;
 }

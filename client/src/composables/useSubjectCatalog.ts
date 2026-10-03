@@ -79,5 +79,5 @@ export function useSubjectCatalog() {
     return inCountry || inSubject || level
   }
 
-  return { subjects, load, subjectName, countryName, levelName }
+  return { subjects, load, levelName }
 }

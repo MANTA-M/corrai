@@ -4,6 +4,7 @@ namespace Corrai\Model;
 
 use Exception;
 use Corrai\Utils\HashId;
+use Corrai\Utils\MenuLabels;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\StoreConflictException;
 use Corrai\Utils\WSException;
@@ -147,13 +148,29 @@ class BaseStudent
         $store->deleteIdPointer($this->id);
     }
 
-    public function to_output(): array
+    public function to_output(?string $locale = null): array
     {
+        $locale = MenuLabels::locale($locale);
         return [
             'id' => $this->id,
             'name' => $this->name,
             'status' => $this->status,
             'mark' => $this->mark,
+            'menu' => $this->get_menu($locale),
+        ];
+    }
+
+    /**
+     * Icon actions shown on a student row.
+     *
+     * @return array<int, array{key: string, label: string, icon: string, color: string}>
+     */
+    public function get_menu(string $locale): array
+    {
+        return [
+            MenuLabels::item('view', $locale, 'eye', MenuLabels::BLUE, 'student_open'),
+            MenuLabels::item('rename', $locale, 'pencil', MenuLabels::BLUE, 'student_rename'),
+            MenuLabels::item('delete', $locale, 'trash', MenuLabels::DANGER, 'student_delete'),
         ];
     }
 }

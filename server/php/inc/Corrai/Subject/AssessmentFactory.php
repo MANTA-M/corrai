@@ -49,10 +49,10 @@ class AssessmentFactory
             }
             $entryCountry = self::normalizeOptional($defaults['country'] ?? null);
             $entryLevel = self::normalizeOptional($defaults['level'] ?? null);
-            if ($entryCountry === $country && $entryLevel === $level) {
+            if (self::sameToken($entryCountry, $country) && self::sameToken($entryLevel, $level)) {
                 return $class;
             }
-            if ($entryCountry === $country && $entryLevel === '') {
+            if (self::sameToken($entryCountry, $country) && $entryLevel === '') {
                 $countryOnly = $class;
             }
             if ($entryCountry === '' && $entryLevel === '') {
@@ -63,7 +63,39 @@ class AssessmentFactory
     }
 
     /**
+     * Class stored on an assessment attribute document, when it names a concrete assessment.
+     *
+     * @return class-string<BaseAssessment>|null
+     */
+    public static function classFromPayload(array $data): ?string
+    {
+        $class = $data['class'] ?? null;
+        if (!is_string($class) || !self::isAssessmentClass($class)) {
+            return null;
+        }
+        return $class;
+    }
+
+    /**
+     * True when $class can be constructed as an assessment.
+     */
+    public static function isAssessmentClass(string $class): bool
+    {
+        if (!str_starts_with($class, 'Corrai\\') || str_contains($class, '@')) {
+            return false;
+        }
+        if (!class_exists($class)) {
+            return false;
+        }
+        $reflection = new \ReflectionClass($class);
+        return !$reflection->isAbstract() && $reflection->isSubclassOf(BaseAssessment::class);
+    }
+
+    /**
      * Build an Assessment from S3 attribute payload plus path ids.
+     *
+     * A stored class wins over subject, country, and level. Missing or unknown
+     * classes fall back to the subject catalog.
      */
     public static function fromAttributes(
         array $data,
@@ -71,10 +103,13 @@ class AssessmentFactory
         string $userId,
         string $assessmentId
     ): BaseAssessment {
-        $subject = (string) ($data['subject'] ?? '');
-        $country = self::normalizeOptional($data['country'] ?? null);
-        $level = self::normalizeOptional($data['level'] ?? null);
-        $class = self::assessmentClass($subject, $country, $level);
+        $class = self::classFromPayload($data);
+        if ($class === null) {
+            $subject = (string) ($data['subject'] ?? '');
+            $country = self::normalizeOptional($data['country'] ?? null);
+            $level = self::normalizeOptional($data['level'] ?? null);
+            $class = self::assessmentClass($subject, $country, $level);
+        }
         /** @var BaseAssessment $assessment */
         $assessment = $class::from_array($data);
         $assessment->id = $assessmentId;
@@ -89,5 +124,13 @@ class AssessmentFactory
             return '';
         }
         return trim($value);
+    }
+
+    /**
+     * Country and level codes match regardless of case.
+     */
+    private static function sameToken(string $left, string $right): bool
+    {
+        return strcasecmp($left, $right) === 0;
     }
 }

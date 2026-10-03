@@ -102,6 +102,7 @@ const ru: I18nSchema = {
         fileTypeDebug: "Отладка",
         fileTypeUnknown: "Неизвестно",
         fileStatus: "Статус",
+        fileStored: "Сохранено",
         fileChangeType: "Изменить тип",
         fileSetStudent: "Указать ученика",
         fileStudentPlaceholder: "Имя ученика",

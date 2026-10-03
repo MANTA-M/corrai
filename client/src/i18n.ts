@@ -131,6 +131,7 @@ export interface I18nSchema {
         fileTypeDebug: string
         fileTypeUnknown: string
         fileStatus: string
+        fileStored: string
         fileChangeType: string
         fileSetStudent: string
         fileStudentPlaceholder: string

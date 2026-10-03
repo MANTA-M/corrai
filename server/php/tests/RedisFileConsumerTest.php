@@ -21,6 +21,10 @@ class RedisFileConsumerTest extends TestCase
     {
         $class = AssessmentFactory::assessmentClass('Dictation', 'fr', 'CM1');
         $this->assertSame(DictationFranceCM1Assessment::class, $class);
+        $this->assertSame(
+            DictationFranceCM2Assessment::class,
+            AssessmentFactory::assessmentClass('Dictation', 'FR', 'cm2')
+        );
 
         $assessment = AssessmentFactory::fromAttributes(
             [
@@ -71,7 +75,7 @@ class RedisFileConsumerTest extends TestCase
                 'name' => 'copy.png',
                 'type' => 'submission',
                 'student' => null,
-                'status' => 'loaded',
+                'status' => 'stored',
                 'content_type' => 'image/png',
                 'size' => 42,
                 'created' => 1700000000,
@@ -85,9 +89,37 @@ class RedisFileConsumerTest extends TestCase
         $this->assertSame('school1', $file->school_id);
         $this->assertSame('teacher1', $file->user_id);
         $this->assertSame('assessment1', $file->assessment_id);
-        $this->assertSame('loaded', $file->status);
+        $this->assertSame('stored', $file->status);
         $this->assertSame('copy.png', $file->name);
         $this->assertSame('"etag-1"', $file->etag);
+    }
+
+    public function testLegacyLoadedStatusIsReadAsStored(): void
+    {
+        $assessment = AssessmentFactory::fromAttributes(
+            [
+                'name' => 'Test',
+                'subject' => 'Math',
+                'date' => '2026-01-15',
+                'created_at' => '2026-01-15T00:00:00Z',
+            ],
+            'school1',
+            'teacher1',
+            'assessment1'
+        );
+
+        $file = $assessment->fileFromAttributes(
+            [
+                'name' => 'copy.png',
+                'type' => 'submission',
+                'status' => 'loaded',
+                'size' => 1,
+                'created' => 1,
+            ],
+            'file1'
+        );
+
+        $this->assertSame('stored', $file->status);
     }
 
     public function testFileFromAttributesUsesDictationFranceCM2File(): void
@@ -113,7 +145,7 @@ class RedisFileConsumerTest extends TestCase
             [
                 'name' => 'copy.png',
                 'type' => 'submission',
-                'status' => 'loaded',
+                'status' => 'stored',
                 'size' => 1,
                 'created' => 1,
             ],
@@ -146,32 +178,34 @@ class RedisFileConsumerTest extends TestCase
         $this->assertInstanceOf(DictationFranceCM2File::class, $file);
     }
 
-    public function testDispatchCallsOnLoadedWhenDefined(): void
+    public function testDispatchCallsOnStoredWhenDefined(): void
     {
         $assessment = new class extends GenericAssessment {
-            public ?File $seen = null;
+            public bool $assessmentCalled = false;
 
-            public function on_loaded(File $file): void
+            public function on_stored(File $file): void
             {
-                $this->seen = $file;
+                $this->assessmentCalled = true;
             }
         };
         $assessment->id = 'assessment1';
         $assessment->school_id = 'school1';
         $assessment->user_id = 'teacher1';
 
-        $file = $assessment->fileFromAttributes(
-            [
-                'name' => 'a.txt',
-                'status' => 'loaded',
-                'size' => 1,
-                'created' => 1,
-            ],
-            'file1'
-        );
+        $file = new class extends File {
+            public bool $called = false;
+
+            public function on_stored(): void
+            {
+                $this->called = true;
+            }
+        };
+        $file->id = 'file1';
+        $file->status = 'stored';
 
         RedisConsumer::dispatch($assessment, $file);
-        $this->assertSame($file, $assessment->seen);
+        $this->assertTrue($file->called);
+        $this->assertFalse($assessment->assessmentCalled);
     }
 
     public function testDispatchCallsFileHandlerBeforeAssessment(): void
@@ -220,7 +254,7 @@ class RedisFileConsumerTest extends TestCase
         $file = $assessment->fileFromAttributes(
             [
                 'name' => 'a.txt',
-                'status' => 'loaded',
+                'status' => 'missing_step',
                 'size' => 1,
                 'created' => 1,
             ],
@@ -242,9 +276,85 @@ class RedisFileConsumerTest extends TestCase
 
         $contents = (string) file_get_contents($log);
         @unlink($log);
-        $this->assertStringContainsString('No method on_loaded', $contents);
+        $this->assertStringContainsString('No method on_missing_step', $contents);
         $this->assertStringContainsString(GenericAssessment::class, $contents);
         $this->assertStringContainsString('file1', $contents);
-        $this->assertStringContainsString('status=loaded', $contents);
+        $this->assertStringContainsString('status=missing_step', $contents);
+    }
+
+    public function testStoredClassNamesTheConcreteAssessment(): void
+    {
+        $generic = new GenericAssessment();
+        $generic->subject = 'Dictation';
+        $generic->country = 'fr';
+        $generic->level = 'CM2';
+        $generic->name = 'Dictée';
+        $generic->date = '2026-03-12';
+
+        $this->assertSame(DictationFranceCM2Assessment::class, $generic->storedClass());
+        $this->assertSame(DictationFranceCM2Assessment::class, $generic->attributePayload()['class']);
+
+        $concrete = new DictationFranceCM2Assessment();
+        $this->assertSame(DictationFranceCM2Assessment::class, $concrete->storedClass());
+    }
+
+    public function testFactoryPrefersTheStoredAssessmentClass(): void
+    {
+        $assessment = AssessmentFactory::fromAttributes(
+            [
+                'name' => 'Test',
+                'subject' => 'Math',
+                'class' => DictationFranceCM2Assessment::class,
+            ],
+            'school1',
+            'teacher1',
+            'assessment1'
+        );
+
+        $this->assertInstanceOf(DictationFranceCM2Assessment::class, $assessment);
+        $this->assertSame('Math', $assessment->subject);
+    }
+
+    public function testFactoryIgnoresAnUnknownStoredClass(): void
+    {
+        $assessment = AssessmentFactory::fromAttributes(
+            [
+                'name' => 'Test',
+                'subject' => 'Math',
+                'class' => \Corrai\Model\User::class,
+            ],
+            'school1',
+            'teacher1',
+            'assessment1'
+        );
+
+        $this->assertInstanceOf(MathAssessment::class, $assessment);
+    }
+
+    public function testFileAttributePayloadAndReadUseTheConcreteFileClass(): void
+    {
+        $file = new DictationFranceCM2File();
+        $file->name = 'copy.png';
+        $file->type = 'submission';
+        $file->status = 'stored';
+        $file->size = 4;
+        $file->created = 10;
+
+        $this->assertSame(DictationFranceCM2File::class, $file->attributePayload()['class']);
+
+        $loaded = DictationFranceCM2File::from_array($file->attributePayload());
+        $this->assertInstanceOf(DictationFranceCM2File::class, $loaded);
+        $this->assertTrue($loaded->hasStoredClass);
+
+        $assessment = new MathAssessment();
+        $fromAttributes = $assessment->fileFromAttributes(
+            $file->attributePayload(),
+            'file1'
+        );
+        $this->assertInstanceOf(DictationFranceCM2File::class, $fromAttributes);
+
+        $promoted = (new File())->asClass(DictationFranceCM2File::class);
+        $this->assertInstanceOf(DictationFranceCM2File::class, $promoted);
+        $this->assertSame(DictationFranceCM2File::class, $promoted->storedClass());
     }
 }

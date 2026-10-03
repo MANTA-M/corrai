@@ -102,6 +102,7 @@ const pt: I18nSchema = {
         fileTypeDebug: "Debug",
         fileTypeUnknown: "Desconhecido",
         fileStatus: "Estado",
+        fileStored: "Armazenado",
         fileChangeType: "Alterar tipo",
         fileSetStudent: "Definir aluno",
         fileStudentPlaceholder: "Nome do aluno",

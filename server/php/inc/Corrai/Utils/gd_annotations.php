@@ -1,6 +1,6 @@
 <?php
 
-$GD_directives = <<<GD
+$GD_annotations = <<<GD
 
 imagettftext(
     GdImage $image,

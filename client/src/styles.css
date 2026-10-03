@@ -314,7 +314,6 @@ main h2 {
 }
 
 .button.danger,
-.delete-button,
 .delete-file-button {
   background: var(--danger);
   color: white;
@@ -322,10 +321,23 @@ main h2 {
 }
 
 .button.danger:hover,
-.delete-button:hover:not(:disabled),
 .delete-file-button:hover:not(:disabled) {
   background: var(--danger-600);
   color: white;
+}
+
+.button.delete,
+.delete-button {
+  background: var(--white);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.button.delete:hover:not(:disabled),
+.delete-button:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: var(--danger-600);
+  color: var(--danger-600);
 }
 
 .input,

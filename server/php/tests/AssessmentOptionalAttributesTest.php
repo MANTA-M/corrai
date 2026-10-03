@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Model\Assessment;
-use Corrai\Subject\Dictation\Pipeline as Dictation;
-use Corrai\Subject\DictationFranceCM2\Pipeline as DictationFranceCM2;
+use Corrai\Subject\Dictation\CorrectingTask as Dictation;
+use Corrai\Subject\DictationFranceCM2\CorrectingTask as DictationFranceCM2;
 use PHPUnit\Framework\TestCase;
 
 class AssessmentOptionalAttributesTest extends TestCase

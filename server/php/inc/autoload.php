@@ -14,6 +14,19 @@ spl_autoload_register(function ($class) {
     $relative_class = substr($class, $len);
     $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
 
+    if (!file_exists($file)) {
+        $short = basename(str_replace('\\', '/', $relative_class));
+        if (str_ends_with($short, 'Task')) {
+            $stem = substr($short, 0, -strlen('Task'));
+            $dir = dirname($file);
+            $matches = glob($dir . '/Task*' . $stem . '.php') ?: [];
+            sort($matches);
+            if ($matches !== []) {
+                $file = $matches[0];
+            }
+        }
+    }
+
     if (file_exists($file)) {
         require $file;
     } else {

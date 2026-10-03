@@ -256,4 +256,14 @@ class School
             'created_at' => $this->created_at,
         ];
     }
+
+    /**
+     * Menu entries shown for this school.
+     *
+     * @return array<int, array{label: string, key: string, icon: string, color: string}>
+     */
+    public function get_menu(string $locale): array
+    {
+        return [];
+    }
 }

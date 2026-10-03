@@ -22,53 +22,31 @@
                 >, <span data-testid="assessment-level-value">{{ levelLabel(assessment.subject, assessment.country, assessment.level) }}</span></template>
             </p>
           </div>
-          <div class="header-actions">
-            <button class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
-            <button
-              type="button"
-              class="button edit-button"
-              data-testid="assessment-edit"
-              @click="goEdit"
-            >
-              {{ t('assessment.edit') }}
-            </button>
-            <button
-              type="button"
-              class="button delete-button"
-              data-testid="assessment-delete"
-              :disabled="isDeleting"
-              @click="confirmDelete"
-            >
-              {{ isDeleting ? t('assessment.deleting') : t('assessment.delete') }}
-            </button>
-          </div>
+        <div v-if="headerMenu.length" class="header-actions">
+          <button
+            v-for="item in headerMenu"
+            :key="item.key"
+            type="button"
+            :class="textButtonClass(item)"
+            :data-testid="assessmentTestId(item.key)"
+            :disabled="item.key === 'delete' && isDeleting"
+            @click="onAssessmentAction(item.key)"
+          >
+            {{ item.key === 'delete' && isDeleting ? t('assessment.deleting') : item.label }}
+          </button>
+        </div>
         </div>
 
         <div class="page-actions">
           <button
+            v-for="item in pageMenu"
+            :key="item.key"
             type="button"
-            class="button secondary"
-            data-testid="assessment-edit-subject"
-            @click="goSubject"
+            :class="textButtonClass(item)"
+            :data-testid="assessmentTestId(item.key)"
+            @click="onAssessmentAction(item.key)"
           >
-            {{ t('assessment.editSubject') }}
-          </button>
-          <button
-            type="button"
-            class="button primary"
-            data-testid="assessment-add-file"
-            @click="showAddCopies = true"
-          >
-            {{ t('assessment.addCopies') }}
-          </button>
-          <button
-            v-if="copyFiles.length"
-            type="button"
-            class="button primary"
-            data-testid="assessment-start-correction"
-            @click="openStartCorrection"
-          >
-            {{ t('assessment.startCorrection') }}
+            {{ item.label }}
           </button>
         </div>
 
@@ -83,36 +61,13 @@
             <li v-for="student in studentRows" :key="student.id" class="entity-row" data-testid="student-item">
               <span class="entity-name">{{ student.name }}</span>
               <div class="row-actions">
-                <button
-                  type="button"
-                  class="icon-button"
-                  data-testid="student-view"
-                  :aria-label="t('assessment.studentOpen')"
-                  :title="t('assessment.studentOpen')"
-                  @click="goStudent(student.id)"
-                >
-                  <ActionIcon name="eye" />
-                </button>
-                <button
-                  type="button"
-                  class="icon-button"
-                  data-testid="student-rename"
-                  :aria-label="t('assessment.studentRename')"
-                  :title="t('assessment.studentRename')"
-                  @click="startRenameStudent(student)"
-                >
-                  <ActionIcon name="pencil" />
-                </button>
-                <button
-                  type="button"
-                  class="icon-button danger"
-                  data-testid="student-delete"
-                  :aria-label="t('assessment.studentDelete')"
-                  :title="t('assessment.studentDelete')"
-                  @click="startDeleteStudent(student)"
-                >
-                  <ActionIcon name="trash" />
-                </button>
+                <MenuIconButton
+                  v-for="item in student.menu ?? studentMenuFallback"
+                  :key="item.key"
+                  :item="item"
+                  :test-id="`student-${item.key}`"
+                  @click="onStudentAction(student, item.key)"
+                />
               </div>
             </li>
           </ul>
@@ -128,6 +83,18 @@
             @updated="onFilesUpdated"
           />
         </section>
+
+        <div v-if="deleteMenuItem" class="assessment-danger-zone">
+          <button
+            type="button"
+            :class="textButtonClass(deleteMenuItem)"
+            :data-testid="assessmentTestId(deleteMenuItem.key)"
+            :disabled="isDeleting"
+            @click="onAssessmentAction(deleteMenuItem.key)"
+          >
+            {{ isDeleting ? t('assessment.deleting') : deleteMenuItem.label }}
+          </button>
+        </div>
       </div>
 
       <div v-else class="error">
@@ -293,13 +260,13 @@ import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import ActionIcon from '@/components/ActionIcon.vue'
 import AddFilePopup from '@/components/AddFilePopup.vue'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
+import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
-import { isAssessmentSubject, type AssessmentFile, type AssessmentStudent } from '@/types/types'
+import { isAssessmentSubject, type AssessmentFile, type AssessmentStudent, type MenuItem } from '@/types/types'
 import { isDebugFile, isUnassignedFile } from '@/utils/assessmentFiles'
 
 const router = useRouter()
@@ -342,6 +309,53 @@ const copyFiles = computed(() =>
   files.value.filter((file) => (file.type ?? '') === 'submission')
 )
 
+const headerMenu = computed(() =>
+  (assessment.value?.menu ?? []).filter((item) => false)
+)
+
+const deleteMenuItem = computed(() =>
+  (assessment.value?.menu ?? []).find((item) => item.key === 'delete')
+)
+
+const pageMenuOrder = ['edit_subject', 'add_copies', 'start_correction']
+
+const pageMenu = computed(() => {
+  const items = (assessment.value?.menu ?? []).filter((item) => item.key !== 'edit' && item.key !== 'delete')
+  return [...items].sort((a, b) => {
+    const indexA = pageMenuOrder.indexOf(a.key)
+    const indexB = pageMenuOrder.indexOf(b.key)
+    const orderA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA
+    const orderB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB
+    return orderA - orderB
+  })
+})
+
+const studentMenuFallback = computed(
+  () => students.value.find((student) => student.menu?.length)?.menu ?? []
+)
+
+const assessmentTestId = (key: string) =>
+  key === 'add_copies' ? 'assessment-add-file' : `assessment-${key.replace(/_/g, '-')}`
+
+const textButtonClass = (item: MenuItem) => {
+  if (item.key === 'delete' || item.color === '#c93b45') return 'button delete'
+  if (item.color === '#1a55e8') return 'button primary'
+  return 'button secondary'
+}
+
+const onAssessmentAction = (key: string) => {
+  if (key === 'delete') void confirmDelete()
+  else if (key === 'edit_subject') goSubject()
+  else if (key === 'add_copies') showAddCopies.value = true
+  else if (key === 'start_correction') openStartCorrection()
+}
+
+const onStudentAction = (student: AssessmentStudent, key: string) => {
+  if (key === 'view') goStudent(student.id)
+  else if (key === 'rename') startRenameStudent(student)
+  else if (key === 'delete') startDeleteStudent(student)
+}
+
 const studentRows = computed(() => {
   const byId = new Map<string, AssessmentStudent>()
   for (const student of students.value) {
@@ -358,11 +372,6 @@ const studentRows = computed(() => {
 
 const goBack = () => {
   router.push({ name: 'assessment-list' })
-}
-
-const goEdit = () => {
-  if (!assessment.value?.id) return
-  router.push(`/assessment/${assessment.value.id}/edit`)
 }
 
 const goSubject = () => {
@@ -405,7 +414,7 @@ const launchCorrection = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'POST',
         '/correction',
-        { id: assessment.value.id, file: file.id }
+        { id: assessment.value.id, file: file.id, locale: String(locale.value) }
       )
       if (response?.files) latest = response.files
     }
@@ -456,7 +465,7 @@ const submitRenameStudent = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('PUT', '/student', { id: assessment.value.id, student: renameStudent.value.id }, { name })
+    }>('PUT', '/student', { id: assessment.value.id, student: renameStudent.value.id, locale: String(locale.value) }, { name })
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
@@ -477,7 +486,7 @@ const submitDeleteStudent = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('DELETE', '/student', { id: assessment.value.id, student: deleteStudentTarget.value.id })
+    }>('DELETE', '/student', { id: assessment.value.id, student: deleteStudentTarget.value.id, locale: String(locale.value) })
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
@@ -541,8 +550,9 @@ loadSubjects()
 
 .page-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1.25rem;
 }
@@ -567,7 +577,7 @@ loadSubjects()
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 15px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .entity-row {
@@ -597,34 +607,6 @@ loadSubjects()
   flex-shrink: 0;
 }
 
-.icon-button {
-  width: 2rem;
-  height: 2rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  padding: 0;
-}
-
-.icon-button:hover {
-  background: var(--hover-bg);
-  color: var(--text);
-}
-
-.icon-button.danger:hover {
-  color: var(--danger);
-}
-
-.icon-button :deep(svg) {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-
 .file-action-popup {
   width: min(440px, calc(100vw - 2rem));
 }
@@ -644,6 +626,14 @@ loadSubjects()
 .error-message {
   color: var(--danger);
   margin-top: 1rem;
+}
+
+.assessment-danger-zone {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
 }
 
 .loading,

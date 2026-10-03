@@ -1,0 +1,96 @@
+<?php
+
+namespace Corrai\Subject\Dictation;
+
+use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Model\BaseAssessment;
+use Corrai\Model\Task\PathQueueItemTask;
+use Corrai\Queue\RedisQueue;
+use Corrai\Utils\ObjectStore;
+use Corrai\Utils\WSException;
+use Throwable;
+
+class CorrectingTask extends PathQueueItemTask
+{
+
+    protected function process(object $queue_item_data, string $s3_path): void
+    {
+        $this->correct($this->loadFile($s3_path));
+    }
+    /**
+     * Find dictation errors. Same step as File::on_ocr_done.
+     */
+    public function correct(File $file): void
+    {
+        if ($file->type !== 'submission') {
+            return;
+        }
+
+        $copyPath = null;
+        $solutionPath = null;
+        try {
+            $assessment = $this->loadAssessment($file);
+            $store = ObjectStore::getInstance();
+            $copyPath = $store->downloadToTemp($file->contentKey());
+
+            $solution = $this->firstSolutionFile($assessment);
+            $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
+            $correction = $this->findErrors(
+                $assessment,
+                $copyPath,
+                $file->name,
+                $solutionPath,
+                $solution['name'],
+                $this->languageName($file)
+            );
+            $store->putContents(
+                $file->foundErrorsKey(),
+                $correction,
+                'text/plain; charset=utf-8'
+            );
+
+            $file->status = 'errors_found';
+            $file->saveAttributes();
+            $file->appendEvent('Errors found');
+            RedisQueue::getInstance()->enqueueFile($file->id);
+        } catch (Throwable $th) {
+            $this->failCorrection($file, $th);
+        } finally {
+            if ($copyPath !== null) {
+                @unlink($copyPath);
+            }
+            if ($solutionPath !== null) {
+                @unlink($solutionPath);
+            }
+        }
+    }
+
+    private function findErrors(
+        BaseAssessment $assessment,
+        string $copyPath,
+        string $copyName,
+        string $solutionPath,
+        string $solutionName,
+        string $languageName
+    ): string {
+        $instructionText = $assessment->instructionFilesText();
+        $request = new ClaudeSonnetClient();
+        $request->set_system_content(
+            'First step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
+            . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
+            . 'punctuation, word order, and passages that are unreadable. '
+            . 'Second step, filter the errors: Do not get missing space errors. '
+            . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
+            . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
+            . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
+            . 'Write in ' . $languageName . '. '
+            . "Follow these assessment-specific instructions:\n"
+            . $instructionText
+        );
+        $request->add_text('Official corrigé:');
+        $request->add_file($solutionPath, $solutionName);
+        $request->add_text('Student copy to decipher:');
+        $request->add_file($copyPath, $copyName);
+        return $request->call_text();
+    }
+}

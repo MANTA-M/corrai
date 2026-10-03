@@ -7,7 +7,7 @@ namespace Corrai\Tests;
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Llm\Openrouter\Gemini2FlashLiteClient;
 use Corrai\Subject\Catalog;
-use Corrai\Subject\DictationFranceGemini\Pipeline;
+use Corrai\Subject\DictationFranceGemini\CorrectingTask;
 use Corrai\Utils\WSException;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +16,7 @@ class DictationFranceGeminiPipelineTest extends TestCase
     public function testPipelineIsSelectedForDictationFranceGemini(): void
     {
         $this->assertSame(
-            Pipeline::class,
+            CorrectingTask::class,
             Catalog::pipelineClass('Dictation', 'fr', 'Gemini')
         );
     }
@@ -158,7 +158,7 @@ class DictationFranceGeminiPipelineTest extends TestCase
     }
 }
 
-class TestableGeminiPipeline extends Pipeline
+class TestableGeminiPipeline extends CorrectingTask
 {
     /**
      * @param list<Gemini2FlashLiteClient> $geminiClients

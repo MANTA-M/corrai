@@ -7,4 +7,25 @@ use Corrai\Model\BaseAssessment;
 class Assessment extends BaseAssessment
 {
     public string $subject = 'Russian';
+
+    public const NAMES = [
+        'en' => 'Russian',
+        'fr' => 'Russe',
+        'ru' => 'Русский',
+        'uk' => 'Російська',
+        'es' => 'Ruso',
+        'pt' => 'Russo',
+        'ro' => 'Rusă',
+        'de' => 'Russisch',
+    ];
+
+    public function fileClass(): string
+    {
+        return File::class;
+    }
+
+    public function submissionClass(): string
+    {
+        return File::class;
+    }
 }

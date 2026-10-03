@@ -14,62 +14,18 @@
       </button>
       <span v-else class="entity-name">{{ file.name }}</span>
       <span v-if="sessionStore.debugMode && file.status" class="file-status" data-testid="assessment-file-status">
-        {{ file.status }}
+        {{ statusLabel(file) }}
       </span>
       <span class="file-size">{{ formatFileSize(file.size) }}</span>
       <div class="row-actions">
-        <a
-          class="icon-button"
-          :href="fileViewUrl(file)"
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid="file-view"
-          :aria-label="t('assessment.fileView')"
-          :title="t('assessment.fileView')"
-        >
-          <ActionIcon name="eye" />
-        </a>
-        <button
-          v-if="canReassignFile(file)"
-          type="button"
-          class="icon-button"
-          data-testid="file-reassign"
-          :aria-label="t('assessment.fileReassign')"
-          :title="t('assessment.fileReassign')"
-          @click="openReassign(file)"
-        >
-          <ActionIcon name="person" />
-        </button>
-        <button
-          type="button"
-          class="icon-button"
-          data-testid="file-events"
-          :aria-label="t('assessment.fileEventsTitle')"
-          :title="t('assessment.fileEventsTitle')"
-          @click="openEvents(file)"
-        >
-          <ActionIcon name="list" />
-        </button>
-        <button
-          type="button"
-          class="icon-button"
-          data-testid="file-rename"
-          :aria-label="t('assessment.fileRename')"
-          :title="t('assessment.fileRename')"
-          @click="startRename(file)"
-        >
-          <ActionIcon name="pencil" />
-        </button>
-        <button
-          type="button"
-          class="icon-button danger"
-          data-testid="file-delete"
-          :aria-label="t('assessment.fileDelete')"
-          :title="t('assessment.fileDelete')"
-          @click="startDelete(file)"
-        >
-          <ActionIcon name="trash" />
-        </button>
+        <MenuIconButton
+          v-for="item in file.menu ?? []"
+          :key="item.key"
+          :item="item"
+          :test-id="`file-${item.key}`"
+          :href="item.key === 'view' ? fileViewUrl(file) : undefined"
+          @click="onFileAction(file, item.key)"
+        />
       </div>
     </li>
   </ul>
@@ -334,9 +290,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import ActionIcon from '@/components/ActionIcon.vue'
+import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useSessionStore } from '@/stores/session'
-import { canReassignFile, isEditableTextFile } from '@/utils/assessmentFiles'
+import { isEditableTextFile } from '@/utils/assessmentFiles'
 import type { AssessmentFile, AssessmentStudent } from '@/types/types'
 
 const NOT_FOUND = '__not_found__'
@@ -429,17 +385,29 @@ const annexUrl = (name: string) =>
     annex: name,
   })
 
+const statusLabel = (file: AssessmentFile) => file.status_label || file.status || ''
+
 const eventLabel = (event: FileEvent) => {
-  if (!event.timestamp) return event.name
+  const name = event.name === 'Stored' || event.name === 'Loaded'
+    ? t('assessment.fileStored')
+    : event.name
+  if (!event.timestamp) return name
   const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(event.timestamp * 1000))
-  return `${event.name} — ${when}`
+  return `${name} — ${when}`
 }
 
 const applyUpdatedFiles = (files: AssessmentFile[], students?: AssessmentStudent[]) => {
   emit('updated', { files, students })
+}
+
+const onFileAction = (file: AssessmentFile, key: string) => {
+  if (key === 'reassign') openReassign(file)
+  else if (key === 'events') openEvents(file)
+  else if (key === 'rename') startRename(file)
+  else if (key === 'delete') startDelete(file)
 }
 
 const openReassign = (file: AssessmentFile) => {
@@ -474,6 +442,7 @@ const loadEvents = async (file: AssessmentFile) => {
     const data = await sessionStore.getWsClient().queryWs<FileDebugInfo>('GET', '/file_annexes', {
       id: props.assessmentId,
       file: file.id,
+      locale: String(locale.value),
     })
     if (eventsTarget.value?.id !== file.id) return
     events.value = data.events ?? []
@@ -537,7 +506,7 @@ const confirmReassign = async () => {
         const created = await wsClient.queryWs<{
           student?: AssessmentStudent
           students?: AssessmentStudent[]
-        }>('POST', '/student', { id: props.assessmentId }, { name })
+        }>('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
         studentId = created?.student?.id ?? ''
         students = created?.students ?? students
         if (!studentId) {
@@ -549,7 +518,7 @@ const confirmReassign = async () => {
     const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
       'PUT',
       '/file',
-      { id: props.assessmentId, file: file.id },
+      { id: props.assessmentId, file: file.id, locale: String(locale.value) },
       { student: studentId }
     )
     if (response?.files) {
@@ -576,7 +545,7 @@ const submitRename = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('PUT', '/file', { id: props.assessmentId, file: renameTarget.value.id }, { name: newName })
+    }>('PUT', '/file', { id: props.assessmentId, file: renameTarget.value.id, locale: String(locale.value) }, { name: newName })
     if (response?.files) {
       applyUpdatedFiles(response.files, response.students)
     }
@@ -600,7 +569,7 @@ const submitDelete = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('DELETE', '/file', { id: props.assessmentId, file: removedId })
+    }>('DELETE', '/file', { id: props.assessmentId, file: removedId, locale: String(locale.value) })
     if (response?.files) {
       applyUpdatedFiles(response.files, response.students)
     } else {
@@ -641,7 +610,7 @@ watch(selectedStudentId, (value) => {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 15px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .entity-row {
@@ -697,35 +666,6 @@ watch(selectedStudentId, (value) => {
   align-items: center;
   gap: 0.1rem;
   flex-shrink: 0;
-}
-
-.icon-button {
-  width: 2rem;
-  height: 2rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  padding: 0;
-  text-decoration: none;
-}
-
-.icon-button:hover {
-  background: var(--hover-bg);
-  color: var(--text);
-}
-
-.icon-button.danger:hover {
-  color: var(--danger);
-}
-
-.icon-button :deep(svg) {
-  width: 1.15rem;
-  height: 1.15rem;
 }
 
 .file-action-popup {

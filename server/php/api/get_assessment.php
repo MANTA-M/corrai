@@ -19,9 +19,10 @@ try {
         throw new WSException("Not authorized", 403);
     }
 
-    Request::add_output("assessment", $assessment->to_output());
-    Request::add_output("files", $assessment->list_files());
-    Request::add_output("students", $assessment->list_students());
+    $locale = Request::getStringParam('locale');
+    Request::add_output("assessment", $assessment->to_output($locale));
+    Request::add_output("files", $assessment->list_files($locale));
+    Request::add_output("students", $assessment->list_students($locale));
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

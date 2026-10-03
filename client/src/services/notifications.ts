@@ -82,8 +82,9 @@ class NotificationService {
     
     try {
       const response = await client.queryWs<{ public_key: string }>('GET', '/keys')
-      this.vapidPublicKey = response.public_key
-      return this.vapidPublicKey
+      const publicKey = response.public_key
+      this.vapidPublicKey = publicKey
+      return publicKey
     } catch (error) {
       console.error('Error getting VAPID public key:', error)
       throw error

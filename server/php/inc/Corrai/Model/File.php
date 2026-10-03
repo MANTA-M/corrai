@@ -7,4 +7,7 @@ namespace Corrai\Model;
  */
 class File extends BaseFile
 {
+    public function on_stored(): void
+    {
+    }
 }

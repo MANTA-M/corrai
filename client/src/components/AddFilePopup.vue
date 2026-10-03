@@ -88,7 +88,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import type { AssessmentFile } from '@/types/types'
+import type { Assessment, AssessmentFile } from '@/types/types'
 
 const props = defineProps<{
   assessmentId: string
@@ -101,7 +101,7 @@ const emit = defineEmits<{
   uploaded: [files: AssessmentFile[]]
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 
 interface UploadItem {
@@ -190,7 +190,7 @@ const uploadFiles = async (files: File[]) => {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const params: Record<string, string> = { id: props.assessmentId }
+        const params: Record<string, string> = { id: props.assessmentId, locale: String(locale.value) }
         if (fileType.value) params.type = fileType.value
         const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
           'POST',
@@ -213,7 +213,7 @@ const uploadFiles = async (files: File[]) => {
     }
 
     if (latestFiles) {
-      const existingIndex = sessionStore.own_assessments.findIndex(e => e.id === props.assessmentId)
+      const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === props.assessmentId)
       if (existingIndex !== -1) {
         sessionStore.own_assessments[existingIndex] = {
           ...sessionStore.own_assessments[existingIndex],
