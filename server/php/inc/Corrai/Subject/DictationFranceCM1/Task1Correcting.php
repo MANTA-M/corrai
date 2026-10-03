@@ -28,22 +28,17 @@ class Task1Correcting extends PathQueueItemTask
         }
 
         $copyPath = null;
-        $solutionPath = null;
         $subjectFiles = [];
         try {
             $assessment = $this->loadAssessment($file);
             $store = ObjectStore::getInstance();
             $copyPath = $store->downloadToTemp($file->contentKey());
 
-            $solution = $this->firstSolutionFile($assessment);
-            $solutionPath = $store->downloadToTemp($assessment->fileContentKey($solution['id']));
             $subjectFiles = $this->downloadSubjectFiles($assessment, $store);
             $correction = $this->findErrors(
                 $assessment,
                 $copyPath,
                 $file->name,
-                $solutionPath,
-                $solution['name'],
                 $this->languageName($file),
                 $subjectFiles
             );
@@ -62,9 +57,6 @@ class Task1Correcting extends PathQueueItemTask
         } finally {
             if ($copyPath !== null) {
                 @unlink($copyPath);
-            }
-            if ($solutionPath !== null) {
-                @unlink($solutionPath);
             }
             foreach ($subjectFiles as $subjectFile) {
                 @unlink($subjectFile['path']);
@@ -122,8 +114,6 @@ class Task1Correcting extends PathQueueItemTask
         BaseAssessment $assessment,
         string $copyPath,
         string $copyName,
-        string $solutionPath,
-        string $solutionName,
         string $languageName,
         array $subjectFiles = []
     ): string {
@@ -222,8 +212,6 @@ class Task1Correcting extends PathQueueItemTask
                 ],
             ],
         ]);
-        $request->add_text('Official corrigé:');
-        $request->add_file($solutionPath, $solutionName);
         foreach ($subjectFiles as $subjectFile) {
             $request->add_text($subjectFile['name'] . ':');
             $request->add_file($subjectFile['path'], $subjectFile['name']);

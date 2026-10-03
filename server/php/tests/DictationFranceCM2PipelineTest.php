@@ -179,28 +179,19 @@ class DictationFranceCM2PipelineTest extends TestCase
         $assessment = $this->createMock(\Corrai\Model\Assessment::class);
         $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
 
-        $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
-        copy($this->tempImagePath, $solutionPath);
+        $task->findErrors($assessment, $this->tempImagePath, 'copy.png', 'French');
 
-        try {
-            $task->findErrors($assessment, $this->tempImagePath, 'copy.png', $solutionPath, 'sol.png', 'French');
+        $schema = $mockClient->responseFormat()['json_schema']['schema'];
+        $this->assertSame(['errors'], $schema['required']);
+        $this->assertSame(['errors'], array_keys($schema['properties']));
+        $this->assertSame(
+            ['student', 'expected', 'kind', 'box'],
+            $schema['properties']['errors']['items']['required']
+        );
 
-            $schema = $mockClient->responseFormat()['json_schema']['schema'];
-            $this->assertSame(['errors'], $schema['required']);
-            $this->assertSame(['errors'], array_keys($schema['properties']));
-            $this->assertSame(
-                ['student', 'expected', 'kind', 'box'],
-                $schema['properties']['errors']['items']['required']
-            );
-
-            $system = $mockClient->systemContent();
-            $this->assertStringContainsString('origin (0,0) is top-left', strtolower($system));
-            $this->assertStringNotContainsStringIgnoringCase('magenta', $system);
-        } finally {
-            if (is_file($solutionPath)) {
-                @unlink($solutionPath);
-            }
-        }
+        $system = $mockClient->systemContent();
+        $this->assertStringContainsString('origin (0,0) is top-left', strtolower($system));
+        $this->assertStringNotContainsStringIgnoringCase('magenta', $system);
     }
 
     public function testFindErrorsSendsTheOcrWordsToTheModel(): void
@@ -211,24 +202,13 @@ class DictationFranceCM2PipelineTest extends TestCase
         $assessment = $this->createMock(\Corrai\Model\Assessment::class);
         $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
 
-        $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
-        copy($this->tempImagePath, $solutionPath);
-
-        try {
-            $task->findErrors(
-                $assessment,
-                $this->tempImagePath,
-                'copy.png',
-                $solutionPath,
-                'sol.png',
-                'French',
-                [['text' => 'avansse', 'page' => 0, 'box' => [40, 50, 120, 90]]]
-            );
-        } finally {
-            if (is_file($solutionPath)) {
-                @unlink($solutionPath);
-            }
-        }
+        $task->findErrors(
+            $assessment,
+            $this->tempImagePath,
+            'copy.png',
+            'French',
+            [['text' => 'avansse', 'page' => 0, 'box' => [40, 50, 120, 90]]]
+        );
 
         $promptText = $mockClient->sentPromptText();
         $this->assertStringContainsString('OCR words of the student copy:', $promptText);
@@ -253,8 +233,6 @@ class DictationFranceCM2PipelineTest extends TestCase
         $assessment = $this->createMock(\Corrai\Model\Assessment::class);
         $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
 
-        $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
-        copy($this->tempImagePath, $solutionPath);
         $subjectPath = tempnam(sys_get_temp_dir(), 'test_subject_');
         file_put_contents($subjectPath, "Le texte de la dictée.");
 
@@ -263,16 +241,11 @@ class DictationFranceCM2PipelineTest extends TestCase
                 $assessment,
                 $this->tempImagePath,
                 'copy.png',
-                $solutionPath,
-                'sol.png',
                 'French',
                 [],
                 [['path' => $subjectPath, 'name' => 'dictee.txt']]
             );
         } finally {
-            if (is_file($solutionPath)) {
-                @unlink($solutionPath);
-            }
             if (is_file($subjectPath)) {
                 @unlink($subjectPath);
             }

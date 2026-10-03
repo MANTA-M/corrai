@@ -47,19 +47,6 @@ abstract class PathQueueItemTask
         return BaseAssessment::from_hash($file->assessment_id);
     }
 
-    /**
-     * @return array{id: string, name: string, type: string, student: ?string}
-     */
-    protected function firstSolutionFile(BaseAssessment $assessment): array
-    {
-        foreach ($assessment->list_files() as $file) {
-            if (($file['type'] ?? '') === 'solution') {
-                return $file;
-            }
-        }
-        throw new WSException('No corrigé file on this assessment', 400);
-    }
-
     protected function failCorrection(BaseFile $file, Throwable $error): void
     {
         error_log($error->getMessage());

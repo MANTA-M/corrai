@@ -3,6 +3,7 @@
 namespace Corrai\Queue;
 
 use Corrai\Model\BaseAssessment;
+use Corrai\Model\BaseFile;
 use Corrai\Model\File;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Utils\ObjectStore;
@@ -13,6 +14,41 @@ use Exception;
  */
 class RedisConsumer
 {
+    /**
+     * Dispatch one popped ticket.
+     *
+     * OCR follow-ups carry a content path. Later pipeline steps carry a file id
+     * and the next task class.
+     *
+     * @param array{file_id?: string, path?: string, task?: string} $ticket
+     */
+    public static function handleTicket(array $ticket): void
+    {
+        if (isset($ticket['path'], $ticket['task'])) {
+            self::treatPathTask($ticket['path'], $ticket['task']);
+            return;
+        }
+        if (isset($ticket['file_id'], $ticket['task'])) {
+            self::treatFileTask($ticket['file_id'], $ticket['task']);
+            return;
+        }
+        if (isset($ticket['file_id'])) {
+            self::treat($ticket['file_id']);
+            return;
+        }
+
+        error_log('Missing path or task on ticket: ' . json_encode($ticket));
+    }
+
+    /**
+     * Run a task class against the file's content object.
+     */
+    public static function treatFileTask(string $fileId, string $taskClass): void
+    {
+        $file = BaseFile::from_hash($fileId);
+        self::treatPathTask($file->contentKey(), $taskClass);
+    }
+
     /**
      * Run a path task class enqueued after OCR on the same content path.
      */

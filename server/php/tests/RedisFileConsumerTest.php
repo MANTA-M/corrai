@@ -178,6 +178,26 @@ class RedisFileConsumerTest extends TestCase
         $this->assertInstanceOf(DictationFranceCM2File::class, $file);
     }
 
+    public function testHandleTicketLogsAndReturnsWhenTheTicketHasNoTarget(): void
+    {
+        $log = tempnam(sys_get_temp_dir(), 'redis_consumer_log_');
+        $this->assertNotFalse($log);
+        $previous = ini_set('error_log', $log);
+        try {
+            RedisConsumer::handleTicket(['task' => 'Corrai\\Subject\\DictationFranceCM2\\Task2Annotating']);
+        } finally {
+            if ($previous === false) {
+                ini_restore('error_log');
+            } else {
+                ini_set('error_log', $previous);
+            }
+        }
+
+        $contents = (string) file_get_contents($log);
+        @unlink($log);
+        $this->assertStringContainsString('Missing path or task on ticket', $contents);
+    }
+
     public function testDispatchCallsOnStoredWhenDefined(): void
     {
         $assessment = new class extends GenericAssessment {

@@ -54,23 +54,22 @@ $queue = RedisQueue::getInstance();
 error_log('Redis consumer started, waiting on ' . RedisQueue::LIST_KEY);
 
 while (true) {
+    $ticket = null;
     try {
         $ticket = $queue->blockingPop(5);
         if ($ticket === null) {
             continue;
         }
-        if (isset($ticket['path'], $ticket['task'])) {
-            error_log('Treating path task ' . $ticket['task'] . ' on ' . $ticket['path']);
-            $start = microtime(true);
-            RedisConsumer::treatPathTask($ticket['path'], $ticket['task']);
-            error_log('Task treated in ' . round((microtime(true) - $start)*1000, 0) . ' ms');
-        } else {
-            error_log('Missing path or task on ticket');
-            RedisConsumer::reject($ticket);
-        }
+        $label = $ticket['task'] ?? 'status';
+        $target = $ticket['path'] ?? $ticket['file_id'] ?? 'unknown';
+        error_log('Treating ' . $label . ' on ' . $target);
+        $start = microtime(true);
+        RedisConsumer::handleTicket($ticket);
+        error_log('Task treated in ' . round((microtime(true) - $start) * 1000, 0) . ' ms');
     } catch (Throwable $e) {
-        error_log('Error treating path task ' . ($ticket['task'] ?? 'unknown') . ' on ' . ($ticket['path'] ?? 'unknown'). ': ' . $e->getMessage());
+        $label = is_array($ticket) ? ($ticket['task'] ?? 'unknown') : 'unknown';
+        $target = is_array($ticket) ? ($ticket['path'] ?? $ticket['file_id'] ?? 'unknown') : 'unknown';
+        error_log('Error treating ' . $label . ' on ' . $target . ': ' . $e->getMessage());
         error_log($e->getTraceAsString());
-        RedisConsumer::reject($ticket);
     }
 }

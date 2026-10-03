@@ -69,7 +69,7 @@ class DictationFranceGeminiPipelineTest extends TestCase
 
             $assessment = $this->createMock(\Corrai\Model\Assessment::class);
             $assessment->method('instructionFilesText')->willReturn('');
-            $pipeline->callFindErrors($assessment, $path, 'copy.png', $path, 'sol.png', 'French');
+            $pipeline->callFindErrors($assessment, $path, 'copy.png', 'French');
             $this->assertStringContainsString('first horizontal line y=20', $claude->systemContent());
             $this->assertStringContainsString('first vertical line x=40', $claude->systemContent());
             $this->assertStringContainsString('vertical step between main horizontal lines=30', $claude->systemContent());
@@ -156,8 +156,6 @@ class DictationFranceGeminiPipelineTest extends TestCase
         $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
 
         $path = $this->writeMarkedPng();
-        $solutionPath = tempnam(sys_get_temp_dir(), 'test_sol_') . '.png';
-        copy($path, $solutionPath);
         $subjectPath = tempnam(sys_get_temp_dir(), 'test_subject_');
         file_put_contents($subjectPath, "Le texte de la dictée.");
 
@@ -166,17 +164,12 @@ class DictationFranceGeminiPipelineTest extends TestCase
                 $assessment,
                 $path,
                 'copy.png',
-                $solutionPath,
-                'sol.png',
                 'French',
                 [['path' => $subjectPath, 'name' => 'dictee.txt']]
             );
         } finally {
             if (is_file($path)) {
                 @unlink($path);
-            }
-            if (is_file($solutionPath)) {
-                @unlink($solutionPath);
             }
             if (is_file($subjectPath)) {
                 @unlink($subjectPath);
@@ -242,12 +235,10 @@ class TestableGeminiPipeline extends Task1Correcting
         \Corrai\Model\Assessment $assessment,
         string $copyPath,
         string $copyName,
-        string $solutionPath,
-        string $solutionName,
         string $languageName,
         array $subjectFiles = []
     ): string {
-        return $this->findErrors($assessment, $copyPath, $copyName, $solutionPath, $solutionName, $languageName, $subjectFiles);
+        return $this->findErrors($assessment, $copyPath, $copyName, $languageName, $subjectFiles);
     }
 }
 
