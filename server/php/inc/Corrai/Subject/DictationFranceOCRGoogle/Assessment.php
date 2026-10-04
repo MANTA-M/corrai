@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject\DictationFranceCM2;
+namespace Corrai\Subject\DictationFranceOCRGoogle;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\Student;
@@ -9,17 +9,17 @@ class Assessment extends BaseAssessment
 {
     public string $subject = 'Dictation';
     public ?string $country = 'fr';
-    public ?string $level = 'CM2';
+    public ?string $level = 'OCRGoogle';
 
     public const NAMES = [
-        'en' => 'Dictation CM2 France',
-        'fr' => 'Dictée CM2 France',
-        'ru' => 'Диктант CM2 Франция',
-        'uk' => 'Диктант CM2 Франція',
-        'es' => 'Dictado CM2 Francia',
-        'pt' => 'Ditado CM2 Portugal',
-        'ro' => 'Dictare CM2 Franța',
-        'de' => 'Diktat CM2 Frankreich',
+        'en' => 'Dictation OCR Google France',
+        'fr' => 'Dictée OCR Google France',
+        'ru' => 'Диктант OCR Google Франция',
+        'uk' => 'Диктант OCR Google Франція',
+        'es' => 'Dictado OCR Google Francia',
+        'pt' => 'Ditado OCR Google França',
+        'ro' => 'Dictare OCR Google Franța',
+        'de' => 'Diktat OCR Google Frankreich',
     ];
 
     public function assessmentItemClass(): string

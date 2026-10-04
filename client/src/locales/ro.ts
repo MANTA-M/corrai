@@ -190,7 +190,8 @@ const ro: I18nSchema = {
         startCorrectionError: "Lansarea corectării a eșuat",
         startCorrectionSuccess: "Corectare lansată!",
         startCorrectionCancelled: "Plata a fost anulată",
-        startCorrectionPaymentError: "Plata a eșuat"
+        startCorrectionPaymentError: "Plata a eșuat",
+        testCorrection: "Testează corectarea"
     },
     language: "Limbă",
     settings: {

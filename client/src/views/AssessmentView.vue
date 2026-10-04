@@ -46,6 +46,7 @@
             type="button"
             :class="textButtonClass(item)"
             :data-testid="assessmentTestId(item.key)"
+            :disabled="(item.key === 'test_correction' || item.key === 'start_correction') && isStartingCorrection"
             @click="onAssessmentAction(item.key)"
           >
             {{ item.label }}
@@ -300,9 +301,11 @@ const subjectLabel = (subject: string) => {
 
 const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) => {
   if (!level) return ''
+  const fromCatalog = levelName(subject, country, level)
+  if (fromCatalog && fromCatalog !== level) return fromCatalog
   const fromEducation = country ? educationLevelName(country, level) : null
   if (fromEducation) return fromEducation
-  return levelName(subject, country, level) || level
+  return fromCatalog || level
 }
 
 const unassignedFiles = computed(() =>
@@ -341,7 +344,7 @@ const deleteMenuItem = computed(() =>
   (assessment.value?.menu ?? []).find((item) => item.key === 'delete')
 )
 
-const pageMenuOrder = ['edit_subject', 'add_copies', 'start_correction']
+const pageMenuOrder = ['edit_subject', 'add_copies', 'start_correction', 'test_correction']
 
 const pageMenu = computed(() => {
   const items = (assessment.value?.menu ?? []).filter((item) => item.key !== 'edit' && item.key !== 'delete')
@@ -372,6 +375,7 @@ const onAssessmentAction = (key: string) => {
   else if (key === 'edit_subject') goSubject()
   else if (key === 'add_copies') showAddCopies.value = true
   else if (key === 'start_correction') openStartCorrection()
+  else if (key === 'test_correction') void launchTestCorrection()
 }
 
 const onStudentAction = (student: AssessmentStudent, key: string) => {
@@ -412,8 +416,13 @@ const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: Assessmen
   applyUpdate(payload.files, payload.students)
 }
 
-const onCopiesUploaded = (updatedFiles: AssessmentFile[]) => {
+const onCopiesUploaded = async (updatedFiles: AssessmentFile[]) => {
   applyUpdate(updatedFiles)
+  if (!assessment.value?.id) return
+  const loaded = await sessionStore.load_assessment(assessment.value.id)
+  if (loaded) {
+    assessment.value = loaded
+  }
 }
 
 const openStartCorrection = () => {
@@ -428,6 +437,35 @@ const closeStartCorrection = () => {
 }
 
 const checkoutReturnHandled = ref(false)
+
+const launchTestCorrection = async () => {
+  if (!assessment.value?.id || isStartingCorrection.value) return
+  startCorrectionError.value = ''
+  isStartingCorrection.value = true
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>('POST', '/assessment_test_correction', {
+      id: assessment.value.id,
+      locale: String(locale.value),
+    })
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+      toast.success(t('assessment.startCorrectionSuccess'), {
+        position: toast.POSITION.TOP_CENTER,
+      })
+      return
+    }
+    startCorrectionError.value = t('assessment.startCorrectionError')
+  } catch (err) {
+    console.error('Error starting test correction:', err)
+    startCorrectionError.value = t('assessment.startCorrectionError')
+    error.value = t('assessment.startCorrectionError')
+  } finally {
+    isStartingCorrection.value = false
+  }
+}
 
 const launchCorrection = async () => {
   if (!assessment.value?.id) return

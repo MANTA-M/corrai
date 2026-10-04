@@ -385,6 +385,7 @@ abstract class BaseAssessment
         ];
         if ($this->hasSubmission()) {
             $items[] = MenuLabels::item('start_correction', $locale, '', MenuLabels::BLUE);
+            $items[] = MenuLabels::item('test_correction', $locale, '', MenuLabels::MUTED);
         }
         return $items;
     }
@@ -1056,13 +1057,66 @@ abstract class BaseAssessment
     }
 
     /**
-     * Start correction for every file stored under unclassified/.
+     * Start correction for all unclassified copies or submissions.
      *
-     * A stored class is kept. A file with no class becomes submissionClass().
+     * Subclasses may override this method to adjust which files are processed.
      *
      * @return array Updated file list
      */
-    public function correctUnclassifiedFiles(): array
+    public function startCorrection(): array
+    {
+        return $this->correctUnclassifiedFiles();
+    }
+
+    /**
+     * Start correction for the first unclassified file, or first submission.
+     *
+     * @return array Updated file list
+     */
+    public function correctFirstCopy(): array
+    {
+        $unclassifiedIds = $this->unclassifiedFileIds();
+        if ($unclassifiedIds !== []) {
+            return $this->correctUnclassifiedFiles([$unclassifiedIds[0]]);
+        }
+        foreach ($this->listFileModels() as $file) {
+            if ($file->type === 'submission' && $file->id !== null && $file->id !== '') {
+                return $this->correctSubmission($file->id);
+            }
+        }
+        throw new WSException('No copies to correct', 400);
+    }
+
+    /**
+     * Start correction without checkout. Used from the test-correction button.
+     *
+     * Subclasses may override this method to adjust test behavior.
+     *
+     * @return array Updated file list
+     */
+    public function testCorrection(): array
+    {
+        if ($this->unclassifiedFileIds() !== []) {
+            return $this->correctUnclassifiedFiles();
+        }
+        foreach ($this->listFileModels() as $file) {
+            if ($file->type === 'submission' && $file->id !== null && $file->id !== '') {
+                return $this->correctSubmission($file->id);
+            }
+        }
+        throw new WSException('No copies to correct', 400);
+    }
+
+    /**
+     * Start correction for files stored under unclassified/.
+     * When $onlyFileIds is provided, only those file IDs are processed.
+     *
+     * A stored class is kept. A file with no class becomes submissionClass().
+     *
+     * @param string[]|null $onlyFileIds Optional subset of file IDs to correct
+     * @return array Updated file list
+     */
+    public function correctUnclassifiedFiles(?array $onlyFileIds = null): array
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
             throw new WSException('Assessment id, school_id and user_id are required', 400);
@@ -1075,7 +1129,11 @@ abstract class BaseAssessment
 
         $store = ObjectStore::getInstance();
         $prefix = ObjectStore::assessmentUnclassifiedFilesPrefix($this->school_id, $this->user_id, $this->id);
+        $allowed = $onlyFileIds !== null ? array_flip($onlyFileIds) : null;
         foreach ($store->listChildPrefixes($prefix) as $fileId) {
+            if ($allowed !== null && !isset($allowed[$fileId])) {
+                continue;
+            }
             $attrKey = $prefix . $fileId . '/' . ObjectStore::ATTR_FILE;
             if (!$store->exists($attrKey)) {
                 continue;

@@ -84,17 +84,24 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('subject-page-title')).toHaveText('Sujet: [Test] Math Final', { timeout: 15000 })
 
       await page.getByTestId('subject-subject-edit').click()
-      await page.getByTestId('subject-subject-input').selectOption('Physics')
+      await page.getByTestId('subject-subject-input').selectOption('Dictation')
       await page.getByTestId('subject-subject-save').click()
-      await expect(page.getByTestId('subject-subject-value')).toHaveText('Physique')
+      await expect(page.getByTestId('subject-subject-value')).toHaveText('Français (dictée)')
+
+      await expect(page.getByTestId('subject-country-value')).toHaveText('')
+      await expect(page.getByTestId('subject-country-value')).not.toContainText('—')
+      await page.getByTestId('subject-country-edit').click()
+      await page.getByTestId('subject-country-input').selectOption('fr')
+      await page.getByTestId('subject-country-save').click()
+      await expect(page.getByTestId('subject-country-value')).toHaveText('France')
 
       await expect(page.getByTestId('subject-level-value')).toHaveText('')
       await expect(page.getByTestId('subject-level-value')).not.toContainText('—')
 
       await page.getByTestId('subject-level-edit').click()
-      await page.getByTestId('subject-level-input').selectOption('cm2')
+      await page.getByTestId('subject-level-input').selectOption('CM2')
       await page.getByTestId('subject-level-save').click()
-      await expect(page.getByTestId('subject-level-value')).toHaveText('CM2')
+      await expect(page.getByTestId('subject-level-value')).toHaveText('Dictée CM2 France')
 
       await page.getByTestId('subject-date-edit').click()
       await page.getByTestId('subject-date-input').fill('2026-12-01')
@@ -104,20 +111,20 @@ test.describe('Assessments CRUD', () => {
       await page.getByTestId('subject-back').click()
       await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
       await expect(page.getByTestId('assessment-details-heading')).toContainText('[Test] Math Final')
-      await expect(page.getByTestId('assessment-meta')).toContainText('2026-12-01, Physique')
-      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
+      await expect(page.getByTestId('assessment-meta')).toContainText('2026-12-01, Français (dictée)')
+      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Français (dictée)')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
-      await expect(page.getByTestId('assessment-level-value')).toHaveText('CM2')
+      await expect(page.getByTestId('assessment-level-value')).toHaveText('Dictée CM2 France')
 
       await page.reload()
       await expect(page.getByTestId('assessment-details-heading')).toContainText('[Test] Math Final')
-      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Physique')
+      await expect(page.getByTestId('assessment-subject-value')).toHaveText('Français (dictée)')
       await expect(page.getByTestId('assessment-date-value')).toHaveText('2026-12-01')
-      await expect(page.getByTestId('assessment-level-value')).toHaveText('CM2')
+      await expect(page.getByTestId('assessment-level-value')).toHaveText('Dictée CM2 France')
 
       await page.goto('assessment-list')
       await expect(page.getByTestId('assessment-item')).toContainText('[Test] Math Final')
-      await expect(page.getByTestId('assessment-item')).toContainText('Physique')
+      await expect(page.getByTestId('assessment-item')).toContainText('Français (dictée)')
       await expect(page.getByTestId('assessment-item')).toContainText('2026-12-01')
     })
 
@@ -142,6 +149,10 @@ test.describe('Assessments CRUD', () => {
       )
       await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
       await expect(page.getByTestId('unassigned-files').getByTestId('file-reassign')).toBeVisible()
+      await expect(page.getByTestId('assessment-test-correction')).toHaveText('Tester la correction', {
+        timeout: 15000,
+      })
+      await expect(page.getByTestId('assessment-start-correction')).toBeVisible()
 
       await page.getByTestId('add-file-cancel').click()
       await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
@@ -319,6 +330,8 @@ test.describe('Assessments CRUD', () => {
     await page.getByTestId('assessment-edit-subject').click()
     await page.waitForURL(/\/assessment\/[^/]+\/sujet$/, { timeout: 10000 })
 
+    await expect(page.getByTestId('subject-country-value')).toHaveText('')
+    await expect(page.getByTestId('subject-country-value')).not.toContainText('—')
     await expect(page.getByTestId('subject-level-value')).toHaveText('')
     await expect(page.getByTestId('subject-level-value')).not.toContainText('—')
     await expect(page.getByTestId('subject-date-value')).toHaveText('')

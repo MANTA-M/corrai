@@ -28,4 +28,14 @@ class Assessment extends BaseAssessment
     {
         return File::class;
     }
+
+    public function startCorrection(): array
+    {
+        return $this->correctFirstCopy();
+    }
+
+    public function testCorrection(): array
+    {
+        return $this->correctFirstCopy();
+    }
 }

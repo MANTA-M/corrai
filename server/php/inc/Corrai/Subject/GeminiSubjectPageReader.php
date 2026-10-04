@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject;
 
-use Corrai\Llm\Openrouter\Gemini2FlashLiteClient;
+use Corrai\Llm\Openrouter\GeminiFlashLiteClient;
 use Corrai\Utils\WSException;
 
 /**
@@ -10,7 +10,7 @@ use Corrai\Utils\WSException;
  */
 class GeminiSubjectPageReader implements SubjectPageReader
 {
-    public function __construct(private readonly Gemini2FlashLiteClient $client)
+    public function __construct(private readonly GeminiFlashLiteClient $client)
     {
     }
 

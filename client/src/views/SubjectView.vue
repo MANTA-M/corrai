@@ -90,10 +90,62 @@
           </li>
 
           <li class="editable-line">
+            <span class="meta-label">{{ t('assessment.country') }}</span>
+            <template v-if="editing === 'country'">
+              <select
+                v-if="catalogCountries.length"
+                ref="editControl"
+                v-model="draft"
+                class="input inline-control"
+                data-testid="subject-country-input"
+                :disabled="isSaving"
+                @keydown.esc.prevent="cancelEdit"
+              >
+                <option value="">{{ t('assessment.autoDetect') }}</option>
+                <option v-if="unknownCountry" :value="draft">{{ unknownCountry }}</option>
+                <option v-for="item in catalogCountries" :key="item.country" :value="item.country">
+                  {{ item.name }}
+                </option>
+              </select>
+              <input
+                v-else
+                ref="editControl"
+                v-model="draft"
+                type="text"
+                class="input inline-control"
+                data-testid="subject-country-input"
+                :placeholder="t('assessment.countryPlaceholder')"
+                :disabled="isSaving"
+                @keydown.enter.prevent="saveField"
+                @keydown.esc.prevent="cancelEdit"
+              />
+              <button
+                type="button"
+                class="button primary compact"
+                data-testid="subject-country-save"
+                :disabled="isSaving"
+                @click="saveField"
+              >
+                {{ isSaving ? t('assessment.saving') : t('assessment.save') }}
+              </button>
+            </template>
+            <template v-else>
+              <span class="meta-value" data-testid="subject-country-value">{{
+                countryLabel(assessment.subject, assessment.country)
+              }}</span>
+              <MenuIconButton
+                :item="pencilItem"
+                test-id="subject-country-edit"
+                @click="startEdit('country')"
+              />
+            </template>
+          </li>
+
+          <li class="editable-line">
             <span class="meta-label">{{ t('assessment.level') }}</span>
             <template v-if="editing === 'level'">
               <select
-                v-if="educationCycles.length"
+                v-if="catalogLevels.length"
                 ref="editControl"
                 v-model="draft"
                 class="input inline-control"
@@ -103,11 +155,9 @@
               >
                 <option value="">{{ t('assessment.autoDetect') }}</option>
                 <option v-if="unknownLevel" :value="draft">{{ unknownLevel }}</option>
-                <optgroup v-for="cycle in educationCycles" :key="cycle.code" :label="cycle.name">
-                  <option v-for="level in cycle.levels" :key="level.code" :value="level.code">
-                    {{ level.name }}
-                  </option>
-                </optgroup>
+                <option v-for="item in catalogLevels" :key="item.level" :value="item.level">
+                  {{ item.name }}
+                </option>
               </select>
               <input
                 v-else
@@ -249,6 +299,19 @@
           </div>
           <p v-if="instructionError" class="error-message">{{ instructionError }}</p>
         </section>
+
+        <div v-if="canTestCorrection" class="test-correction-actions">
+          <button
+            type="button"
+            class="button secondary"
+            data-testid="assessment-test-correction"
+            :disabled="isTestingCorrection"
+            @click="launchTestCorrection"
+          >
+            {{ t('assessment.testCorrection') }}
+          </button>
+          <p v-if="testCorrectionError" class="error-message">{{ testCorrectionError }}</p>
+        </div>
       </div>
 
       <div v-else class="error">
@@ -289,17 +352,19 @@ import InstructionEditorPopup from '@/components/InstructionEditorPopup.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
-import { EDUCATION_LEVELS, educationLevelName } from '@/data/levels'
+import { educationLevelName } from '@/data/levels'
 import { useSessionStore } from '@/stores/session'
+import { toast } from 'vue3-toastify'
 import { isAssessmentSubject, type Assessment, type AssessmentFile, type AssessmentStudent, type MenuItem } from '@/types/types'
 
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
-const { subjects, load: loadSubjects, levelName } = useSubjectCatalog()
+const { subjects, load: loadSubjects, countryName, levelName, countriesFor, levelsFor, countryForLevel } =
+  useSubjectCatalog()
 
-type MetaField = 'name' | 'subject' | 'level' | 'date'
+type MetaField = 'name' | 'subject' | 'country' | 'level' | 'date'
 
 const editing = ref<MetaField | null>(null)
 const draft = ref('')
@@ -314,15 +379,23 @@ const pencilItem = computed<MenuItem>(() => ({
   color: '',
 }))
 
-const countryCode = computed(() => (assessment.value?.country || sessionStore.country || '').trim())
-const educationCycles = computed(() => {
-  if (!countryCode.value) return []
-  return (EDUCATION_LEVELS[countryCode.value] ?? []).filter((cycle) => cycle.levels.length > 0)
+const catalogCountries = computed(() => countriesFor(assessment.value?.subject || ''))
+const catalogLevels = computed(() =>
+  levelsFor(assessment.value?.subject || '', assessment.value?.country)
+)
+const unknownCountry = computed(() => {
+  const code = draft.value.trim()
+  if (!code || catalogCountries.value.some((item) => item.country === code)) return ''
+  return countryName(assessment.value?.subject || '', code) || code
 })
 const unknownLevel = computed(() => {
   const code = draft.value.trim()
-  if (!code || educationLevelName(countryCode.value, code)) return ''
-  return code
+  if (!code || catalogLevels.value.some((item) => item.level === code)) return ''
+  return (
+    levelName(assessment.value?.subject || '', assessment.value?.country, code) ||
+    educationLevelName(assessment.value?.country || '', code) ||
+    code
+  )
 })
 
 const subjectLabel = (subject: string) => {
@@ -332,11 +405,18 @@ const subjectLabel = (subject: string) => {
   return subject || '—'
 }
 
+const countryLabel = (subject: string, country: string | null | undefined) => {
+  if (!country) return ''
+  return countryName(subject, country) || country
+}
+
 const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) => {
   if (!level) return ''
+  const fromCatalog = levelName(subject, country, level)
+  if (fromCatalog && fromCatalog !== level) return fromCatalog
   const fromEducation = country ? educationLevelName(country, level) : null
   if (fromEducation) return fromEducation
-  return levelName(subject, country, level) || level
+  return fromCatalog || level
 }
 
 const uploadType = ref<'subject' | 'solution' | null>(null)
@@ -347,6 +427,12 @@ const textKind = ref<'instructions' | 'solution'>('instructions')
 const subjectFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'subject'))
 const solutionFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'solution'))
 const instructionFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'instructions'))
+const canTestCorrection = computed(() =>
+  (assessment.value?.menu ?? []).some((item) => item.key === 'test_correction')
+)
+
+const isTestingCorrection = ref(false)
+const testCorrectionError = ref('')
 
 const instructionFile = computed<AssessmentFile | null>(() => {
   return instructionFiles.value[0] || null
@@ -511,6 +597,34 @@ const goBack = () => {
   router.push({ name: 'assessment', params: { id: assessmentId.value } })
 }
 
+const launchTestCorrection = async () => {
+  if (!assessment.value?.id || isTestingCorrection.value) return
+  testCorrectionError.value = ''
+  isTestingCorrection.value = true
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>('POST', '/assessment_test_correction', {
+      id: assessment.value.id,
+      locale: String(locale.value),
+    })
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+      toast.success(t('assessment.startCorrectionSuccess'), {
+        position: toast.POSITION.TOP_CENTER,
+      })
+      return
+    }
+    testCorrectionError.value = t('assessment.startCorrectionError')
+  } catch (err) {
+    console.error('Error starting test correction:', err)
+    testCorrectionError.value = t('assessment.startCorrectionError')
+  } finally {
+    isTestingCorrection.value = false
+  }
+}
+
 const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: AssessmentStudent[] }) => {
   applyUpdate(payload.files, payload.students)
 }
@@ -545,6 +659,7 @@ const closeEditor = () => {
 const fieldValue = (field: MetaField) => {
   if (!assessment.value) return ''
   if (field === 'level') return assessment.value.level || ''
+  if (field === 'country') return assessment.value.country || ''
   return assessment.value[field] || ''
 }
 
@@ -571,15 +686,28 @@ const saveField = async () => {
   if (field === 'subject' && !value) return
 
   const body: Record<string, string | null> = {}
-  if (field === 'level') body.level = value || null
-  else body[field] = value
+  if (field === 'level') {
+    body.level = value || null
+    if (value && !assessment.value.country) {
+      const inferred = countryForLevel(assessment.value.subject, value)
+      if (inferred) body.country = inferred
+    }
+  } else if (field === 'country') {
+    body.country = value || null
+  } else {
+    body[field] = value
+  }
 
   saveError.value = ''
   isSaving.value = true
   try {
     await sessionStore.getWsClient().queryWs('PUT', '/assessment', { hash: assessment.value.id }, body)
     const patch: Partial<Assessment> =
-      field === 'level' ? { level: value || null } : { [field]: value }
+      field === 'level'
+        ? { level: value || null, ...(body.country ? { country: body.country } : {}) }
+        : field === 'country'
+          ? { country: value || null }
+          : { [field]: value }
     assessment.value = { ...assessment.value, ...patch }
     const index = sessionStore.own_assessments.findIndex((item: Assessment) => item.id === assessment.value?.id)
     if (index !== -1) {
@@ -764,6 +892,10 @@ loadSubjects()
 .instruction-textarea:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.test-correction-actions {
+  margin-top: 1.75rem;
 }
 
 .loading,

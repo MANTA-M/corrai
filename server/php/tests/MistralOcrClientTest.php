@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\MistralOcrClient;
+use Corrai\Llm\Mistral\MistralOcrClient;
+use Corrai\Llm\Mistral\OcrClient;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -134,6 +135,12 @@ class MistralOcrClientTest extends TestCase
         $client = new TestableMistralOcrClient();
         $this->expectException(InvalidArgumentException::class);
         $client->process();
+    }
+
+    public function testOcrClientInheritance(): void
+    {
+        $ocrClient = new OcrClient();
+        $this->assertInstanceOf(MistralOcrClient::class, $ocrClient);
     }
 
     private function temporaryFile(string $contents): string

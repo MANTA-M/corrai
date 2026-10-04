@@ -190,7 +190,8 @@ const de: I18nSchema = {
         startCorrectionError: "Korrektur konnte nicht gestartet werden",
         startCorrectionSuccess: "Korrektur gestartet!",
         startCorrectionCancelled: "Zahlung abgebrochen",
-        startCorrectionPaymentError: "Zahlung fehlgeschlagen"
+        startCorrectionPaymentError: "Zahlung fehlgeschlagen",
+        testCorrection: "Korrektur testen"
     },
     language: "Sprache",
     settings: {

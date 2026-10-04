@@ -1,26 +1,26 @@
 <?php
 
-namespace Corrai\Subject\DictationFranceCM1;
+namespace Corrai\Subject\DictationFranceOCRGoogle;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\BaseAssessment;
+use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
+/**
+ * Find dictation errors after OCR. Same step as File::on_ocr_done.
+ */
 class Task1Correcting extends PathQueueItemTask
 {
-    public ?float $rescale = null;
-
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $this->correct($this->loadFile($s3_path));
     }
-    /**
-     * Find dictation errors. Same step as File::on_ocr_done.
-     */
+
     public function correct(File $file): void
     {
         if ($file->type !== 'submission') {
@@ -32,19 +32,47 @@ class Task1Correcting extends PathQueueItemTask
         try {
             $assessment = $this->loadAssessment($file);
             $store = ObjectStore::getInstance();
-            $copyPath = $store->downloadToTemp($file->contentKey());
+            $ocrKey = $file->ocrResultKey();
+            if (!$store->exists($ocrKey)) {
+                $this->createGoogleOcr()->recognize($file);
+            }
+            if (!$store->exists($ocrKey)) {
+                throw new WSException('OCR result is missing for this file', 400);
+            }
 
+            $unclassified = ObjectStore::assessmentFileArea($file->type, $file->student) === 'unclassified';
+
+            $copyPath = $store->downloadToTemp($file->contentKey());
+            $size = @getimagesize($copyPath);
+            $width = is_array($size) ? (int) $size[0] : 0;
+            $height = is_array($size) ? (int) $size[1] : 0;
+            if ($width < 1 || $height < 1) {
+                throw new WSException('The source file is not an image GD can annotate', 400);
+            }
+
+            $ocrWords = $this->ocrWordsForPrompt(
+                OCRResult::from_json($store->getContents($ocrKey)),
+                $width,
+                $height
+            );
             $subjectFiles = $this->downloadSubjectFiles($assessment, $store);
+
             $correction = $this->findErrors(
                 $assessment,
                 $copyPath,
                 $file->name,
-                $this->languageName($file),
+                $assessment->correctionLanguageName(),
+                $ocrWords,
                 $subjectFiles
             );
+
+            if ($unclassified) {
+                $this->assignUnclassifiedCopy($file, $assessment, $correction);
+            }
+
             $store->putContents(
                 $file->foundErrorsKey(),
-                $this->correctionDocument($correction),
+                $correction,
                 'application/json'
             );
 
@@ -93,31 +121,38 @@ class Task1Correcting extends PathQueueItemTask
         return $files;
     }
 
-    private function correctionDocument(string $correction): string
+    /**
+     * When the copy is still unclassified, move its whole directory under the named student.
+     */
+    public function assignUnclassifiedCopy(File $file, BaseAssessment $assessment, string $correction): void
     {
         $data = json_decode($correction, true);
         if (!is_array($data)) {
-            return $correction;
+            return;
         }
-        $data['rescale'] = $this->rescale;
-        $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (!is_string($encoded)) {
-            return $correction;
+        $studentName = trim((string) ($data['student_name'] ?? ''));
+        if ($studentName === '') {
+            return;
         }
 
-        return $encoded;
+        $student = $assessment->findOrCreateStudentByName($studentName);
+        $file->student = $student->id;
+        $file->saveAttributes();
+        $file->appendEvent('Assigned to student ' . $student->name);
     }
+
     /**
+     * @param list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}> $ocrWords
      * @param list<array{path: string, name: string}> $subjectFiles
      */
-    protected function findErrors(
+    public function findErrors(
         BaseAssessment $assessment,
         string $copyPath,
         string $copyName,
         string $languageName,
+        array $ocrWords = [],
         array $subjectFiles = []
     ): string {
-
         $size = @getimagesize($copyPath);
         $width = is_array($size) ? (int) $size[0] : 0;
         $height = is_array($size) ? (int) $size[1] : 0;
@@ -128,52 +163,33 @@ class Task1Correcting extends PathQueueItemTask
         $instructionText = $assessment->instructionFilesText();
         $request = $this->createClaudeSonnetClient();
         $request->set_system_content(
-            'First, give the OCR image cropping coordinates. Put 0 if no cropping was done. '
-            . 'Also list every handwritten line by the Y of its baseline, using the same normalized coordinates as error boxes: 0 at the top of the cropped image and 1000 at the bottom. '
+            'First step, read the student name: Read the full name written at the top of the copy. '
+            . 'Return it as student_name. If no name is written or it is unreadable, return an empty string. '
             . 'Second step, find the errors: You decipher a student dictation copy by reading it against the official corrigé. '
             . 'Identify every error compared with the corrigé: spelling, accents, missing or extra words, '
             . 'punctuation, word order, and passages that are unreadable. '
             . 'Gather the coordinates of the box containing the error in the original image. '
+            . 'You also receive the OCR words of the copy as JSON, each with its box [x1, y1, x2, y2] in pixels of that image. '
+            . 'For every error, look for the OCR word that holds the student writing of the error and reuse its box as is. '
+            . 'The OCR text may be misspelled or partial: match on position in the dictation as well as on the letters or the line or the order in the text. '
+            . 'Only when no OCR word matches, estimate the box yourself from the image using the main lines of the grid. '
             . 'Third step, filter the errors: Do not get missing space errors. '
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
-            . 'Step three, write the correction: Do not rewrite the full dictation. List only the errors. '
+            . 'Fourth step, write the correction: Do not rewrite the full dictation. List only the errors. '
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
             . 'Write text fields in ' . $languageName . '. '
-            . 'All coordinates are pixels of the original image, origin top-left. '
+            . 'All coordinates are pixels of the image you receive, origin (0,0) is top-left. '
             . "Follow these assessment-specific instructions:\n"
             . $instructionText
         );
         $request->set_json_response('dictation_errors', [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['cropped_image', 'lines', 'errors'],
+            'required' => ['student_name', 'errors'],
             'properties' => [
-                'cropped_image' => [
-                    'type' => 'object',
-                    'description' => 'OCR-analyzed image cropped coordinates in pixels. Origin is top-left.',
-                    'additionalProperties' => false,
-                    'required' => ['x1', 'y1', 'x2', 'y2'],
-                    'properties' => [
-                        'x1' => ['type' => 'integer'],
-                        'y1' => ['type' => 'integer'],
-                        'x2' => ['type' => 'integer'],
-                        'y2' => ['type' => 'integer'],
-                    ],
-                ],
-                'lines' => [
-                    'type' => 'array',
-                    'description' => 'One entry per handwritten line. y is the baseline, normalized from 0 at the top of the cropped image to 1000 at the bottom.',
-                    'items' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'required' => ['y'],
-                        'properties' => [
-                            'y' => [
-                                'type' => 'integer',
-                                'description' => 'Baseline Y of the handwritten line, normalized between 0 and 1000.',
-                            ],
-                        ],
-                    ],
+                'student_name' => [
+                    'type' => 'string',
+                    'description' => 'Full name written at the top of the copy, or an empty string when none is readable.',
                 ],
                 'errors' => [
                     'type' => 'array',
@@ -197,14 +213,15 @@ class Task1Correcting extends PathQueueItemTask
                             ],
                             'box' => [
                                 'type' => 'object',
-                                'description' => 'The errorbounding box using normalized values ​​between 0 and 1000 (where 0,0 is the top-left corner and 1000,1000 is the bottom-right corner).',
+                                'description' => 'The error bounding box coordinates: the box of the matching OCR word, '
+                                    . 'or your own estimate when no OCR word matches.',
                                 'additionalProperties' => false,
                                 'required' => ['x1', 'y1', 'x2', 'y2'],
                                 'properties' => [
-                                    'x1' => ['type' => 'integer'],
-                                    'y1' => ['type' => 'integer'],
-                                    'x2' => ['type' => 'integer'],
-                                    'y2' => ['type' => 'integer'],
+                                    'x1' => ['type' => 'number'],
+                                    'y1' => ['type' => 'number'],
+                                    'x2' => ['type' => 'number'],
+                                    'y2' => ['type' => 'number'],
                                 ],
                             ],
                         ],
@@ -218,9 +235,50 @@ class Task1Correcting extends PathQueueItemTask
         }
         $request->add_text('Student copy to decipher:');
         $request->add_file($copyPath, $copyName);
-        $resp = $request->call_text();
-        $this->rescale = $request->rescale;
-        return $resp;
+        $request->add_text("OCR words of the student copy:\n" . $this->ocrJson($ocrWords));
+        return $request->call_text();
+    }
+
+    /**
+     * @param list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}> $words
+     */
+    private function ocrJson(array $words): string
+    {
+        $json = json_encode($words, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($json)) {
+            throw new WSException('Cannot encode the OCR result', 500);
+        }
+
+        return $json . "\n";
+    }
+
+    /**
+     * Pixel boxes for the LLM, from Google OCR proportions.
+     *
+     * @return list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}>
+     */
+    private function ocrWordsForPrompt(OCRResult $ocr, int $width, int $height): array
+    {
+        $words = [];
+        foreach ($ocr->words as $word) {
+            $words[] = [
+                'text' => $word->text,
+                'page' => $word->page,
+                'box' => [
+                    (int) round($word->left * $width),
+                    (int) round($word->top * $height),
+                    (int) round($word->right * $width),
+                    (int) round($word->bottom * $height),
+                ],
+            ];
+        }
+
+        return $words;
+    }
+
+    protected function createGoogleOcr(): GoogleOcr
+    {
+        return new GoogleOcr();
     }
 
     protected function createClaudeSonnetClient(): ClaudeSonnetClient

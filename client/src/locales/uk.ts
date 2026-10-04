@@ -190,7 +190,8 @@ const uk: I18nSchema = {
         startCorrectionError: "Не вдалося запустити перевірку",
         startCorrectionSuccess: "Перевірку запущено!",
         startCorrectionCancelled: "Платіж скасовано",
-        startCorrectionPaymentError: "Платіж не пройшов"
+        startCorrectionPaymentError: "Платіж не пройшов",
+        testCorrection: "Тестова перевірка"
     },
     language: "Мова",
     settings: {

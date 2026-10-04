@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import type { SubjectNode } from '@/types/types'
+import type { SubjectCountryNode, SubjectLevelNode, SubjectNode } from '@/types/types'
 
 const subjects = ref<SubjectNode[]>([])
 let loadedLocale = ''
@@ -56,13 +56,48 @@ export function useSubjectCatalog() {
     })
   }
 
+  const subjectNode = (subject: string): SubjectNode | undefined =>
+    subjects.value.find(node => node.subject === subject)
+
   const subjectName = (subject: string) =>
-    subjects.value.find(node => node.subject === subject)?.name || subject || ''
+    subjectNode(subject)?.name || subject || ''
+
+  const countriesFor = (subject: string): SubjectCountryNode[] =>
+    subjectNode(subject)?.countries ?? []
+
+  const uniqueLevels = (...lists: SubjectLevelNode[][]): SubjectLevelNode[] => {
+    const seen = new Set<string>()
+    const out: SubjectLevelNode[] = []
+    for (const list of lists) {
+      for (const item of list) {
+        if (seen.has(item.level)) continue
+        seen.add(item.level)
+        out.push(item)
+      }
+    }
+    return out
+  }
+
+  const levelsFor = (subject: string, country: string | null | undefined): SubjectLevelNode[] => {
+    const node = subjectNode(subject)
+    if (!node) return []
+    if (country) {
+      const inCountry = node.countries.find(item => item.country === country)
+      return uniqueLevels(node.levels, inCountry?.levels ?? [])
+    }
+    return uniqueLevels(node.levels, ...node.countries.map(item => item.levels))
+  }
+
+  const countryForLevel = (subject: string, level: string): string | null => {
+    const matches = countriesFor(subject).filter(item =>
+      item.levels.some(entry => entry.level === level)
+    )
+    return matches.length === 1 ? matches[0].country : null
+  }
 
   const countryName = (subject: string, country: string | null | undefined) => {
     if (!country) return ''
-    const node = subjects.value.find(item => item.subject === subject)
-    return node?.countries.find(item => item.country === country)?.name || country
+    return countriesFor(subject).find(item => item.country === country)?.name || country
   }
 
   const levelName = (
@@ -71,13 +106,16 @@ export function useSubjectCatalog() {
     level: string | null | undefined
   ) => {
     if (!level) return ''
-    const node = subjects.value.find(item => item.subject === subject)
+    const node = subjectNode(subject)
     const inCountry = country
       ? node?.countries.find(item => item.country === country)?.levels.find(item => item.level === level)?.name
       : undefined
     const inSubject = node?.levels.find(item => item.level === level)?.name
-    return inCountry || inSubject || level
+    const anywhere = node?.countries
+      .flatMap(item => item.levels)
+      .find(item => item.level === level)?.name
+    return inCountry || inSubject || anywhere || level
   }
 
-  return { subjects, load, levelName }
+  return { subjects, load, subjectName, countryName, levelName, countriesFor, levelsFor, countryForLevel }
 }

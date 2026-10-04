@@ -49,7 +49,7 @@ class CorrectionCheckout
 
         $unitAmount = $this->unitAmountFor($assessment);
         if ($unitAmount === 0) {
-            $files = $assessment->correctUnclassifiedFiles();
+            $files = $assessment->startCorrection();
             $assessment->stripe_unit_amount = 0;
             $assessment->stripe_paid_session_id = 'free';
             $assessment->save();
@@ -120,7 +120,7 @@ class CorrectionCheckout
         $fresh->stripe_paid_session_id = $sessionId;
         $fresh->save();
         try {
-            return $fresh->correctUnclassifiedFiles();
+            return $fresh->startCorrection();
         } catch (\Throwable $e) {
             $fresh->stripe_paid_session_id = '';
             $fresh->save();

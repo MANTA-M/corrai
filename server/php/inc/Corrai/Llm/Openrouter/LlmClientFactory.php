@@ -18,14 +18,14 @@ class LlmClientFactory
             return new Gpt4oMiniClient($model);
         }
         if (stripos($model, 'anthropic') !== false || stripos($model, 'claude') !== false) {
-            return new ClaudeSonnetClient($model);
+            return new ClaudeSonnetClient();
         }
         if (stripos($model, 'google') !== false || stripos($model, 'gemini') !== false) {
             if (stripos($model, 'flash-lite') !== false) {
-                return new Gemini2FlashLiteClient();
+                return new GeminiFlashLiteClient();
             }
-            if (stripos($model, '2.5-flash') !== false && stripos($model, 'flash-image') === false) {
-                return new Gemini25FlashClient();
+            if (stripos($model, 'flash') !== false && stripos($model, 'flash-image') === false) {
+                return new GeminiFlashClient();
             }
             return new Gemini3Client($model);
         }

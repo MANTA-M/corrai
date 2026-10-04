@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Llm;
+namespace Corrai\Llm\Mistral;
 
 use Corrai\Utils\ImageRedimentioner;
 use Corrai\Utils\RestClient;

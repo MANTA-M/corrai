@@ -394,7 +394,7 @@ const eventLabel = (event: FileEvent) => {
   if (!event.timestamp) return name
   const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
     dateStyle: 'short',
-    timeStyle: 'short',
+    timeStyle: 'medium',
   }).format(new Date(event.timestamp * 1000))
   return `${name} — ${when}`
 }

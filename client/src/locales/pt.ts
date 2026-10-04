@@ -190,7 +190,8 @@ const pt: I18nSchema = {
         startCorrectionError: "Falha ao iniciar a correção",
         startCorrectionSuccess: "Correção iniciada!",
         startCorrectionCancelled: "Pagamento cancelado",
-        startCorrectionPaymentError: "Pagamento falhou"
+        startCorrectionPaymentError: "Pagamento falhou",
+        testCorrection: "Testar a correção"
     },
     language: "Idioma",
     settings: {

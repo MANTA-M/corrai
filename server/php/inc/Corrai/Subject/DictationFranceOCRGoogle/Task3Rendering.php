@@ -1,12 +1,15 @@
 <?php
 
-namespace Corrai\Subject\DictationFranceCM1;
+namespace Corrai\Subject\DictationFranceOCRGoogle;
 
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Utils\ObjectStore;
 use Corrai\Utils\WSException;
 use Throwable;
 
+/**
+ * Render the corrected copy. Same step as File::on_annotations.
+ */
 class Task3Rendering extends PathQueueItemTask
 {
     private const FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
@@ -15,9 +18,7 @@ class Task3Rendering extends PathQueueItemTask
     {
         $this->render($this->loadFile($s3_path));
     }
-    /**
-     * Render the corrected copy. Same step as File::on_annotations.
-     */
+
     public function render(File $file): void
     {
         if ($file->type !== 'submission') {
@@ -34,6 +35,7 @@ class Task3Rendering extends PathQueueItemTask
             }
             $annotationsPhp = $store->getContents($annotationsKey);
             $copyPath = $store->downloadToTemp($file->contentKey());
+
             $png = $this->renderCorrection($copyPath, $annotationsPhp);
 
             $student = $file->student ?? '';
@@ -59,10 +61,10 @@ class Task3Rendering extends PathQueueItemTask
         }
     }
 
-/**
+    /**
      * Draw $GD_annotations onto a copy of the source image.
      */
-    private function renderCorrection(string $copyPath, string $annotationsPhp): string
+    public function renderCorrection(string $copyPath, string $annotationsPhp): string
     {
         if (!function_exists('imagecreatefromstring')) {
             throw new WSException('PHP GD is not available', 500);
@@ -99,7 +101,7 @@ class Task3Rendering extends PathQueueItemTask
         return $png;
     }
 
-/**
+    /**
      * Accept only a PHP array assigned to $GD_annotations.
      *
      * @return list<array<string, mixed>>
@@ -154,8 +156,8 @@ class Task3Rendering extends PathQueueItemTask
         $GD_annotations = null;
         try {
             eval('?>' . $source);
-        } catch (\Throwable $th) {
-            throw new WSException('GD annotations could not be read', 400);
+        } catch (Throwable $th) {
+            throw new WSException('GD annotations could not be read', 400, $th);
         }
         if (!is_array($GD_annotations)) {
             throw new WSException('GD annotations must assign an array to $GD_annotations', 400);
@@ -163,7 +165,7 @@ class Task3Rendering extends PathQueueItemTask
         return array_values($GD_annotations);
     }
 
-/**
+    /**
      * @param array<string, int> $colors
      * @param array<string, mixed> $annotation
      */

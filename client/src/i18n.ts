@@ -220,6 +220,7 @@ export interface I18nSchema {
         startCorrectionSuccess: string
         startCorrectionCancelled: string
         startCorrectionPaymentError: string
+        testCorrection: string
     }
     language: string
     settings: {

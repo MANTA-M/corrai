@@ -69,6 +69,16 @@ class MenuLabels
             'ro' => 'Lansează corectarea',
             'de' => 'Korrektur starten',
         ],
+        'test_correction' => [
+            'en' => 'Test correction',
+            'fr' => 'Tester la correction',
+            'ru' => 'Тестовая проверка',
+            'uk' => 'Тестова перевірка',
+            'es' => 'Probar la corrección',
+            'pt' => 'Testar a correção',
+            'ro' => 'Testează corectarea',
+            'de' => 'Korrektur testen',
+        ],
         'view' => [
             'en' => 'View',
             'fr' => 'Voir',

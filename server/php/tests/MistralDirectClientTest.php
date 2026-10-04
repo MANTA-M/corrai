@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\MistralDirectClient;
+use Corrai\Llm\Mistral\MistralClient;
+use Corrai\Llm\Mistral\MistralDirectClient;
 use PHPUnit\Framework\TestCase;
 
 class MistralDirectClientTest extends TestCase
@@ -118,6 +119,15 @@ class MistralDirectClientTest extends TestCase
         $this->assertSame([
             ['type' => 'text', 'text' => 'Hello'],
         ], $messages[1]['content']);
+    }
+
+    public function testMistralClientAndMistralDirectClientInheritance(): void
+    {
+        $directClient = new MistralDirectClient();
+        $this->assertInstanceOf(MistralClient::class, $directClient);
+
+        $client = new MistralClient('mistral-small-latest');
+        $this->assertInstanceOf(MistralClient::class, $client);
     }
 
     private function temporaryFile(string $contents): string

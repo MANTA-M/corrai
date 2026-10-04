@@ -627,6 +627,72 @@ class AssessmentLifecycleTest extends TestCase
         $assessment->delete();
     }
 
+    public function testTestCorrectionStartsUnclassifiedCopies(): void
+    {
+        $assessment = new \Corrai\Subject\Dictation\Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] Test Correction Assessment';
+        $assessment->date = '2026-10-04';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        try {
+            $assessment->testCorrection();
+            $this->fail('Expected WSException when no copies are present');
+        } catch (WSException $e) {
+            $this->assertSame(400, $e->getCode());
+            $this->assertSame('No copies to correct', $e->getMessage());
+        }
+
+        $tmp = $this->createRandomTempFile('copy_', '.txt');
+        $file = $assessment->createFileFromPath(basename($tmp), $tmp, 'text/plain', 'submission', null);
+
+        $menu = $assessment->to_output('fr')['menu'];
+        $this->assertContains('test_correction', array_column($menu, 'key'));
+        $testItem = array_values(array_filter($menu, fn($item) => $item['key'] === 'test_correction'))[0];
+        $this->assertSame('Tester la correction', $testItem['label']);
+
+        $files = $assessment->testCorrection();
+        $this->assertNotEmpty($files);
+        $reloaded = $assessment->getFile($file->id);
+        $eventNames = array_column($reloaded->listEvents(), 'name');
+        $this->assertContains('OCR queued', $eventNames);
+
+        $assessment->delete();
+    }
+
+    public function testDictationOnlyCorrectsFirstFile(): void
+    {
+        $assessment = new \Corrai\Subject\Dictation\Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] Dictation First Copy Only Assessment';
+        $assessment->date = '2026-10-04';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $tmp1 = $this->createRandomTempFile('copy1_', '.txt');
+        $file1 = $assessment->createFileFromPath(basename($tmp1), $tmp1, 'text/plain', 'submission', null);
+
+        $tmp2 = $this->createRandomTempFile('copy2_', '.txt');
+        $file2 = $assessment->createFileFromPath(basename($tmp2), $tmp2, 'text/plain', 'submission', null);
+
+        $files = $assessment->startCorrection();
+        $this->assertNotEmpty($files);
+
+        $reloaded1 = $assessment->getFile($file1->id);
+        $events1 = array_column($reloaded1->listEvents(), 'name');
+        $reloaded2 = $assessment->getFile($file2->id);
+        $events2 = array_column($reloaded2->listEvents(), 'name');
+
+        $queuedCount = (in_array('OCR queued', $events1, true) ? 1 : 0)
+            + (in_array('OCR queued', $events2, true) ? 1 : 0);
+        $this->assertSame(1, $queuedCount, 'Exactly one copy should have OCR queued');
+
+        $assessment->delete();
+    }
+
     /**
      * Create a temp file with random bytes; tracked for tearDown cleanup.
      */

@@ -4,11 +4,11 @@ namespace Corrai\Llm\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Gemini2FlashLiteClient extends OpenrouterClient
+class GeminiFlashLiteClient extends OpenrouterClient
 {
     public function __construct()
     {
-        parent::__construct("google/gemini-2.5-flash-lite");
+        parent::__construct("google/gemini-3.1-flash-lite");
     }
 
     /**

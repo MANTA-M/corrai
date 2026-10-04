@@ -8,19 +8,19 @@ use Corrai\Model\Assessment as GenericAssessment;
 use Corrai\Model\File;
 use Corrai\Queue\RedisConsumer;
 use Corrai\Subject\Dictation\Assessment as DictationAssessment;
-use Corrai\Subject\DictationFranceCM1\Assessment as DictationFranceCM1Assessment;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
 use Corrai\Subject\DictationFranceCM2\File as DictationFranceCM2File;
+use Corrai\Subject\DictationFranceOCRGoogle\Assessment as DictationFranceOCRGoogleAssessment;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Subject\Math\Assessment as MathAssessment;
 use PHPUnit\Framework\TestCase;
 
 class RedisFileConsumerTest extends TestCase
 {
-    public function testFactorySelectsDictationFranceCM1(): void
+    public function testFactorySelectsDictationFranceOCRGoogle(): void
     {
-        $class = AssessmentFactory::assessmentClass('Dictation', 'fr', 'CM1');
-        $this->assertSame(DictationFranceCM1Assessment::class, $class);
+        $class = AssessmentFactory::assessmentClass('Dictation', 'fr', 'OCRGoogle');
+        $this->assertSame(DictationFranceOCRGoogleAssessment::class, $class);
         $this->assertSame(
             DictationFranceCM2Assessment::class,
             AssessmentFactory::assessmentClass('Dictation', 'FR', 'cm2')
@@ -31,7 +31,7 @@ class RedisFileConsumerTest extends TestCase
                 'name' => 'Test',
                 'subject' => 'Dictation',
                 'country' => 'fr',
-                'level' => 'CM1',
+                'level' => 'OCRGoogle',
                 'date' => '2026-01-15',
                 'created_at' => '2026-01-15T00:00:00Z',
             ],
@@ -40,13 +40,13 @@ class RedisFileConsumerTest extends TestCase
             'assessment1'
         );
 
-        $this->assertInstanceOf(DictationFranceCM1Assessment::class, $assessment);
+        $this->assertInstanceOf(DictationFranceOCRGoogleAssessment::class, $assessment);
         $this->assertSame('assessment1', $assessment->id);
         $this->assertSame('school1', $assessment->school_id);
         $this->assertSame('teacher1', $assessment->user_id);
         $this->assertSame('Dictation', $assessment->subject);
         $this->assertSame('fr', $assessment->country);
-        $this->assertSame('CM1', $assessment->level);
+        $this->assertSame('OCRGoogle', $assessment->level);
     }
 
     public function testFactoryFallsBackToBareSubjectThenGeneric(): void

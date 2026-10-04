@@ -11,9 +11,9 @@ class ClaudeSonnetClient extends OpenrouterClient
     public float $rescale = 1.0;
     public int $debug = 0;
 
-    public function __construct(?string $model = null)
+    public function __construct()
     {
-        parent::__construct($model ?: 'anthropic/claude-3.7-sonnet');
+        parent::__construct('anthropic/claude-sonnet-5.5');
     }
 
     /**

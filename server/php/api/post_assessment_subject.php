@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Llm\Openrouter\Gemini2FlashLiteClient;
+use Corrai\Llm\Openrouter\GeminiFlashLiteClient;
 use Corrai\Model\User;
 use Corrai\Subject\GeminiSubjectPageReader;
 use Corrai\Subject\SubjectIntake;
@@ -43,7 +43,7 @@ try {
         $fileName,
         is_string($uploadedFile['type'] ?? null) ? $uploadedFile['type'] : null,
         $locale,
-        new GeminiSubjectPageReader(new Gemini2FlashLiteClient())
+        new GeminiSubjectPageReader(new GeminiFlashLiteClient())
     );
 
     Request::add_output('hash', $assessment->id);

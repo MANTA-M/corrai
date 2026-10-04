@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Llm;
+namespace Corrai\Llm\Mistral;
 
 use Corrai\Utils\ImageRedimentioner;
 use Corrai\Utils\JsonUtils;
@@ -12,7 +12,7 @@ use Corrai\Utils\WSException;
  * Direct Mistral chat client with the same call surface as OpenrouterClient.
  * Posts to https://api.mistral.ai/v1/chat/completions using MISTRAL_API_KEY.
  */
-class MistralDirectClient extends RestClient
+class MistralClient extends RestClient
 {
     public const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
     public const MAX_IMAGE_DIMENTION = 1568;
