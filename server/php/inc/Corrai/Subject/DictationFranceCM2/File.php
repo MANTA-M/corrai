@@ -68,12 +68,6 @@ class File extends BaseFile
 
     public function on_stored(): void
     {
-        if ($this->type !== 'submission') {
-            return;
-        }
-
-        $this->appendEvent('Pre-OCR queued');
-        RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'pre-ocr', '', self::OCR_LANG);
     }
 
     public function on_correction_asked(): void

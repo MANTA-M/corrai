@@ -168,6 +168,8 @@ const ro: I18nSchema = {
         studentRenaming: "Se redenumește...",
         studentRenameError: "Redenumirea elevului a eșuat",
         studentNotFound: "Elev negăsit",
+        studentMark: "Notă",
+        studentAppreciation: "Apreciere",
         subjectPageTitle: "Subiect",
         subjectFiles: "Fișierele subiectului",
         subjectFilesEmpty: "Niciun fișier de subiect.",

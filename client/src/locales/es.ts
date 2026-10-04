@@ -168,6 +168,8 @@ const es: I18nSchema = {
         studentRenaming: "Renombrando...",
         studentRenameError: "No se pudo renombrar al alumno",
         studentNotFound: "Alumno no encontrado",
+        studentMark: "Nota",
+        studentAppreciation: "Apreciación",
         subjectPageTitle: "Tema",
         subjectFiles: "Archivos del tema",
         subjectFilesEmpty: "Ningún archivo del tema.",

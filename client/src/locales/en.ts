@@ -168,6 +168,8 @@ const en: I18nSchema = {
         studentRenaming: "Renaming...",
         studentRenameError: "Failed to rename student",
         studentNotFound: "Student not found",
+        studentMark: "Mark",
+        studentAppreciation: "Appreciation",
         subjectPageTitle: "Subject",
         subjectFiles: "Subject files",
         subjectFilesEmpty: "No subject files.",

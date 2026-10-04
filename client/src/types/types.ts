@@ -58,6 +58,8 @@ export interface AssessmentStudent {
   name: string
   status?: string
   mark?: number | null
+  /** Teacher comment, stored as Markdown */
+  appreciation?: string
   menu?: MenuItem[]
 }
 

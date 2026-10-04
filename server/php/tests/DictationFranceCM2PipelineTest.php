@@ -59,6 +59,9 @@ class DictationFranceCM2PipelineTest extends TestCase
 
         $promptText = $mockClient->sentPromptText();
         $this->assertStringContainsString('Correction listing the errors to mark:', $promptText);
+        $system = $mockClient->systemContent();
+        $this->assertStringContainsString('top right', $system);
+        $this->assertStringContainsString('along the bottom', $system);
 
         $jsonStart = strpos($promptText, '{');
         $this->assertNotFalse($jsonStart);
@@ -185,9 +188,11 @@ class DictationFranceCM2PipelineTest extends TestCase
         $task->findErrors($assessment, $this->tempImagePath, 'copy.png', 'French');
 
         $schema = $mockClient->responseFormat()['json_schema']['schema'];
-        $this->assertSame(['student_name', 'errors'], $schema['required']);
-        $this->assertSame(['student_name', 'errors'], array_keys($schema['properties']));
+        $this->assertSame(['student_name', 'errors', 'note', 'appreciation'], $schema['required']);
+        $this->assertSame(['student_name', 'note', 'appreciation', 'errors'], array_keys($schema['properties']));
         $this->assertSame('string', $schema['properties']['student_name']['type']);
+        $this->assertSame('number', $schema['properties']['note']['type']);
+        $this->assertSame('string', $schema['properties']['appreciation']['type']);
         $this->assertSame(
             ['student', 'expected', 'kind', 'box'],
             $schema['properties']['errors']['items']['required']
@@ -196,7 +201,45 @@ class DictationFranceCM2PipelineTest extends TestCase
         $system = $mockClient->systemContent();
         $this->assertStringContainsString('full name written at the top of the copy', $system);
         $this->assertStringContainsString('origin (0,0) is top-left', strtolower($system));
+        $this->assertStringContainsString('appreciation in Markdown', $system);
         $this->assertStringNotContainsStringIgnoringCase('magenta', $system);
+    }
+
+    public function testStoreStudentResultKeepsTheMarkAndTheAppreciation(): void
+    {
+        $task = new TestableCorrectingTask(new CapturedClaudeSonnetClient());
+        $student = $this->getMockBuilder(Student::class)->onlyMethods(['save'])->getMock();
+        $student->expects($this->once())->method('save');
+
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->once())
+            ->method('getStudent')
+            ->with('st1')
+            ->willReturn($student);
+
+        $file = new File();
+        $file->student = 'st1';
+
+        $task->storeStudentResult($file, $assessment, json_encode([
+            'note' => 15,
+            'appreciation' => "Bien joué.\n\n**Quelques accords** à revoir.",
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame(15.0, $student->mark);
+        $this->assertSame("Bien joué.\n\n**Quelques accords** à revoir.", $student->appreciation);
+    }
+
+    public function testStoreStudentResultSkipsACopyWithNoStudent(): void
+    {
+        $task = new TestableCorrectingTask(new CapturedClaudeSonnetClient());
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->never())->method('getStudent');
+
+        $file = new File();
+        $task->storeStudentResult($file, $assessment, json_encode([
+            'note' => 12,
+            'appreciation' => 'Bien.',
+        ], JSON_THROW_ON_ERROR));
     }
 
     public function testAssignUnclassifiedCopyMovesTheDirectoryUnderTheNamedStudent(): void

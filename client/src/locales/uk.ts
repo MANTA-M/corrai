@@ -168,6 +168,8 @@ const uk: I18nSchema = {
         studentRenaming: "Перейменування...",
         studentRenameError: "Не вдалося перейменувати учня",
         studentNotFound: "Учня не знайдено",
+        studentMark: "Оцінка",
+        studentAppreciation: "Відгук",
         subjectPageTitle: "Завдання",
         subjectFiles: "Файли завдання",
         subjectFilesEmpty: "Немає файлів завдання.",

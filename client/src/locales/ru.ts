@@ -168,6 +168,8 @@ const ru: I18nSchema = {
         studentRenaming: "Переименование...",
         studentRenameError: "Не удалось переименовать ученика",
         studentNotFound: "Ученик не найден",
+        studentMark: "Оценка",
+        studentAppreciation: "Отзыв",
         subjectPageTitle: "Задание",
         subjectFiles: "Файлы задания",
         subjectFilesEmpty: "Нет файлов задания.",

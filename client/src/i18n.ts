@@ -197,6 +197,8 @@ export interface I18nSchema {
         studentRenaming: string
         studentRenameError: string
         studentNotFound: string
+        studentMark: string
+        studentAppreciation: string
         subjectPageTitle: string
         subjectFiles: string
         subjectFilesEmpty: string

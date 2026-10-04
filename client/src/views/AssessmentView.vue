@@ -63,6 +63,11 @@
           <ul v-else class="entity-list" data-testid="student-list">
             <li v-for="student in studentRows" :key="student.id" class="entity-row" data-testid="student-item">
               <span class="entity-name">{{ student.name }}</span>
+              <span
+                v-if="student.mark != null"
+                class="student-mark"
+                data-testid="student-mark"
+              >{{ formatMark(student.mark) }}</span>
               <div class="row-actions">
                 <MenuIconButton
                   v-for="item in student.menu ?? studentMenuFallback"
@@ -383,6 +388,9 @@ const onStudentAction = (student: AssessmentStudent, key: string) => {
   else if (key === 'rename') startRenameStudent(student)
   else if (key === 'delete') startDeleteStudent(student)
 }
+
+const formatMark = (mark: number) =>
+  new Intl.NumberFormat(String(locale.value), { maximumFractionDigits: 2 }).format(mark)
 
 const studentRows = computed(() => {
   const byId = new Map<string, AssessmentStudent>()
@@ -720,6 +728,12 @@ loadSubjects()
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.student-mark {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .row-actions {

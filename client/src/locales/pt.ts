@@ -168,6 +168,8 @@ const pt: I18nSchema = {
         studentRenaming: "A renomear...",
         studentRenameError: "Falha ao renomear o aluno",
         studentNotFound: "Aluno não encontrado",
+        studentMark: "Nota",
+        studentAppreciation: "Apreciação",
         subjectPageTitle: "Enunciado",
         subjectFiles: "Ficheiros do enunciado",
         subjectFilesEmpty: "Nenhum ficheiro do enunciado.",

@@ -58,6 +58,7 @@ class Task1Correcting extends PathQueueItemTask
             if ($unclassified) {
                 $this->assignUnclassifiedCopy($file, $assessment, $correction);
             }
+            $this->storeStudentResult($file, $assessment, $correction);
 
             $store->putContents(
                 $file->foundErrorsKey(),
@@ -131,6 +132,36 @@ class Task1Correcting extends PathQueueItemTask
     }
 
     /**
+     * Once the copy belongs to a student, keep the grade and the Markdown appreciation on that student.
+     */
+    public function storeStudentResult(File $file, BaseAssessment $assessment, string $correction): void
+    {
+        $studentId = trim((string) ($file->student ?? ''));
+        if ($studentId === '') {
+            return;
+        }
+        $data = json_decode($correction, true);
+        if (!is_array($data)) {
+            return;
+        }
+
+        $student = $assessment->getStudent($studentId);
+        $changed = false;
+        if (is_numeric($data['note'] ?? null)) {
+            $student->mark = (float) $data['note'];
+            $changed = true;
+        }
+        $appreciation = $data['appreciation'] ?? null;
+        if (is_string($appreciation) && trim($appreciation) !== '') {
+            $student->appreciation = $appreciation;
+            $changed = true;
+        }
+        if ($changed) {
+            $student->save();
+        }
+    }
+
+    /**
      * @param list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}> $ocrWords
      * @param list<array{path: string, name: string}> $subjectFiles
      */
@@ -166,6 +197,9 @@ class Task1Correcting extends PathQueueItemTask
             . 'Do not count as errors badly written letters and keep only clear spelling or grammar errors. '
             . 'Fourth step, write the correction: Do not rewrite the full dictation. List only the errors. '
             . 'For each error give the student writing, the expected text from the corrigé, and the kind of mistake. '
+            . 'Fifth step, grade the copy and write an appreciation: Give the mark out of 20 as note, a number, '
+            . 'following the assessment instructions (one point off per error, and the calligraphy point when it applies). '
+            . 'Write appreciation in Markdown, in ' . $languageName . ', addressed to the student. '
             . 'Write text fields in ' . $languageName . '. '
             . 'All coordinates are pixels of the image you receive, origin (0,0) is top-left. '
             . "Follow these assessment-specific instructions:\n"
@@ -174,11 +208,19 @@ class Task1Correcting extends PathQueueItemTask
         $request->set_json_response('dictation_errors', [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['student_name', 'errors'],
+            'required' => ['student_name', 'errors', 'note', 'appreciation'],
             'properties' => [
                 'student_name' => [
                     'type' => 'string',
                     'description' => 'Full name written at the top of the copy, or an empty string when none is readable.',
+                ],
+                'note' => [
+                    'type' => 'number',
+                    'description' => 'Mark out of 20.',
+                ],
+                'appreciation' => [
+                    'type' => 'string',
+                    'description' => 'Appreciation in Markdown, in ' . $languageName . '.',
                 ],
                 'errors' => [
                     'type' => 'array',

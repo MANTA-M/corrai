@@ -28,6 +28,11 @@ class BaseStudent
 
     public ?float $mark = null;
 
+    /**
+     * Teacher appreciation, stored as Markdown.
+     */
+    public string $appreciation = '';
+
     /** @var string|null Last known ETag for conditional updates */
     public ?string $etag = null;
 
@@ -42,6 +47,7 @@ class BaseStudent
         $student->status = (string) ($data['status'] ?? '');
         $mark = $data['mark'] ?? null;
         $student->mark = is_numeric($mark) ? (float) $mark : null;
+        $student->appreciation = (string) ($data['appreciation'] ?? '');
         return $student;
     }
 
@@ -119,6 +125,7 @@ class BaseStudent
             'name' => $this->name,
             'status' => $this->status,
             'mark' => $this->mark,
+            'appreciation' => $this->appreciation,
         ];
 
         $attempts = $retry ? 5 : 1;
@@ -156,6 +163,7 @@ class BaseStudent
             'name' => $this->name,
             'status' => $this->status,
             'mark' => $this->mark,
+            'appreciation' => $this->appreciation,
             'menu' => $this->get_menu($locale),
         ];
     }
