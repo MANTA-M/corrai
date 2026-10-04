@@ -1,6 +1,7 @@
 <?php
 
 use Corrai\Model\Assessment;
+use Corrai\Subject\AssessmentFactory;
 use Corrai\Utils\HashId;
 use Corrai\Utils\Request;
 use Corrai\Model\User;
@@ -30,7 +31,12 @@ try {
         throw new WSException("User with hash $userId does not exist", 401);
     }
 
-    $assessment = Assessment::from_array($assessment_data);
+    $assessmentClass = AssessmentFactory::assessmentClass(
+        (string) ($assessment_data['subject'] ?? ''),
+        (string) ($assessment_data['country'] ?? ''),
+        (string) ($assessment_data['level'] ?? '')
+    );
+    $assessment = $assessmentClass::from_array($assessment_data);
     if (!isset($assessment_data['correction_language']) || !is_string($assessment_data['correction_language']) || trim($assessment_data['correction_language']) === '') {
         $assessment->correction_language = Assessment::normalizeLocale(Request::getStringParam('locale') ?? 'fr');
     }

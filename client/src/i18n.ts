@@ -217,6 +217,7 @@ export interface I18nSchema {
         correctionPrice: string
         startCorrectionLaunch: string
         startCorrectionError: string
+        startCorrectionSuccess: string
     }
     language: string
     settings: {

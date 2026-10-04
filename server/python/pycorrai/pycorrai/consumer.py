@@ -224,6 +224,7 @@ def treat(
     after_task: str = "",
 ) -> None:
     """OCR one file path and, when set, enqueue ``after_task`` for PHP."""
+    start_time = time.perf_counter()
     logger.info("OCR starting for %s lang=%s", content_path, lang)
     attr_key = attributes_key(content_path)
     store.get_json(attr_key)
@@ -248,16 +249,23 @@ def treat(
         attrs["status"] = "ocr_done"
         store.put_json(attr_key, attrs)
 
+        duration_ms = max(0, round((time.perf_counter() - start_time) * 1000))
+
         follow_up = after_task.strip()
         if follow_up != "":
             redis.lpush(PHP_LIST_KEY, php_task_ticket(content_path, follow_up))
             logger.info(
-                "OCR finished for %s, enqueued task=%s",
+                "OCR finished for %s in %d ms, enqueued task=%s",
                 content_path,
+                duration_ms,
                 follow_up,
             )
         else:
-            logger.info("OCR finished for %s, no follow-up task", content_path)
+            logger.info(
+                "OCR finished for %s in %d ms, no follow-up task",
+                content_path,
+                duration_ms,
+            )
     except Exception:
         try:
             attrs = store.get_json(attr_key)

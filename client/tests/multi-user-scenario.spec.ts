@@ -28,7 +28,7 @@ test.describe('Multi-User Assessment Scenario', () => {
 
   test('Initialize profile 1, create assessment, then initialize user 2', async () => {
     await test.step('Initialize Profile 1', async () => {
-      await initProfile(page1, 'User 1')
+      await initProfile(page1, '[Test] User 1')
     })
 
     await test.step('Create an assessment', async () => {
@@ -36,17 +36,17 @@ test.describe('Multi-User Assessment Scenario', () => {
       await page1.waitForURL('**/create_assessment', { timeout: 10000 })
 
       await page1.getByTestId('assessment-no-subject').click()
-      await page1.getByTestId('assessment-name').fill('Shared Midterm')
+      await page1.getByTestId('assessment-name').fill('[Test] Shared Midterm')
       await page1.getByTestId('assessment-subject').selectOption('Math')
       await page1.getByTestId('assessment-date').fill('2026-10-15')
       await page1.getByTestId('assessment-submit').click()
 
       await page1.waitForURL(/\/assessment\/[^/]+$/, { timeout: 15000 })
-      await expect(page1.getByTestId('assessment-details-heading')).toContainText('Shared Midterm')
+      await expect(page1.getByTestId('assessment-details-heading')).toContainText('[Test] Shared Midterm')
     })
 
     await test.step('Initialize User 2 in another browser', async () => {
-      await initProfile(page2, 'User 2')
+      await initProfile(page2, '[Test] User 2')
 
       const localStorage1 = await page1.evaluate(() => localStorage.getItem('corrai-session'))
       const localStorage2 = await page2.evaluate(() => localStorage.getItem('corrai-session'))
@@ -65,8 +65,8 @@ test.describe('Multi-User Assessment Scenario', () => {
       expect(session2.user_id).toBeTruthy()
       expect(session1.user_id).not.toBe(session2.user_id)
 
-      expect(session1.user_name).toBe('User 1')
-      expect(session2.user_name).toBe('User 2')
+      expect(session1.user_name).toBe('[Test] User 1')
+      expect(session2.user_name).toBe('[Test] User 2')
     })
   })
 })

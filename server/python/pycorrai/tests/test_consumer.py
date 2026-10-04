@@ -163,7 +163,9 @@ class TreatTest(unittest.TestCase):
         redis = MagicMock()
         words = [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}]
 
-        with patch("pycorrai.consumer.event_key") as mock_event_key:
+        with patch("pycorrai.consumer.event_key") as mock_event_key, self.assertLogs(
+            "pycorrai.consumer", level="INFO"
+        ) as log_capture:
             mock_event_key.side_effect = [
                 "schools/s1/teachers/t1/assessments/e1/files/f1/events/1-aaaaaaaa.json",
                 "schools/s1/teachers/t1/assessments/e1/files/f1/events/2-bbbbbbbb.json",
@@ -176,6 +178,14 @@ class TreatTest(unittest.TestCase):
                 recognize=lambda data, lang: words,
                 after_task=r"Corrai\Subject\Dictation\Task1Correcting",
             )
+
+        self.assertTrue(
+            any(
+                f"OCR finished for {CONTENT_PATH} in " in msg
+                and " ms, enqueued task=" in msg
+                for msg in log_capture.output
+            )
+        )
 
         put_keys = [call.kwargs["Key"] for call in client.put_object.call_args_list]
         self.assertEqual(
@@ -230,15 +240,54 @@ class TreatTest(unittest.TestCase):
         store = ObjectStore(client=client, bucket="corrai")
         redis = MagicMock()
 
-        treat(
-            CONTENT_PATH,
-            "fr",
-            store,
-            redis,
-            recognize=lambda data, lang: [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}],
-        )
+        with self.assertLogs("pycorrai.consumer", level="INFO") as log_capture:
+            treat(
+                CONTENT_PATH,
+                "fr",
+                store,
+                redis,
+                recognize=lambda data, lang: [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}],
+            )
 
         redis.lpush.assert_not_called()
+        self.assertTrue(
+            any(
+                f"OCR finished for {CONTENT_PATH} in " in msg
+                and " ms, no follow-up task" in msg
+                for msg in log_capture.output
+            )
+        )
+
+    def test_treat_logs_processing_time_in_ms(self) -> None:
+        client = MagicMock()
+        attrs = {"name": "copy.png", "status": "loaded", "schema": 1}
+        attrs_body = json.dumps(attrs).encode("utf-8")
+        client.get_object.side_effect = [
+            {"Body": io.BytesIO(attrs_body)},
+            {"Body": io.BytesIO(b"\xff\xd8\xfffakejpeg")},
+            {"Body": io.BytesIO(attrs_body)},
+            {"Body": io.BytesIO(attrs_body)},
+        ]
+        store = ObjectStore(client=client, bucket="corrai")
+        redis = MagicMock()
+
+        with patch("pycorrai.consumer.time.perf_counter", side_effect=[100.0, 100.350]), \
+             self.assertLogs("pycorrai.consumer", level="INFO") as log_capture:
+            treat(
+                CONTENT_PATH,
+                "fr",
+                store,
+                redis,
+                recognize=lambda data, lang: [],
+                after_task="SomeTask",
+            )
+
+        self.assertTrue(
+            any(
+                f"OCR finished for {CONTENT_PATH} in 350 ms, enqueued task=SomeTask" in msg
+                for msg in log_capture.output
+            )
+        )
 
     def test_treat_skips_php_enqueue_when_attributes_missing(self) -> None:
         client = MagicMock()

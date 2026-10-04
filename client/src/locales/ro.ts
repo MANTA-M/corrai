@@ -187,7 +187,8 @@ const ro: I18nSchema = {
         startCorrection: "Lansează corectarea",
         correctionPrice: "Prețul corectării: (1 € × {count})",
         startCorrectionLaunch: "Lansează",
-        startCorrectionError: "Lansarea corectării a eșuat"
+        startCorrectionError: "Lansarea corectării a eșuat",
+        startCorrectionSuccess: "Corectare lansată!"
     },
     language: "Limbă",
     settings: {

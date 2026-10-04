@@ -262,6 +262,7 @@ import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
+import { toast } from 'vue3-toastify'
 import AddFilePopup from '@/components/AddFilePopup.vue'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
@@ -418,6 +419,9 @@ const launchCorrection = async () => {
     )
     if (response?.files) applyUpdate(response.files, response.students)
     showStartCorrection.value = false
+    toast.success(t('assessment.startCorrectionSuccess'), {
+      position: toast.POSITION.TOP_CENTER,
+    })
   } catch (err) {
     console.error('Error starting correction:', err)
     startCorrectionError.value = t('assessment.startCorrectionError')

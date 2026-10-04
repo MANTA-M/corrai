@@ -441,9 +441,9 @@ const saveInstructionContent = async () => {
         isSavingInstruction.value = false
         return
       }
-      const filename = 'Consigne.txt'
-      const blob = new Blob([contentToSave], { type: 'text/plain;charset=utf-8' })
-      const file = new File([blob], filename, { type: 'text/plain' })
+      const filename = 'instructions.md'
+      const blob = new Blob([contentToSave], { type: 'text/markdown;charset=utf-8' })
+      const file = new File([blob], filename, { type: 'text/markdown' })
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', 'instructions')
@@ -459,11 +459,15 @@ const saveInstructionContent = async () => {
         applyUpdate(response.files)
       }
     } else {
+      const patch: { content: string; name?: string } = { content: contentToSave }
+      if (targetFile.name?.toLowerCase().includes('consigne') || targetFile.name?.toLowerCase().endsWith('.txt')) {
+        patch.name = 'instructions.md'
+      }
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
         { assessment: assessment.value.id, file: targetFile.id, locale: String(locale.value) },
-        { content: contentToSave }
+        patch
       )
       if (response?.files) {
         lastSavedContent = contentToSave

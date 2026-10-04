@@ -201,7 +201,7 @@ class MenuLabels
         ],
         'file_type_instructions' => [
             'en' => 'Personal instructions',
-            'fr' => 'Consignes personnelles',
+            'fr' => 'Consignes particulières',
             'ru' => 'Инструкции',
             'uk' => 'Інструкції',
             'es' => 'Instrucciones',

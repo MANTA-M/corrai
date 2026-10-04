@@ -36,7 +36,7 @@ class SubjectIntakeTest extends TestCase
         $suffix = bin2hex(random_bytes(4));
         $this->user = self::$indSchool->addUser(
             "intake_{$suffix}@ind.test",
-            "Intake {$suffix}",
+            "[Test] Intake {$suffix}",
             'test-password-' . $suffix,
             User::ROLE_TEACHER
         );
@@ -68,7 +68,7 @@ class SubjectIntakeTest extends TestCase
             {
                 $this->sawPage = is_file($pagePath) && $pageName === 'page.jpg' && $tree !== [];
                 return [
-                    'name' => 'Contrôle de fractions',
+                    'name' => '[Test] Contrôle de fractions',
                     'subject' => 'Math',
                     'level' => 'cm2',
                     'date' => '2026-04-02',
@@ -88,7 +88,7 @@ class SubjectIntakeTest extends TestCase
 
         $this->assertTrue($reader->sawPage);
         $loaded = Assessment::from_hash((string) $assessment->id);
-        $this->assertSame('Contrôle de fractions', $loaded->name);
+        $this->assertSame('[Test] Contrôle de fractions', $loaded->name);
         $this->assertSame('Math', $loaded->subject);
         $this->assertSame('cm2', $loaded->level);
         $this->assertSame('2026-04-02', $loaded->date);
@@ -114,7 +114,7 @@ class SubjectIntakeTest extends TestCase
                     && is_file($pagePath)
                     && str_contains((string) file_get_contents($pagePath), 'Dictée');
                 return [
-                    'name' => 'Dictée',
+                    'name' => '[Test] Dictée',
                     'subject' => 'Dictation',
                     'level' => 'cm1',
                     'date' => '2026-03-12',
@@ -134,7 +134,7 @@ class SubjectIntakeTest extends TestCase
 
         $this->assertTrue($reader->sawText);
         $loaded = Assessment::from_hash((string) $assessment->id);
-        $this->assertSame('Dictée', $loaded->name);
+        $this->assertSame('[Test] Dictée', $loaded->name);
         $files = $loaded->list_files();
         $this->assertSame('dictee.txt', $files[0]['name']);
     }

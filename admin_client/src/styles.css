@@ -192,6 +192,16 @@ main h1 {
   background: var(--blue-hover);
 }
 
+.button.danger {
+  background: #c93b45;
+  color: white;
+  border: none;
+}
+
+.button.danger:hover:not(:disabled) {
+  background: #a8323b;
+}
+
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;

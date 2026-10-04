@@ -6,10 +6,18 @@
           <h1>Monitoring</h1>
           <p class="muted">Redis queue tickets waiting for the PHP and Python consumers</p>
         </div>
-        <button class="button" type="button" :disabled="isLoading" @click="loadQueues">
-          {{ isLoading ? 'Refreshing…' : 'Refresh' }}
-        </button>
+        <div class="header-actions">
+          <button class="button danger" type="button" :disabled="isDeleting" @click="deleteTestData">
+            {{ isDeleting ? 'Deleting…' : 'Delete [Test] data' }}
+          </button>
+          <button class="button" type="button" :disabled="isLoading" @click="loadQueues">
+            {{ isLoading ? 'Refreshing…' : 'Refresh' }}
+          </button>
+        </div>
       </div>
+
+      <p v-if="cleanupMessage" class="cleanup-message">{{ cleanupMessage }}</p>
+      <p v-if="cleanupError" class="error cleanup-error">{{ cleanupError }}</p>
 
       <div v-if="isLoading && !loadedOnce" class="loading">
         <p>Loading queues…</p>
@@ -99,11 +107,23 @@ interface QueuesResponse {
   python?: QueuePayload<PythonQueueItem>
 }
 
+interface TestDataDeleteResponse {
+  schools?: number
+  users?: number
+  assessments?: number
+  students?: number
+  errors?: string[]
+  message?: string
+}
+
 const php = ref<{ key: string; items: PhpQueueItem[] }>({ key: '', items: [] })
 const python = ref<{ key: string; items: PythonQueueItem[] }>({ key: '', items: [] })
 const isLoading = ref(false)
+const isDeleting = ref(false)
 const loadedOnce = ref(false)
 const error = ref('')
+const cleanupMessage = ref('')
+const cleanupError = ref('')
 
 const loadQueues = async () => {
   isLoading.value = true
@@ -126,6 +146,35 @@ const loadQueues = async () => {
   }
 }
 
+const deleteTestData = async () => {
+  if (
+    !window.confirm(
+      'Delete every school, teacher, assessment and student whose name contains [Test]?',
+    )
+  ) {
+    return
+  }
+
+  isDeleting.value = true
+  cleanupMessage.value = ''
+  cleanupError.value = ''
+  try {
+    const data = await apiJson<TestDataDeleteResponse>('test_data', { method: 'DELETE' })
+    const schools = data.schools ?? 0
+    const users = data.users ?? 0
+    const assessments = data.assessments ?? 0
+    const students = data.students ?? 0
+    cleanupMessage.value = `Deleted ${schools} school${schools === 1 ? '' : 's'}, ${users} teacher${users === 1 ? '' : 's'}, ${assessments} assessment${assessments === 1 ? '' : 's'}, ${students} student${students === 1 ? '' : 's'}.`
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      cleanupError.value = data.errors.join(' ')
+    }
+  } catch (err) {
+    cleanupError.value = err instanceof Error ? err.message : 'Failed to delete test data'
+  } finally {
+    isDeleting.value = false
+  }
+}
+
 onMounted(loadQueues)
 </script>
 
@@ -140,6 +189,23 @@ onMounted(loadQueues)
 
 .header h1 {
   margin: 0 0 0.5rem 0;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cleanup-message {
+  margin: -0.5rem 0 1.25rem;
+  color: var(--text);
+}
+
+.cleanup-error {
+  margin: -0.5rem 0 1.25rem;
+  text-align: left;
+  padding: 0;
 }
 
 .muted {

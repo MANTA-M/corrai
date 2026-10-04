@@ -115,14 +115,14 @@ const fileZone = (file: AssessmentFile): AssessmentFileTypeZone => {
     : 'unknown'
 }
 
-const titleFromFilename = (name: string) => name.replace(/\.txt$/i, '')
+const titleFromFilename = (name: string) => name.replace(/\.(txt|md)$/i, '')
 
 const filenameFromTitle = (value: string) => {
   const cleaned = value.trim().replace(/[\/\\]/g, '-')
   if (/\.[A-Za-z0-9]+$/.test(cleaned)) {
     return cleaned
   }
-  return `${cleaned}.txt`
+  return props.kind === 'instructions' ? `${cleaned}.md` : `${cleaned}.txt`
 }
 
 const nextInstructionTitle = () => {

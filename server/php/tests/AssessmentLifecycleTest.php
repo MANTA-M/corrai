@@ -49,7 +49,7 @@ class AssessmentLifecycleTest extends TestCase
         $suffix = bin2hex(random_bytes(4));
         $this->user = self::$indSchool->addUser(
             "teacher_{$suffix}@ind.test",
-            "Test Teacher {$suffix}",
+            "[Test] Teacher {$suffix}",
             'test-password-' . $suffix,
             User::ROLE_TEACHER
         );
@@ -82,7 +82,7 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'Math Assessment';
+        $assessment->name = '[Test] Math Assessment';
         $assessment->subject = 'Mathematics';
         $assessment->date = '2026-06-15';
         $assessment->id = HashId::create();
@@ -96,7 +96,7 @@ class AssessmentLifecycleTest extends TestCase
         $this->assertSame($assessmentId, $loaded->id);
         $this->assertSame(School::IND_SCHOOL_ID, $loaded->school_id);
         $this->assertSame($this->user->id, $loaded->user_id);
-        $this->assertSame('Math Assessment', $loaded->name);
+        $this->assertSame('[Test] Math Assessment', $loaded->name);
 
         $listed = Assessment::list_for_author($this->user->id);
         $this->assertCount(1, $listed);
@@ -106,13 +106,13 @@ class AssessmentLifecycleTest extends TestCase
         $this->assertCount(1, $viaUser);
         $this->assertSame($assessmentId, $viaUser[0]->id);
 
-        $loaded->name = 'Math Assessment Updated';
+        $loaded->name = '[Test] Math Assessment Updated';
         $loaded->subject = 'Algebra';
         $loaded->date = '2026-09-01';
         $loaded->save();
 
         $updated = Assessment::from_hash($assessmentId);
-        $this->assertSame('Math Assessment Updated', $updated->name);
+        $this->assertSame('[Test] Math Assessment Updated', $updated->name);
         $this->assertSame('Algebra', $updated->subject);
 
         $store = ObjectStore::getInstance();
@@ -166,7 +166,7 @@ class AssessmentLifecycleTest extends TestCase
             $assessment = new Assessment();
             $assessment->school_id = $this->user->school_id;
             $assessment->user_id = $this->user->id;
-            $assessment->name = "Assessment $i";
+            $assessment->name = "[Test] Assessment $i";
             $assessment->subject = 'History';
             $assessment->date = sprintf('2026-01-%02d', $i + 1);
             $assessment->id = HashId::create();
@@ -193,7 +193,7 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'File Ops Assessment';
+        $assessment->name = '[Test] File Ops Assessment';
         $assessment->subject = 'Physics';
         $assessment->date = '2026-03-20';
         $assessment->id = HashId::create();
@@ -222,7 +222,7 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'Tagged Files Assessment';
+        $assessment->name = '[Test] Tagged Files Assessment';
         $assessment->subject = 'Biology';
         $assessment->date = '2026-04-10';
         $assessment->id = HashId::create();
@@ -231,7 +231,7 @@ class AssessmentLifecycleTest extends TestCase
         $tmp = $this->createRandomTempFile('tagged_', '.pdf');
         $filename = basename($tmp);
         $file = $assessment->createFileFromPath($filename, $tmp, 'application/pdf', null, null);
-        $alice = $assessment->createStudent('Alice');
+        $alice = $assessment->createStudent('[Test] Alice');
 
         $files = $assessment->list_files();
         $this->assertCount(1, $files);
@@ -242,7 +242,7 @@ class AssessmentLifecycleTest extends TestCase
         $tagged = $assessment->list_files();
         $this->assertSame('submission', $tagged[0]['type']);
         $this->assertSame($alice->id, $tagged[0]['student']);
-        $this->assertSame('Alice', $tagged[0]['student_name']);
+        $this->assertSame('[Test] Alice', $tagged[0]['student_name']);
 
         $assessment->setFileTags($file->id, 'subject', null);
         $retyped = $assessment->list_files();
@@ -269,7 +269,7 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'Rename File Assessment';
+        $assessment->name = '[Test] Rename File Assessment';
         $assessment->subject = 'Chemistry';
         $assessment->date = '2026-07-12';
         $assessment->id = HashId::create();
@@ -279,7 +279,7 @@ class AssessmentLifecycleTest extends TestCase
         $oldName = basename($tmp);
         $newName = 'renamed-scan.png';
         $file = $assessment->createFileFromPath($oldName, $tmp, 'image/png', null, null);
-        $bob = $assessment->createStudent('Bob');
+        $bob = $assessment->createStudent('[Test] Bob');
         $assessment->setFileTags($file->id, 'submission', $bob->id);
 
         $contentBefore = ObjectStore::getInstance()->getContents($file->contentKey());
@@ -309,13 +309,13 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'Instruction File Assessment';
+        $assessment->name = '[Test] Instruction File Assessment';
         $assessment->subject = 'Physics';
         $assessment->date = '2026-08-20';
         $assessment->id = HashId::create();
         $assessment->save();
 
-        $tmp = $this->createRandomTempFile('consigne_', '.txt');
+        $tmp = $this->createRandomTempFile('instructions_', '.md');
         $filename = basename($tmp);
         $file = $assessment->createFileFromPath($filename, $tmp, 'text/plain', 'instructions', null);
 
@@ -343,7 +343,7 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'Correction Files Assessment';
+        $assessment->name = '[Test] Correction Files Assessment';
         $assessment->subject = 'History';
         $assessment->date = '2026-09-21';
         $assessment->id = HashId::create();
@@ -352,8 +352,8 @@ class AssessmentLifecycleTest extends TestCase
         $tmp = $this->createRandomTempFile('copy_', '.png');
         $filename = basename($tmp);
         $submission = $assessment->createFileFromPath($filename, $tmp, 'image/png', 'submission', null);
-        $carol = $assessment->createStudent('Carol');
-        $dan = $assessment->createStudent('Dan');
+        $carol = $assessment->createStudent('[Test] Carol');
+        $dan = $assessment->createStudent('[Test] Dan');
         $assessment->setFileTags($submission->id, 'submission', $carol->id);
 
         $files = $assessment->createFile(
@@ -413,14 +413,14 @@ class AssessmentLifecycleTest extends TestCase
 
     public function testAddIndependentUserCreatesS3DirectoryAndCanOwnAssessment(): void
     {
-        $user = School::addIndependentUser('Profile Teacher');
+        $user = School::addIndependentUser('[Test] Profile Teacher');
 
         try {
             $this->assertNotNull($user->id);
             $this->assertTrue(HashId::isValid($user->id));
             $this->assertSame(School::IND_SCHOOL_ID, $user->school_id);
             $this->assertSame(User::ROLE_TEACHER, $user->role);
-            $this->assertSame('Profile Teacher', $user->name);
+            $this->assertSame('[Test] Profile Teacher', $user->name);
             $this->assertSame($user->id . '@ind.local', $user->email);
 
             $store = ObjectStore::getInstance();
@@ -434,7 +434,7 @@ class AssessmentLifecycleTest extends TestCase
             $assessment = new Assessment();
             $assessment->school_id = $user->school_id;
             $assessment->user_id = $user->id;
-            $assessment->name = 'Independent Assessment';
+            $assessment->name = '[Test] Independent Assessment';
             $assessment->subject = 'Science';
             $assessment->date = '2026-05-01';
             $assessment->id = HashId::create();
@@ -520,7 +520,7 @@ class AssessmentLifecycleTest extends TestCase
             ObjectStore::legacySchoolCsvKey($schoolId),
             CsvStore::encode([
                 'id' => $schoolId,
-                'name' => 'Migrated School',
+                'name' => '[Test] Migrated School',
                 'created_at' => '2026-01-01T00:00:00+00:00',
             ]),
             'text/csv'
@@ -533,7 +533,7 @@ class AssessmentLifecycleTest extends TestCase
                 'id' => $userId,
                 'school_id' => $schoolId,
                 'email' => "$userId@mig.test",
-                'name' => 'Mig Teacher',
+                'name' => '[Test] Mig Teacher',
                 'role' => 'teacher',
                 'password_hash' => password_hash('x', PASSWORD_DEFAULT),
                 'created_at' => '2026-01-01T00:00:00+00:00',
@@ -548,7 +548,7 @@ class AssessmentLifecycleTest extends TestCase
                 'id' => $assessmentId,
                 'school_id' => $schoolId,
                 'user_id' => $userId,
-                'name' => 'Mig Assessment',
+                'name' => '[Test] Mig Assessment',
                 'subject' => 'Other',
                 'country' => '',
                 'level' => '',
@@ -568,7 +568,7 @@ class AssessmentLifecycleTest extends TestCase
         $store->putContents(
             ObjectStore::legacyAssessmentFilesCsvKey($schoolId, $userId, $assessmentId),
             CsvStore::encodeRows([
-                ['name' => $filename, 'type' => 'submission', 'student' => 'Eve'],
+                ['name' => $filename, 'type' => 'submission', 'student' => '[Test] Eve'],
             ]),
             'text/csv'
         );
@@ -580,24 +580,24 @@ class AssessmentLifecycleTest extends TestCase
         $this->assertTrue($store->exists(ObjectStore::schoolAttrKey($schoolId)));
 
         $school = School::from_hash($schoolId);
-        $this->assertSame('Migrated School', $school->name);
+        $this->assertSame('[Test] Migrated School', $school->name);
 
         $teacher = User::from_hash($userId);
-        $this->assertSame('Mig Teacher', $teacher->name);
+        $this->assertSame('[Test] Mig Teacher', $teacher->name);
         $this->assertSame($schoolId, $teacher->school_id);
 
         $assessment = Assessment::from_hash($assessmentId);
-        $this->assertSame('Mig Assessment', $assessment->name);
+        $this->assertSame('[Test] Mig Assessment', $assessment->name);
         $files = $assessment->list_files();
         $this->assertCount(1, $files);
         $this->assertSame($filename, $files[0]['name']);
         $this->assertSame('submission', $files[0]['type']);
-        $this->assertSame('Eve', $files[0]['student_name']);
+        $this->assertSame('[Test] Eve', $files[0]['student_name']);
         $this->assertNotEmpty($files[0]['student']);
 
         $students = $assessment->list_students();
         $this->assertCount(1, $students);
-        $this->assertSame('Eve', $students[0]['name']);
+        $this->assertSame('[Test] Eve', $students[0]['name']);
 
         $school->delete();
     }
@@ -607,7 +607,7 @@ class AssessmentLifecycleTest extends TestCase
         $assessment = new Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = 'Delete Student Assessment';
+        $assessment->name = '[Test] Delete Student Assessment';
         $assessment->subject = 'History';
         $assessment->date = '2026-05-02';
         $assessment->id = HashId::create();
@@ -615,7 +615,7 @@ class AssessmentLifecycleTest extends TestCase
 
         $tmp = $this->createRandomTempFile('copy_', '.png');
         $file = $assessment->createFileFromPath(basename($tmp), $tmp, 'image/png', 'submission', null);
-        $alice = $assessment->createStudent('Alice');
+        $alice = $assessment->createStudent('[Test] Alice');
         $assessment->setFileTags($file->id, 'submission', $alice->id);
 
         $files = $assessment->deleteStudent($alice->id);

@@ -732,6 +732,17 @@ class ObjectStore
                 'Delete' => ['Objects' => $objects],
             ]);
         }
+
+        if ($prefix !== '') {
+            try {
+                $this->client->deleteObject([
+                    'Bucket' => $this->bucket,
+                    'Key' => $prefix,
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore if prefix directory marker does not exist
+            }
+        }
     }
 
     public function exists(string $key): bool

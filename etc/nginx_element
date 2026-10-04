@@ -8,6 +8,17 @@
         return 301 /corrai/;
     }
 
+    location = /corrai_test/api/assessment_events {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME /home/maintainer/corrai_test/server/php/public/api_router.php;
+        fastcgi_param DOCUMENT_ROOT /home/maintainer/corrai_test/server/php/public;
+        fastcgi_param SCRIPT_NAME /api_router.php;
+        fastcgi_buffering off;
+        gzip off;
+        fastcgi_read_timeout 3600s;
+    }
+
     location ^~ /corrai_test/api/ {
         include fastcgi_params;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;

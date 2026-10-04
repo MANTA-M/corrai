@@ -187,7 +187,8 @@ const pt: I18nSchema = {
         startCorrection: "Iniciar a correção",
         correctionPrice: "Preço da correção: (1 € × {count})",
         startCorrectionLaunch: "Iniciar",
-        startCorrectionError: "Falha ao iniciar a correção"
+        startCorrectionError: "Falha ao iniciar a correção",
+        startCorrectionSuccess: "Correção iniciada!"
     },
     language: "Idioma",
     settings: {

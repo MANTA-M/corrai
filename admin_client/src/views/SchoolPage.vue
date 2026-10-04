@@ -25,7 +25,9 @@
               <button class="button primary" type="submit" :disabled="isSaving || !name.trim()">
                 {{ isSaving ? 'Saving…' : 'Save' }}
               </button>
-              <button class="button" type="button" :disabled="isSaving" @click="cancelEdit">Cancel</button>
+              <button class="button" type="button" :disabled="isSaving" @click="cancelEdit">
+                Cancel
+              </button>
             </form>
             <button
               v-if="!isEditing"
@@ -59,28 +61,58 @@
               autocomplete="off"
               required
             />
-            <button class="button primary" type="submit" :disabled="isCreating || !newTeacherName.trim()">
+            <button
+              class="button primary"
+              type="submit"
+              :disabled="isCreating || !newTeacherName.trim()"
+            >
               {{ isCreating ? 'Creating…' : 'Create teacher' }}
             </button>
           </form>
           <p v-if="createError" class="form-error">{{ createError }}</p>
           <div class="teachers-list">
-            <router-link
-              v-for="teacher in teachers"
-              :key="teacher.id || teacher.name"
-              class="teacher-item"
-              :to="
-                teacher.id
-                  ? { name: 'teacher', params: { schoolId: school.id, id: teacher.id } }
-                  : { name: 'school', params: { id: school.id } }
-              "
-            >
-              <div class="teacher-name">{{ teacher.name || '—' }}</div>
-              <div class="teacher-meta">{{ teacher.role }}</div>
-              <div class="teacher-date">{{ formatDate(teacher.created_at) }}</div>
-            </router-link>
+            <div v-for="teacher in teachers" :key="teacher.id || teacher.name" class="teacher-item">
+              <router-link
+                class="teacher-link"
+                :to="
+                  teacher.id
+                    ? { name: 'teacher', params: { schoolId: school.id, id: teacher.id } }
+                    : { name: 'school', params: { id: school.id } }
+                "
+              >
+                <div class="teacher-name">{{ teacher.name || '—' }}</div>
+                <div class="teacher-meta">{{ teacher.role }}</div>
+                <div class="teacher-date">{{ formatDate(teacher.created_at) }}</div>
+              </router-link>
+              <button
+                v-if="teacher.id"
+                class="trash-button"
+                type="button"
+                aria-label="Delete teacher"
+                title="Delete teacher"
+                :disabled="deletingTeacherId === teacher.id"
+                @click="deleteTeacher(teacher)"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 7h14" />
+                  <path d="M9 7V5h6v2" />
+                  <path d="M8 7l.8 12h6.4L16 7" />
+                </svg>
+              </button>
+            </div>
             <p v-if="teachers.length === 0" class="empty-message">No teachers yet.</p>
           </div>
+          <p v-if="deleteTeacherError" class="form-error">{{ deleteTeacherError }}</p>
         </section>
       </template>
     </div>
@@ -116,6 +148,8 @@ const saveMessage = ref('')
 const newTeacherName = ref('')
 const isCreating = ref(false)
 const createError = ref('')
+const deletingTeacherId = ref<string | null>(null)
+const deleteTeacherError = ref('')
 
 const sortTeachers = (items: Teacher[]) => {
   return [...items].sort((a, b) => {
@@ -166,10 +200,13 @@ const renameSchool = async () => {
   saveError.value = ''
   saveMessage.value = ''
   try {
-    const data = await apiJson<SchoolDetailResponse>(`school?hash=${encodeURIComponent(school.value.id)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ name: nextName }),
-    })
+    const data = await apiJson<SchoolDetailResponse>(
+      `school?hash=${encodeURIComponent(school.value.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ name: nextName }),
+      },
+    )
     school.value = data.school
     name.value = data.school.name
     isEditing.value = false
@@ -203,6 +240,26 @@ const createTeacher = async () => {
     createError.value = err instanceof Error ? err.message : 'Failed to create teacher'
   } finally {
     isCreating.value = false
+  }
+}
+
+const deleteTeacher = async (teacher: Teacher) => {
+  if (!teacher.id) return
+  const teacherName = teacher.name ? `"${teacher.name}"` : 'this teacher'
+  if (!window.confirm(`Are you sure you want to delete ${teacherName}?`)) {
+    return
+  }
+  deletingTeacherId.value = teacher.id
+  deleteTeacherError.value = ''
+  try {
+    await apiJson(`teacher?hash=${encodeURIComponent(teacher.id)}`, {
+      method: 'DELETE',
+    })
+    teachers.value = teachers.value.filter((t) => t.id !== teacher.id)
+  } catch (err) {
+    deleteTeacherError.value = err instanceof Error ? err.message : 'Failed to delete teacher'
+  } finally {
+    deletingTeacherId.value = null
   }
 }
 
@@ -340,25 +397,66 @@ watch(
 }
 
 .teacher-item {
-  display: grid;
-  grid-template-columns: 1fr 160px 140px;
-  gap: 1rem;
-  padding: 1rem;
+  display: flex;
+  align-items: center;
   border: 1px solid var(--border-color);
   border-radius: 15px;
   background: var(--white);
   margin-bottom: 0.75rem;
-  align-items: center;
-  color: inherit;
-  text-decoration: none;
-  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 
 .teacher-item:hover {
   border-color: var(--hover-border);
   box-shadow: var(--shadow-2);
   transform: translateY(-2px);
+}
+
+.teacher-link {
+  display: grid;
+  grid-template-columns: 1fr 160px 140px;
+  gap: 1rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
   color: inherit;
+  text-decoration: none;
+}
+
+.trash-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: #c93b45;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.trash-button:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.trash-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .teacher-name {
@@ -380,7 +478,7 @@ watch(
     align-items: stretch;
   }
 
-  .teacher-item {
+  .teacher-link {
     grid-template-columns: 1fr;
     gap: 0.25rem;
   }

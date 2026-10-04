@@ -6,8 +6,7 @@
 #   corrai:ocr    Python OCR consumer
 #
 # Usage:
-#   bin/purge-redis-queues              # ask before deleting when a terminal
-#   bin/purge-redis-queues --yes        # delete without asking
+#   bin/purge-redis-queues
 #   bin/purge-redis-queues --dry-run    # print depths only
 #
 # Connection: redis-cli against REDIS_HOST:REDIS_PORT (default 127.0.0.1:6379).
@@ -24,11 +23,10 @@ FILES_KEY="corrai:files"
 OCR_KEY="corrai:ocr"
 KEYS=("$FILES_KEY" "$OCR_KEY")
 
-YES=0
 DRY_RUN=0
 
 usage() {
-  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -38,7 +36,6 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     -y|--yes)
-      YES=1
       shift
       ;;
     --dry-run)
@@ -108,21 +105,6 @@ done
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Dry run: ${total} ticket(s) would be removed."
   exit 0
-fi
-
-if [[ "$YES" -eq 0 ]]; then
-  if [[ ! -t 0 ]]; then
-    echo "Refusing to purge without --yes when stdin is not a terminal." >&2
-    exit 2
-  fi
-  read -r -p "Delete ${total} ticket(s) from ${#KEYS[@]} queues? [y/N] " answer
-  case "$answer" in
-    y|Y|yes|YES) ;;
-    *)
-      echo "Aborted."
-      exit 0
-      ;;
-  esac
 fi
 
 removed=0

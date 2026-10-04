@@ -1,7 +1,9 @@
 <template>
   <div class="app">
     <div class="card">
-      <router-link class="back-link" :to="{ name: 'school', params: { id: schoolId } }">← School</router-link>
+      <router-link class="back-link" :to="{ name: 'school', params: { id: schoolId } }"
+        >← School</router-link
+      >
       <div v-if="isLoading" class="loading">
         <p>Loading teacher…</p>
       </div>
@@ -11,7 +13,33 @@
       <template v-else-if="teacher">
         <div class="header">
           <div>
-            <h1>{{ teacher.name || 'Teacher' }}</h1>
+            <div class="title-row">
+              <h1>{{ teacher.name || 'Teacher' }}</h1>
+              <button
+                class="trash-button"
+                type="button"
+                aria-label="Delete teacher"
+                title="Delete teacher"
+                :disabled="isDeleting"
+                @click="deleteTeacher"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 7h14" />
+                  <path d="M9 7V5h6v2" />
+                  <path d="M8 7l.8 12h6.4L16 7" />
+                </svg>
+              </button>
+            </div>
             <p class="muted">{{ teacher.id }}</p>
           </div>
           <a
@@ -24,6 +52,7 @@
             Open in Corrai
           </a>
         </div>
+        <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
         <form class="rename-form" @submit.prevent="renameTeacher">
           <label class="field">
             <span>Teacher name</span>
@@ -42,7 +71,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { apiJson, type Teacher } from '@/api'
 
 interface TeacherResponse {
@@ -50,6 +79,7 @@ interface TeacherResponse {
 }
 
 const route = useRoute()
+const router = useRouter()
 const teacher = ref<Teacher | null>(null)
 const name = ref('')
 const isLoading = ref(false)
@@ -57,6 +87,8 @@ const error = ref('')
 const isSaving = ref(false)
 const saveError = ref('')
 const saveMessage = ref('')
+const isDeleting = ref(false)
+const deleteError = ref('')
 
 const schoolId = computed(() => {
   const value = route.params.schoolId
@@ -100,11 +132,15 @@ const renameTeacher = async () => {
   isSaving.value = true
   saveError.value = ''
   saveMessage.value = ''
+  deleteError.value = ''
   try {
-    const data = await apiJson<TeacherResponse>(`teacher?hash=${encodeURIComponent(teacher.value.id)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ name: nextName }),
-    })
+    const data = await apiJson<TeacherResponse>(
+      `teacher?hash=${encodeURIComponent(teacher.value.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ name: nextName }),
+      },
+    )
     teacher.value = data.teacher
     name.value = data.teacher.name
     saveMessage.value = 'Teacher name saved.'
@@ -112,6 +148,30 @@ const renameTeacher = async () => {
     saveError.value = err instanceof Error ? err.message : 'Failed to save teacher name'
   } finally {
     isSaving.value = false
+  }
+}
+
+const deleteTeacher = async () => {
+  if (!teacher.value?.id) return
+  const teacherName = teacher.value.name ? `"${teacher.value.name}"` : 'this teacher'
+  if (!window.confirm(`Are you sure you want to delete ${teacherName}?`)) {
+    return
+  }
+  isDeleting.value = true
+  deleteError.value = ''
+  try {
+    await apiJson(`teacher?hash=${encodeURIComponent(teacher.value.id)}`, {
+      method: 'DELETE',
+    })
+    if (schoolId.value) {
+      await router.push({ name: 'school', params: { id: schoolId.value } })
+    } else {
+      await router.push({ name: 'schools' })
+    }
+  } catch (err) {
+    deleteError.value = err instanceof Error ? err.message : 'Failed to delete teacher'
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -147,8 +207,45 @@ watch(
   margin-bottom: 1.5rem;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
 .header h1 {
-  margin: 0 0 0.35rem 0;
+  margin: 0;
+}
+
+.trash-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: #c93b45;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.trash-button:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.trash-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .muted {

@@ -103,9 +103,11 @@ class MenuTest extends TestCase
 
         $instructions = new File();
         $instructions->type = 'instructions';
-        $instructions->name = 'notes.txt';
-        $instructions->content_type = 'text/plain';
+        $instructions->name = 'instructions.md';
+        $instructions->content_type = 'text/markdown';
         $instructionKeys = array_column($instructions->get_menu('en'), 'key');
         $this->assertSame(['view', 'events', 'rename', 'delete'], $instructionKeys);
+        $instructionOutputFr = $instructions->to_output(null, 'fr');
+        $this->assertSame('Consignes particulières', $instructionOutputFr['label']);
     }
 }

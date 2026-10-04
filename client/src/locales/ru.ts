@@ -187,7 +187,8 @@ const ru: I18nSchema = {
         startCorrection: "Запустить проверку",
         correctionPrice: "Цена проверки: (1 € × {count})",
         startCorrectionLaunch: "Запустить",
-        startCorrectionError: "Не удалось запустить проверку"
+        startCorrectionError: "Не удалось запустить проверку",
+        startCorrectionSuccess: "Проверка запущена!"
     },
     language: "Язык",
     settings: {

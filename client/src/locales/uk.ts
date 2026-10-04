@@ -187,7 +187,8 @@ const uk: I18nSchema = {
         startCorrection: "Запустити перевірку",
         correctionPrice: "Ціна перевірки: (1 € × {count})",
         startCorrectionLaunch: "Запустити",
-        startCorrectionError: "Не вдалося запустити перевірку"
+        startCorrectionError: "Не вдалося запустити перевірку",
+        startCorrectionSuccess: "Перевірку запущено!"
     },
     language: "Мова",
     settings: {
