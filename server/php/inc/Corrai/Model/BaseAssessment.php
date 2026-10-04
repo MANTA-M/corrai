@@ -685,6 +685,20 @@ abstract class BaseAssessment
         return $this->createStudent($name);
     }
 
+    /**
+     * Next display name for a copy whose student could not be identified: "Inconnu 1", "Inconnu 2", …
+     */
+    public function nextUnknownStudentName(): string
+    {
+        $max = 0;
+        foreach ($this->listStudentModels() as $student) {
+            if (preg_match('/^Inconnu (\d+)$/iu', trim($student->name), $matches) === 1) {
+                $max = max($max, (int) $matches[1]);
+            }
+        }
+        return 'Inconnu ' . ($max + 1);
+    }
+
     public function createStudent(string $name, string $status = '', ?float $mark = null): Student
     {
         $student = new Student();

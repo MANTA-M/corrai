@@ -7,9 +7,13 @@ namespace Corrai\Tests;
 use Corrai\Llm\Eden\GoogleOCRClient;
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\OCRResult;
+use Corrai\Model\Student;
 use Corrai\Subject\Catalog;
+use Corrai\Subject\DictationFranceOCRGoogle\Assessment;
+use Corrai\Subject\DictationFranceOCRGoogle\File;
 use Corrai\Subject\DictationFranceOCRGoogle\GoogleOcr;
 use Corrai\Subject\DictationFranceOCRGoogle\Task1Correcting;
+use Corrai\Subject\DictationFranceOCRGoogle\Task2Annotating;
 use PHPUnit\Framework\TestCase;
 
 class DictationFranceOCRGoogleTest extends TestCase
@@ -87,6 +91,95 @@ class DictationFranceOCRGoogleTest extends TestCase
         $this->assertStringContainsString('40', $promptText);
     }
 
+    public function testFindErrorsSchemaAsksForTheGradeAndTheAppreciation(): void
+    {
+        $mockClient = new OcrGoogleCapturedClaudeSonnetClient();
+        $task = new TestableOcrGoogleCorrectingTask($mockClient);
+
+        $assessment = $this->createMock(\Corrai\Model\Assessment::class);
+        $assessment->method('instructionFilesText')->willReturn('Assessment instructions');
+
+        $task->findErrors($assessment, $this->tempImagePath, 'copy.png', 'French');
+
+        $schema = $mockClient->responseFormat()['json_schema']['schema'];
+        $this->assertSame(['student_name', 'errors', 'note', 'appreciation'], $schema['required']);
+        $this->assertSame('number', $schema['properties']['note']['type']);
+        $this->assertSame('string', $schema['properties']['appreciation']['type']);
+
+        $system = $mockClient->systemContent();
+        $this->assertStringContainsString('appreciation in Markdown', $system);
+    }
+
+    public function testStoreStudentResultKeepsTheMarkAndTheAppreciation(): void
+    {
+        $task = new TestableOcrGoogleCorrectingTask(new OcrGoogleCapturedClaudeSonnetClient());
+        $student = $this->getMockBuilder(Student::class)->onlyMethods(['save'])->getMock();
+        $student->expects($this->once())->method('save');
+
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->once())
+            ->method('getStudent')
+            ->with('st1')
+            ->willReturn($student);
+
+        $file = new File();
+        $file->student = 'st1';
+
+        $task->storeStudentResult($file, $assessment, json_encode([
+            'note' => 15,
+            'appreciation' => "Bien joué.\n\n**Quelques accords** à revoir.",
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame(15.0, $student->mark);
+        $this->assertSame("Bien joué.\n\n**Quelques accords** à revoir.", $student->appreciation);
+    }
+
+    public function testGdAnnotationsAsksToDrawTheGradeAndTheAppreciation(): void
+    {
+        $mockClient = new OcrGoogleCapturedClaudeSonnetClient();
+        $task = new TestableOcrGoogleAnnotatingTask($mockClient);
+
+        $task->gdAnnotations($this->tempImagePath, 'copy.png', json_encode([
+            'note' => 15,
+            'appreciation' => 'Bien joué.',
+            'errors' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $system = $mockClient->systemContent();
+        $this->assertStringContainsString('top right', $system);
+        $this->assertStringContainsString('along the bottom', $system);
+    }
+
+    public function testAssignUnclassifiedCopyCreatesAnUnknownStudentWhenNoNameIsReadable(): void
+    {
+        $task = new TestableOcrGoogleCorrectingTask(new OcrGoogleCapturedClaudeSonnetClient());
+        $student = new Student();
+        $student->id = 'st-unknown';
+        $student->name = 'Inconnu 1';
+
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->once())
+            ->method('nextUnknownStudentName')
+            ->willReturn('Inconnu 1');
+        $assessment->expects($this->once())
+            ->method('findOrCreateStudentByName')
+            ->with('Inconnu 1')
+            ->willReturn($student);
+
+        $file = $this->createMock(File::class);
+        $file->expects($this->once())->method('saveAttributes');
+        $file->expects($this->once())
+            ->method('appendEvent')
+            ->with('Assigned to student Inconnu 1');
+
+        $task->assignUnclassifiedCopy($file, $assessment, json_encode([
+            'student_name' => '',
+            'errors' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame('st-unknown', $file->student);
+    }
+
     public function testGoogleOcrClientIsEdenGoogle(): void
     {
         $task = new GoogleOcr();
@@ -98,6 +191,18 @@ class DictationFranceOCRGoogleTest extends TestCase
 }
 
 class TestableOcrGoogleCorrectingTask extends Task1Correcting
+{
+    public function __construct(private readonly ClaudeSonnetClient $mockClient)
+    {
+    }
+
+    protected function createClaudeSonnetClient(): ClaudeSonnetClient
+    {
+        return $this->mockClient;
+    }
+}
+
+class TestableOcrGoogleAnnotatingTask extends Task2Annotating
 {
     public function __construct(private readonly ClaudeSonnetClient $mockClient)
     {
@@ -124,8 +229,18 @@ class OcrGoogleCapturedClaudeSonnetClient extends ClaudeSonnetClient
         return $this->promptText;
     }
 
+    public function systemContent(): string
+    {
+        return (string) ($this->payload['messages'][0]['content'] ?? '');
+    }
+
+    public function responseFormat(): array
+    {
+        return is_array($this->payload['response_format'] ?? null) ? $this->payload['response_format'] : [];
+    }
+
     public function call_text(): string
     {
-        return '{"student_name":"","errors":[]}';
+        return '{"student_name":"","errors":[],"note":20,"appreciation":""}';
     }
 }

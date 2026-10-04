@@ -122,7 +122,7 @@ class Task1Correcting extends PathQueueItemTask
         }
         $studentName = trim((string) ($data['student_name'] ?? ''));
         if ($studentName === '') {
-            return;
+            $studentName = $assessment->nextUnknownStudentName();
         }
 
         $student = $assessment->findOrCreateStudentByName($studentName);

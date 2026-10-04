@@ -104,6 +104,12 @@ class Task2Annotating extends PathQueueItemTask
             . 'Then write the expected text from the correction with imagettftext directly under that underline. '
             . 'imagettftext y is the baseline, so place it a few pixels below the underline, left-aligned with the line. '
             . 'The text is the expected field, nothing else. Do not put the text beside the line or above it. '
+            . 'Then add the grade and the appreciation from the correction JSON. '
+            . 'Write the note at the top right with imagettftext, formatted as the number followed by "/20" '
+            . '(for a note of 15, the text is "15/20"). Right-align it so the text ends about 24 pixels before the right edge. '
+            . 'Write the appreciation along the bottom of the image with imagettftext, left margin about 40 pixels, '
+            . 'last line about 24 pixels above the bottom edge. The appreciation is Markdown: drop the marks (#, *, _) '
+            . 'and draw the readable lines, wrapping so every line stays inside the image. '
             . 'Example:' . "\n"
             . "<?php\n"
             . '$GD_annotations = [' . "\n"

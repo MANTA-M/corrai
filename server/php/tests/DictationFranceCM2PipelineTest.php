@@ -273,21 +273,65 @@ class DictationFranceCM2PipelineTest extends TestCase
         $this->assertSame('st1', $file->student);
     }
 
-    public function testAssignUnclassifiedCopyLeavesTheCopyWhenNoNameIsReadable(): void
+    public function testAssignUnclassifiedCopyCreatesAnUnknownStudentWhenNoNameIsReadable(): void
+    {
+        $task = new TestableCorrectingTask(new CapturedClaudeSonnetClient());
+        $student = new Student();
+        $student->id = 'st-unknown';
+        $student->name = 'Inconnu 2';
+
+        $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->once())
+            ->method('nextUnknownStudentName')
+            ->willReturn('Inconnu 2');
+        $assessment->expects($this->once())
+            ->method('findOrCreateStudentByName')
+            ->with('Inconnu 2')
+            ->willReturn($student);
+
+        $file = $this->createMock(File::class);
+        $file->expects($this->once())->method('saveAttributes');
+        $file->expects($this->once())
+            ->method('appendEvent')
+            ->with('Assigned to student Inconnu 2');
+
+        $task->assignUnclassifiedCopy($file, $assessment, json_encode([
+            'student_name' => '   ',
+            'errors' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame('st-unknown', $file->student);
+    }
+
+    public function testAssignUnclassifiedCopyLeavesTheCopyWhenTheCorrectionIsNotJson(): void
     {
         $task = new TestableCorrectingTask(new CapturedClaudeSonnetClient());
         $assessment = $this->createMock(Assessment::class);
+        $assessment->expects($this->never())->method('nextUnknownStudentName');
         $assessment->expects($this->never())->method('findOrCreateStudentByName');
 
         $file = $this->createMock(File::class);
         $file->expects($this->never())->method('saveAttributes');
         $file->expects($this->never())->method('appendEvent');
 
-        $task->assignUnclassifiedCopy($file, $assessment, json_encode([
-            'student_name' => '   ',
-            'errors' => [],
-        ], JSON_THROW_ON_ERROR));
         $task->assignUnclassifiedCopy($file, $assessment, 'not json');
+    }
+
+    public function testNextUnknownStudentNameContinuesTheRunningNumber(): void
+    {
+        $assessment = $this->getMockBuilder(Assessment::class)
+            ->onlyMethods(['listStudentModels'])
+            ->getMock();
+
+        $named = new Student();
+        $named->name = 'Jeanne Martin';
+        $first = new Student();
+        $first->name = 'Inconnu 1';
+        $third = new Student();
+        $third->name = 'inconnu 3';
+        $assessment->method('listStudentModels')->willReturn([$named, $first, $third]);
+
+        $this->assertSame('Inconnu 4', $assessment->nextUnknownStudentName());
     }
 
     public function testFindErrorsSendsTheOcrWordsToTheModel(): void
