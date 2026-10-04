@@ -13,7 +13,7 @@ class ClaudeSonnetClient extends OpenrouterClient
 
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: ($_ENV['OPENROUTER_MODEL'] ?? 'anthropic/claude-3.7-sonnet'));
+        parent::__construct($model ?: 'anthropic/claude-3.7-sonnet');
     }
 
     /**

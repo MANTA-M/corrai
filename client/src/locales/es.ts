@@ -185,10 +185,12 @@ const es: I18nSchema = {
         fileReassigning: "Asignando...",
         fileEventsTitle: "Eventos",
         startCorrection: "Iniciar la corrección",
-        correctionPrice: "Precio de la corrección: (1 € × {count})",
+        correctionPrice: "Precio de la corrección: ({price} € × {count})",
         startCorrectionLaunch: "Iniciar",
         startCorrectionError: "Error al iniciar la corrección",
-        startCorrectionSuccess: "¡Corrección iniciada!"
+        startCorrectionSuccess: "¡Corrección iniciada!",
+        startCorrectionCancelled: "Pago cancelado",
+        startCorrectionPaymentError: "Pago fallido"
     },
     language: "Idioma",
     settings: {

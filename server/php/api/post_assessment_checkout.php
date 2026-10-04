@@ -27,15 +27,13 @@ try {
     }
 
     $locale = Request::getStringParam('locale');
-    if ($assessment->stripe_paid_session_id !== '') {
-        $files = $assessment->list_files();
-    } else {
-        $files = CorrectionCheckout::fromEnv()->fulfill($assessment, $assessment->stripe_checkout_session_id);
-    }
-
+    $checkout = CorrectionCheckout::fromEnv()->create($assessment);
     Request::add_output("id", $assessmentId);
-    Request::add_output("files", $files);
-    Request::add_output("students", $assessment->list_students($locale));
+    Request::add_output("url", $checkout['url']);
+    if ($checkout['files'] !== null) {
+        Request::add_output("files", $checkout['files']);
+        Request::add_output("students", $assessment->list_students($locale));
+    }
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

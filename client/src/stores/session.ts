@@ -14,6 +14,7 @@ interface SessionState {
   user_name: string
   user_email: string
   country: string
+  discountRate: number
   locale: AvailableLocale
   keyPair: CryptoKeyPair | null
   user_id: string | null
@@ -46,6 +47,7 @@ const defaultState: SessionState = {
   user_name: '',
   user_email: '',
   country: 'fr',
+  discountRate: 0,
   locale: DEFAULT_LOCALE,
   keyPair: null,
   user_id: null,
@@ -77,6 +79,7 @@ export const useSessionStore = defineStore('session', () => {
   const user_name = ref<string>(defaultState.user_name)
   const user_email = ref<string>(defaultState.user_email)
   const country = ref<string>(defaultState.country)
+  const discountRate = ref<number>(defaultState.discountRate)
   const locale = ref<AvailableLocale>(defaultState.locale)
   const keyPair = ref<CryptoKeyPair | null>(defaultState.keyPair)
   const user_id = ref<string | null>(defaultState.user_id)
@@ -155,9 +158,12 @@ export const useSessionStore = defineStore('session', () => {
     country.value = code
   }
 
-  function applyUser(user?: { country?: string; name?: string; email?: string }): void {
+  function applyUser(user?: { country?: string; name?: string; email?: string; discount_rate?: number }): void {
     if (typeof user?.country === 'string' && user.country !== '') {
       country.value = user.country
+    }
+    if (typeof user?.discount_rate === 'number' && Number.isInteger(user.discount_rate)) {
+      discountRate.value = user.discount_rate
     }
     if (typeof user?.name === 'string' && user.name !== '') {
       user_name.value = user.name
@@ -169,7 +175,7 @@ export const useSessionStore = defineStore('session', () => {
 
   async function loadUser(): Promise<void> {
     const wsClient = getWsClient()
-    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string; email?: string } }>(
+    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string; email?: string; discount_rate?: number } }>(
       'GET',
       '/user'
     )
@@ -183,7 +189,7 @@ export const useSessionStore = defineStore('session', () => {
     country?: string
   }): Promise<void> {
     const wsClient = getWsClient()
-    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string; email?: string } }>(
+    const response = await wsClient.queryWs<{ user?: { country?: string; name?: string; email?: string; discount_rate?: number } }>(
       'PUT',
       '/user',
       undefined,
@@ -293,6 +299,7 @@ export const useSessionStore = defineStore('session', () => {
     user_name,
     user_email,
     country,
+    discountRate,
     locale,
     keyPair,
     user_id,
@@ -327,7 +334,7 @@ export const useSessionStore = defineStore('session', () => {
   persist: {
     key: STORAGE_KEY,
     storage: localStorage,
-    pick: ['user_name', 'user_email', 'country', 'locale', 'keyPair', 'user_id', 'debugMode'],
+    pick: ['user_name', 'user_email', 'country', 'discountRate', 'locale', 'keyPair', 'user_id', 'debugMode'],
     afterHydrate: ({ store }) => {
       store.discardInvalidUserId()
       if (typeof store.debugMode !== 'boolean') {

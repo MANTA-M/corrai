@@ -39,6 +39,23 @@ class UserCountryTest extends TestCase
         $this->assertSame('fr', $user->country);
     }
 
+    public function testDiscountRateDefaultsToZeroAndRoundTrips(): void
+    {
+        $missing = User::from_array(['email' => 'a@ind.local', 'name' => 'Ada']);
+        $this->assertSame(0, $missing->discount_rate);
+        $this->assertSame(0, $missing->to_output()['discount_rate']);
+
+        $user = User::from_array(['discount_rate' => 25]);
+        $this->assertSame(25, $user->discount_rate);
+        $this->assertSame(40, User::from_array(['discount_rate' => '40'])->discount_rate);
+    }
+
+    public function testDiscountRateRejectsValuesOutsideZeroToOneHundred(): void
+    {
+        $this->expectException(WSException::class);
+        User::normalizeDiscountRate(101, true);
+    }
+
     public function testStrictUnknownCountryIsRejected(): void
     {
         $this->expectException(WSException::class);

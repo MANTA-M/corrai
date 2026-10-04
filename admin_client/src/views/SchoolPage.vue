@@ -81,7 +81,7 @@
                 "
               >
                 <div class="teacher-name">{{ teacher.name || '—' }}</div>
-                <div class="teacher-meta">{{ teacher.role }}</div>
+                <div class="teacher-meta">{{ teacher.role }} · {{ teacher.discount_rate ?? 0 }}% off</div>
                 <div class="teacher-date">{{ formatDate(teacher.created_at) }}</div>
               </router-link>
               <button

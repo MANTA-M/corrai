@@ -7,10 +7,14 @@ use Corrai\Utils\WSException;
 
 try {
     $assessmentId = Request::getStringParam("id");
+    $sessionId = Request::getStringParam("session_id");
     if (!$assessmentId) {
         Request::add_error_message("error", "No id parameter provided");
         Request::output_all();
         exit();
+    }
+    if (!$sessionId) {
+        throw new WSException("Payment required", 402);
     }
 
     try {
@@ -27,11 +31,7 @@ try {
     }
 
     $locale = Request::getStringParam('locale');
-    if ($assessment->stripe_paid_session_id !== '') {
-        $files = $assessment->list_files();
-    } else {
-        $files = CorrectionCheckout::fromEnv()->fulfill($assessment, $assessment->stripe_checkout_session_id);
-    }
+    $files = CorrectionCheckout::fromEnv()->fulfill($assessment, $sessionId);
 
     Request::add_output("id", $assessmentId);
     Request::add_output("files", $files);

@@ -53,13 +53,26 @@
           </a>
         </div>
         <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
-        <form class="rename-form" @submit.prevent="renameTeacher">
+        <form class="rename-form" @submit.prevent="saveTeacher">
           <label class="field">
             <span>Teacher name</span>
             <input v-model="name" class="input" type="text" name="teacher-name" required />
           </label>
-          <button class="button primary" type="submit" :disabled="isSaving || !name.trim()">
-            {{ isSaving ? 'Saving…' : 'Save name' }}
+          <label class="field discount-field">
+            <span>Discount (%)</span>
+            <input
+              v-model.number="discountRate"
+              class="input"
+              type="number"
+              name="discount-rate"
+              min="0"
+              max="100"
+              step="1"
+              required
+            />
+          </label>
+          <button class="button primary" type="submit" :disabled="isSaving || !canSave">
+            {{ isSaving ? 'Saving…' : 'Save' }}
           </button>
         </form>
         <p v-if="saveError" class="form-error">{{ saveError }}</p>
@@ -82,6 +95,7 @@ const route = useRoute()
 const router = useRouter()
 const teacher = ref<Teacher | null>(null)
 const name = ref('')
+const discountRate = ref(0)
 const isLoading = ref(false)
 const error = ref('')
 const isSaving = ref(false)
@@ -94,6 +108,12 @@ const schoolId = computed(() => {
   const value = route.params.schoolId
   return typeof value === 'string' ? value : ''
 })
+
+const discountValid = computed(
+  () => Number.isInteger(discountRate.value) && discountRate.value >= 0 && discountRate.value <= 100,
+)
+
+const canSave = computed(() => name.value.trim() !== '' && discountValid.value)
 
 const openInCorraiUrl = computed(() => {
   if (!teacher.value?.id) return '#'
@@ -117,6 +137,7 @@ const loadTeacher = async (id: string) => {
     }
     teacher.value = data.teacher
     name.value = data.teacher.name
+    discountRate.value = data.teacher.discount_rate ?? 0
   } catch (err) {
     teacher.value = null
     error.value = err instanceof Error ? err.message : 'Failed to load teacher'
@@ -125,10 +146,9 @@ const loadTeacher = async (id: string) => {
   }
 }
 
-const renameTeacher = async () => {
-  if (!teacher.value?.id) return
+const saveTeacher = async () => {
+  if (!teacher.value?.id || !canSave.value) return
   const nextName = name.value.trim()
-  if (!nextName) return
   isSaving.value = true
   saveError.value = ''
   saveMessage.value = ''
@@ -138,14 +158,15 @@ const renameTeacher = async () => {
       `teacher?hash=${encodeURIComponent(teacher.value.id)}`,
       {
         method: 'PUT',
-        body: JSON.stringify({ name: nextName }),
+        body: JSON.stringify({ name: nextName, discount_rate: discountRate.value }),
       },
     )
     teacher.value = data.teacher
     name.value = data.teacher.name
-    saveMessage.value = 'Teacher name saved.'
+    discountRate.value = data.teacher.discount_rate ?? 0
+    saveMessage.value = 'Teacher saved.'
   } catch (err) {
-    saveError.value = err instanceof Error ? err.message : 'Failed to save teacher name'
+    saveError.value = err instanceof Error ? err.message : 'Failed to save teacher'
   } finally {
     isSaving.value = false
   }
@@ -269,6 +290,10 @@ watch(
   min-width: 0;
   font-weight: 600;
   color: var(--navy);
+}
+
+.discount-field {
+  flex: 0 0 8rem;
 }
 
 .form-error,

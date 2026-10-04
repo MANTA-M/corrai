@@ -6,9 +6,8 @@ use Exception;
 
 class LlmClientFactory
 {
-    public static function create(?string $model = null): OpenrouterClient
+    public static function create(string $model): OpenrouterClient
     {
-        $model = $model ?: ($_ENV['OPENROUTER_MODEL'] ?? '');
         if (stripos($model, 'qwen') !== false) {
             return new Qwen25Vl72bInstructClient($model);
         }
@@ -26,7 +25,7 @@ class LlmClientFactory
                 return new Gemini2FlashLiteClient();
             }
             if (stripos($model, '2.5-flash') !== false && stripos($model, 'flash-image') === false) {
-                return new Gemini15FlashClient();
+                return new Gemini25FlashClient();
             }
             return new Gemini3Client($model);
         }

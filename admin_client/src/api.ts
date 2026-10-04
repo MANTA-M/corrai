@@ -11,6 +11,7 @@ export interface Teacher {
   name: string
   role: string
   created_at: string
+  discount_rate: number
 }
 
 interface ApiMessage {

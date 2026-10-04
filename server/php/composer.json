@@ -5,6 +5,7 @@
   "require": {
     "phpmailer/phpmailer": "^6.9",
     "bebat/console-color": "^1.0",
-    "aws/aws-sdk-php": "^3.295"
+    "aws/aws-sdk-php": "^3.295",
+    "stripe/stripe-php": "^22.0"
   }
 }

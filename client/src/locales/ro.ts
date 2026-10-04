@@ -185,10 +185,12 @@ const ro: I18nSchema = {
         fileReassigning: "Se atribuie...",
         fileEventsTitle: "Evenimente",
         startCorrection: "Lansează corectarea",
-        correctionPrice: "Prețul corectării: (1 € × {count})",
+        correctionPrice: "Prețul corectării: ({price} € × {count})",
         startCorrectionLaunch: "Lansează",
         startCorrectionError: "Lansarea corectării a eșuat",
-        startCorrectionSuccess: "Corectare lansată!"
+        startCorrectionSuccess: "Corectare lansată!",
+        startCorrectionCancelled: "Plata a fost anulată",
+        startCorrectionPaymentError: "Plata a eșuat"
     },
     language: "Limbă",
     settings: {

@@ -185,10 +185,12 @@ const uk: I18nSchema = {
         fileReassigning: "Призначення...",
         fileEventsTitle: "Події",
         startCorrection: "Запустити перевірку",
-        correctionPrice: "Ціна перевірки: (1 € × {count})",
+        correctionPrice: "Ціна перевірки: ({price} € × {count})",
         startCorrectionLaunch: "Запустити",
         startCorrectionError: "Не вдалося запустити перевірку",
-        startCorrectionSuccess: "Перевірку запущено!"
+        startCorrectionSuccess: "Перевірку запущено!",
+        startCorrectionCancelled: "Платіж скасовано",
+        startCorrectionPaymentError: "Платіж не пройшов"
     },
     language: "Мова",
     settings: {

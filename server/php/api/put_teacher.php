@@ -39,6 +39,9 @@ try {
     }
 
     $teacher->name = trim($name);
+    if (array_key_exists('discount_rate', $body)) {
+        $teacher->discount_rate = User::normalizeDiscountRate($body['discount_rate'], true);
+    }
     $teacher->save();
 
     Request::add_output('teacher', $teacher->to_output());

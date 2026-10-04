@@ -89,6 +89,21 @@ abstract class BaseAssessment
     public string $created_at = '';
 
     /**
+     * Latest Stripe Checkout Session created for this correction batch.
+     */
+    public string $stripe_checkout_session_id = '';
+
+    /**
+     * Checkout Session that was paid and whose correction was already enqueued.
+     */
+    public string $stripe_paid_session_id = '';
+
+    /**
+     * Cents charged per copy on the current Checkout Session, after the teacher discount.
+     */
+    public int $stripe_unit_amount = 100;
+
+    /**
      * Allowed file type tags. Empty / unknown is stored as an empty string.
      */
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'];
@@ -185,6 +200,9 @@ abstract class BaseAssessment
             'correction_language' => $this->correction_language,
             'date' => $this->date,
             'created_at' => $this->created_at,
+            'stripe_checkout_session_id' => $this->stripe_checkout_session_id,
+            'stripe_paid_session_id' => $this->stripe_paid_session_id,
+            'stripe_unit_amount' => $this->stripe_unit_amount,
             'class' => $this->storedClass(),
         ];
     }
@@ -202,12 +220,37 @@ abstract class BaseAssessment
         $assessment->correction_language = self::normalizeLocale($data['correction_language'] ?? null);
         $assessment->date = $data['date'] ?? '';
         $assessment->created_at = $data['created_at'] ?? '';
+        $assessment->stripe_checkout_session_id = self::stringAttribute($data['stripe_checkout_session_id'] ?? null);
+        $assessment->stripe_paid_session_id = self::stringAttribute($data['stripe_paid_session_id'] ?? null);
+        $assessment->stripe_unit_amount = self::unitAmountAttribute($data['stripe_unit_amount'] ?? null);
         return $assessment;
     }
 
     /**
      * Country and level are null when the client sends null, omits them, or sends a blank string.
      */
+    public static function stringAttribute(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
+    /**
+     * Cents per copy stored with a Checkout Session. Missing values stay at the full price.
+     */
+    public static function unitAmountAttribute(mixed $value): int
+    {
+        if (is_int($value) && $value >= 0 && $value <= 100) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^\d+$/', $value)) {
+            $amount = (int) $value;
+            if ($amount >= 0 && $amount <= 100) {
+                return $amount;
+            }
+        }
+        return 100;
+    }
+
     public static function optionalAttribute(mixed $value): ?string
     {
         if (!is_string($value)) {
@@ -987,6 +1030,29 @@ abstract class BaseAssessment
         }
 
         throw new WSException('This subject has no correction task', 400);
+    }
+
+    /**
+     * File ids under unclassified/ that correctUnclassifiedFiles() would process.
+     *
+     * @return string[]
+     */
+    public function unclassifiedFileIds(): array
+    {
+        if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
+            return [];
+        }
+
+        $store = ObjectStore::getInstance();
+        $prefix = ObjectStore::assessmentUnclassifiedFilesPrefix($this->school_id, $this->user_id, $this->id);
+        $ids = [];
+        foreach ($store->listChildPrefixes($prefix) as $fileId) {
+            $attrKey = $prefix . $fileId . '/' . ObjectStore::ATTR_FILE;
+            if ($store->exists($attrKey)) {
+                $ids[] = $fileId;
+            }
+        }
+        return $ids;
     }
 
     /**

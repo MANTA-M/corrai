@@ -8,7 +8,7 @@ class Gemini3Client extends OpenrouterClient
 {
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: ($_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image'));
+        parent::__construct($model ?: 'google/gemini-2.5-flash-image');
     }
 
     /**

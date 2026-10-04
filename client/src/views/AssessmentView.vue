@@ -127,8 +127,8 @@
         </button>
       </div>
       <div class="popup-body">
-        <p data-testid="start-correction-price">
-          {{ t('assessment.correctionPrice', { count: copyFiles.length }) }}
+        <p v-if="showCorrectionPrice" data-testid="start-correction-price">
+          {{ t('assessment.correctionPrice', { count: copyFiles.length, price: correctionUnitPrice }) }}
         </p>
         <p v-if="startCorrectionError" class="error-message">{{ startCorrectionError }}</p>
       </div>
@@ -258,8 +258,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import { toast } from 'vue3-toastify'
@@ -272,6 +272,7 @@ import { educationLevelName } from '@/data/levels'
 import { isAssessmentSubject, type AssessmentFile, type AssessmentStudent, type MenuItem } from '@/types/types'
 import { isDebugFile, isUnassignedFile } from '@/utils/assessmentFiles'
 
+const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
@@ -311,6 +312,26 @@ const unassignedFiles = computed(() =>
 const copyFiles = computed(() =>
   files.value.filter((file) => (file.type ?? '') === 'submission')
 )
+
+const effectiveDiscountRate = computed(() => {
+  const discount = sessionStore.discountRate
+  return Number.isInteger(discount) && discount >= 0 && discount <= 100 ? discount : 0
+})
+
+const showCorrectionPrice = computed(() => {
+  const rate = effectiveDiscountRate.value
+  if (rate === 100) return false
+  const unitCents = Math.floor((100 * (100 - rate)) / 100)
+  return unitCents >= 50
+})
+
+const correctionUnitPrice = computed(() => {
+  const rate = effectiveDiscountRate.value
+  return ((100 - rate) / 100).toLocaleString(String(locale.value), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+})
 
 const headerMenu = computed(() =>
   (assessment.value?.menu ?? []).filter((item) => false)
@@ -406,29 +427,90 @@ const closeStartCorrection = () => {
   startCorrectionError.value = ''
 }
 
+const checkoutReturnHandled = ref(false)
+
 const launchCorrection = async () => {
   if (!assessment.value?.id) return
   startCorrectionError.value = ''
   isStartingCorrection.value = true
   try {
     const wsClient = sessionStore.getWsClient()
-    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
-      'POST',
-      '/assessment_correction',
-      { id: assessment.value.id, locale: String(locale.value) }
-    )
+    const response = await wsClient.queryWs<{
+      url?: string | null
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>('POST', '/assessment_checkout', {
+      id: assessment.value.id,
+      locale: String(locale.value),
+    })
+    if (response?.url) {
+      window.location.assign(response.url)
+      return
+    }
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+      showStartCorrection.value = false
+      toast.success(t('assessment.startCorrectionSuccess'), {
+        position: toast.POSITION.TOP_CENTER,
+      })
+      isStartingCorrection.value = false
+      return
+    }
+    startCorrectionError.value = t('assessment.startCorrectionError')
+    isStartingCorrection.value = false
+  } catch (err) {
+    console.error('Error starting correction:', err)
+    startCorrectionError.value = t('assessment.startCorrectionError')
+    isStartingCorrection.value = false
+  }
+}
+
+const handleCheckoutReturn = async () => {
+  const id = assessmentId.value
+  if (!id) return
+  const checkout = String(route.query.checkout ?? '')
+  const sessionId = typeof route.query.session_id === 'string' ? route.query.session_id : ''
+  if (checkout === 'cancel') {
+    startCorrectionError.value = t('assessment.startCorrectionCancelled')
+    showStartCorrection.value = true
+    await router.replace({ name: 'assessment', params: { id }, query: {} })
+    return
+  }
+  if (sessionId === '') return
+
+  isStartingCorrection.value = true
+  startCorrectionError.value = ''
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>('POST', '/assessment_checkout_confirm', {
+      id,
+      session_id: sessionId,
+      locale: String(locale.value),
+    })
     if (response?.files) applyUpdate(response.files, response.students)
-    showStartCorrection.value = false
     toast.success(t('assessment.startCorrectionSuccess'), {
       position: toast.POSITION.TOP_CENTER,
     })
   } catch (err) {
-    console.error('Error starting correction:', err)
-    startCorrectionError.value = t('assessment.startCorrectionError')
+    console.error('Error confirming correction payment:', err)
+    startCorrectionError.value = t('assessment.startCorrectionPaymentError')
+    showStartCorrection.value = true
   } finally {
     isStartingCorrection.value = false
+    await router.replace({ name: 'assessment', params: { id }, query: {} })
   }
 }
+
+watch(isLoading, (loading) => {
+  if (loading || checkoutReturnHandled.value) return
+  const checkout = String(route.query.checkout ?? '')
+  const sessionId = typeof route.query.session_id === 'string' ? route.query.session_id : ''
+  if (checkout !== 'cancel' && sessionId === '') return
+  checkoutReturnHandled.value = true
+  void handleCheckoutReturn()
+})
 
 const startRenameStudent = (student: AssessmentStudent) => {
   renameStudent.value = student
