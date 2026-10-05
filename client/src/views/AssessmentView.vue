@@ -110,7 +110,11 @@
           </ul>
         </section>
 
-        <section class="section" data-testid="unassigned-files">
+        <section
+          v-if="unassignedFiles.length > 0"
+          class="section"
+          data-testid="unassigned-files"
+        >
           <h2>{{ t('assessment.unassignedFiles') }}</h2>
           <AssessmentFileList
             :assessment-id="assessment.id || ''"

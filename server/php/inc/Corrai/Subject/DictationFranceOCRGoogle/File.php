@@ -76,8 +76,9 @@ class File extends BaseFile
             return;
         }
 
-        $this->appendEvent('OCR queued');
-        RedisQueue::getInstance()->enqueueFile($this->id, GoogleOcr::class);
+        // OCR is already stored, or Task1Correcting runs it when the result is missing.
+        $this->appendEvent('Correction queued');
+        RedisQueue::getInstance()->enqueueFile($this->id, Task1Correcting::class);
     }
 
     public function on_ocr_done(): void

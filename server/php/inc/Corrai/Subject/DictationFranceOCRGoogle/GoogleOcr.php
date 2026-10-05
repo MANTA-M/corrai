@@ -10,8 +10,12 @@ use Corrai\Utils\ObjectStore;
 use Throwable;
 
 /**
- * Google OCR through Eden AI. Writes ocr_result.json then, after a correction
- * request, enqueues Task1Correcting.
+ * Google OCR through Eden AI. Writes ocr_result.json.
+ *
+ * A pre-OCR leaves the file at ocr_done. Task1Correcting is enqueued only when
+ * this run was asked for correction (file status correction_asked). The
+ * correction button enqueues Task1Correcting directly so an existing OCR result
+ * is reused.
  */
 class GoogleOcr extends PathQueueItemTask
 {

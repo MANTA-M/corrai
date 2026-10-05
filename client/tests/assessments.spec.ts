@@ -45,7 +45,7 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('assessment-edit-subject')).toBeVisible()
       await expect(page.getByTestId('assessment-add-file')).toHaveText('Ajouter des copies')
       await expect(page.getByTestId('students-empty')).toBeVisible()
-      await expect(page.getByTestId('unassigned-files')).toBeVisible()
+      await expect(page.getByTestId('unassigned-files')).toHaveCount(0)
       await expect(page.getByTestId('file-type-zones')).toHaveCount(0)
       await expect(page.getByTestId('assessment-save')).toHaveCount(0)
       await expect(page.getByTestId('assessment-name')).toHaveCount(0)
@@ -184,7 +184,7 @@ test.describe('Assessments CRUD', () => {
       await page.locator('.reassign-option', { hasText: '[Test] Alice' }).click()
       await page.getByTestId('reassign-confirm').click()
       await expect(page.getByTestId('reassign-file-popup')).toHaveCount(0, { timeout: 15000 })
-      await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(0)
+      await expect(page.getByTestId('unassigned-files')).toHaveCount(0)
     })
 
     await test.step('Open the student page, then view, rename, and delete a file', async () => {
