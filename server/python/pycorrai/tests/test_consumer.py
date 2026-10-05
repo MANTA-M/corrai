@@ -11,6 +11,7 @@ from pycorrai.consumer import (
     BRPOP_TIMEOUT,
     SOCKET_TIMEOUT,
     ObjectStore,
+    assessment_id_from_path,
     attributes_key,
     event_body,
     event_key,
@@ -21,6 +22,7 @@ from pycorrai.consumer import (
     ocr_json_key,
     parse_ticket,
     php_task_ticket,
+    publish_assessment_status,
     treat,
 )
 
@@ -170,6 +172,7 @@ class TreatTest(unittest.TestCase):
                 "schools/s1/teachers/t1/assessments/e1/files/f1/events/1-aaaaaaaa.json",
                 "schools/s1/teachers/t1/assessments/e1/files/f1/events/2-bbbbbbbb.json",
             ]
+            published: list[tuple[str, str]] = []
             treat(
                 CONTENT_PATH,
                 "fr",
@@ -177,6 +180,7 @@ class TreatTest(unittest.TestCase):
                 redis,
                 recognize=lambda data, lang: words,
                 after_task=r"Corrai\Subject\Dictation\Task1Correcting",
+                publish=lambda path, status: published.append((path, status)),
             )
 
         self.assertTrue(
@@ -226,6 +230,7 @@ class TreatTest(unittest.TestCase):
                 r"Corrai\Subject\Dictation\Task1Correcting",
             ),
         )
+        self.assertEqual(published, [(CONTENT_PATH, "ocr_done")])
 
     def test_treat_skips_php_enqueue_without_after_task(self) -> None:
         client = MagicMock()
@@ -247,6 +252,7 @@ class TreatTest(unittest.TestCase):
                 store,
                 redis,
                 recognize=lambda data, lang: [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}],
+                publish=lambda path, status: None,
             )
 
         redis.lpush.assert_not_called()
@@ -280,6 +286,7 @@ class TreatTest(unittest.TestCase):
                 redis,
                 recognize=lambda data, lang: [],
                 after_task="SomeTask",
+                publish=lambda path, status: None,
             )
 
         self.assertTrue(
@@ -306,6 +313,54 @@ class TreatTest(unittest.TestCase):
 
         client.put_object.assert_not_called()
         redis.lpush.assert_not_called()
+
+
+class PublishStatusTest(unittest.TestCase):
+    def test_assessment_id_from_content_path(self) -> None:
+        self.assertEqual(assessment_id_from_path(CONTENT_PATH), "e1")
+
+    def test_publish_posts_status_on_the_assessment_channel(self) -> None:
+        captured: dict[str, object] = {}
+
+        class Response:
+            status = 202
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def urlopen(request, timeout, context):
+            del timeout, context
+            captured["url"] = request.full_url
+            captured["host"] = request.get_header("Host")
+            captured["body"] = request.data
+            return Response()
+
+        with patch.dict(
+            "os.environ",
+            {"NCHAN_PUBLISH_URL": "https://127.0.0.1/corrai_test/internal/pub"},
+            clear=False,
+        ), patch("pycorrai.consumer.urllib.request.urlopen", urlopen):
+            publish_assessment_status(CONTENT_PATH, "ocr_done")
+
+        self.assertEqual(
+            captured["url"],
+            "https://127.0.0.1/corrai_test/internal/pub/assessment%3Ae1",
+        )
+        self.assertEqual(captured["host"], "mantam.eu")
+        self.assertEqual(
+            json.loads(captured["body"]),
+            {
+                "scope": "assessment",
+                "file": {
+                    "id": "f1",
+                    "status": "ocr_done",
+                    "status_label": "OCR terminé",
+                },
+            },
+        )
 
 
 class RedisClientTest(unittest.TestCase):

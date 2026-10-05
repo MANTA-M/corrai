@@ -311,6 +311,46 @@ class Request
     }
 
     /**
+     * Open a Server-Sent Events response. Nginx frames the body; do not add a second chunked encoding.
+     */
+    public static function beginEventStream(): void
+    {
+        ignore_user_abort(false);
+        ini_set('output_buffering', 'off');
+        ini_set('zlib.output_compression', 'off');
+        ini_set('implicit_flush', '1');
+        while (ob_get_level() > 0) {
+            @ob_end_flush();
+        }
+
+        self::addHeader('Content-Type', 'text/event-stream');
+        self::addHeader('Cache-Control', 'no-cache');
+        self::addHeader('Connection', 'keep-alive');
+        self::addHeader('X-Accel-Buffering', 'no');
+        set_time_limit(0);
+
+        echo ':' . str_repeat(' ', 2048) . "\n\n";
+        @flush();
+    }
+
+    public static function emitServerEvent(mixed $event): void
+    {
+        $json = json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            return;
+        }
+        echo 'data: ' . $json . "\n\n";
+        @flush();
+    }
+
+    public static function emitServerComment(string $comment): void
+    {
+        $comment = str_replace(["\r", "\n"], ' ', $comment);
+        echo ': ' . $comment . "\n\n";
+        @flush();
+    }
+
+    /**
      * Set CORS headers for cross-origin requests
      * Allows requests from localhost and same domain origins
      */

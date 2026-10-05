@@ -154,7 +154,6 @@ test.describe('Assessments CRUD', () => {
       })
       await expect(page.getByTestId('assessment-start-correction')).toBeVisible()
 
-      await page.getByTestId('add-file-cancel').click()
       await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
 
       await page.getByTestId('assessment-add-file').click()
@@ -162,7 +161,7 @@ test.describe('Assessments CRUD', () => {
       await expect(page.getByTestId('unassigned-files').getByTestId('assessment-file-item')).toHaveCount(2, {
         timeout: 15000
       })
-      await page.getByTestId('add-file-cancel').click()
+      await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })

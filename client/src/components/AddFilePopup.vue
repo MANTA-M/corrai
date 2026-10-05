@@ -2,7 +2,7 @@
   <div
     class="popup-overlay"
     data-testid="add-file-popup"
-    @click.self="emit('close')"
+    @click.self="!isUploading && emit('close')"
   >
     <div class="popup-content add-file-popup">
       <div class="popup-header">
@@ -124,15 +124,24 @@ import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import type { Assessment, AssessmentFile } from '@/types/types'
 
-const props = defineProps<{
-  assessmentId: string
-  fixedType?: string
-  title?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    assessmentId: string
+    fixedType?: string
+    title?: string
+    autoClose?: boolean
+  }>(),
+  {
+    fixedType: '',
+    title: '',
+    autoClose: false
+  }
+)
 
 const emit = defineEmits<{
   close: []
   uploaded: [files: AssessmentFile[]]
+  'all-uploaded': [files: AssessmentFile[]]
 }>()
 
 const { t, locale } = useI18n()
@@ -280,6 +289,15 @@ const uploadFiles = async (files: File[]) => {
           ...sessionStore.own_assessments[existingIndex],
           files: latestFiles
         }
+      }
+    }
+
+    const allSucceeded =
+      uploadItems.value.length > 0 && uploadItems.value.every((item) => item.status === 'done')
+    if (allSucceeded) {
+      emit('all-uploaded', latestFiles ?? [])
+      if (props.autoClose) {
+        emit('close')
       }
     }
   } finally {

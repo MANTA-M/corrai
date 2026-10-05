@@ -6,9 +6,13 @@ import json
 import logging
 import os
 import secrets
+import ssl
 import sys
 import time
+import urllib.error
+import urllib.request
 from typing import Any
+from urllib.parse import quote
 
 import boto3
 from botocore.client import Config
@@ -101,6 +105,25 @@ def event_key(content_path: str, timestamp: int | None = None) -> str:
 def ocr_json_key(content_path: str) -> str:
     """Sibling ``ocr_result.json`` next to the content object."""
     return file_prefix(content_path) + "ocr_result.json"
+
+
+# French labels matching the PHP file model. Only a changed status is published.
+STATUS_LABELS = {
+    "ocr_done": "OCR terminé",
+    "error": "Erreur",
+}
+
+
+def assessment_id_from_path(content_path: str) -> str:
+    """Assessment id from a content key under ``assessments/<id>/``."""
+    parts = [part for part in content_path.strip("/").split("/") if part != ""]
+    try:
+        index = parts.index("assessments")
+    except ValueError as exc:
+        raise ValueError(f"Path has no assessment: {content_path}") from exc
+    if index + 1 >= len(parts) or parts[index + 1] == "":
+        raise ValueError(f"Empty assessment id in path: {content_path}")
+    return parts[index + 1]
 
 
 def file_id_from_path(content_path: str) -> str:
@@ -206,6 +229,62 @@ class ObjectStore:
         self.put_bytes(key, body, "application/json")
 
 
+def publish_assessment_status(content_path: str, status: str) -> None:
+    """POST the new file status to the assessment Nchan channel.
+
+    A failed publish is logged and does not fail the OCR ticket.
+    """
+    try:
+        file_id = file_id_from_path(content_path)
+        assessment_id = assessment_id_from_path(content_path)
+    except ValueError:
+        logger.exception("Cannot publish status for %s", content_path)
+        return
+
+    file_payload: dict[str, str] = {"id": file_id, "status": status}
+    label = STATUS_LABELS.get(status)
+    if label is not None:
+        file_payload["status_label"] = label
+    body = json.dumps(
+        {"scope": "assessment", "file": file_payload},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    base = env("NCHAN_PUBLISH_URL", "https://127.0.0.1/corrai_test/internal/pub").rstrip("/")
+    channel = quote(f"assessment:{assessment_id}", safe="")
+    request = urllib.request.Request(
+        f"{base}/{channel}",
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Host": env("NCHAN_PUBLISH_HOST", "mantam.eu"),
+        },
+    )
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=2,
+            context=ssl._create_unverified_context(),
+        ) as response:
+            if response.status < 200 or response.status >= 300:
+                logger.error(
+                    "Publish status %s for %s returned HTTP %s",
+                    status,
+                    content_path,
+                    response.status,
+                )
+    except urllib.error.HTTPError as exc:
+        logger.error(
+            "Publish status %s for %s returned HTTP %s",
+            status,
+            content_path,
+            exc.code,
+        )
+    except Exception:
+        logger.exception("Failed to publish status %s for %s", status, content_path)
+
+
 def php_task_ticket(content_path: str, after_task: str) -> str:
     """PHP queue ticket that runs ``after_task`` on the same content path."""
     return json.dumps(
@@ -222,6 +301,7 @@ def treat(
     redis: Redis,
     recognize=recognize_bytes,
     after_task: str = "",
+    publish=publish_assessment_status,
 ) -> None:
     """OCR one file path and, when set, enqueue ``after_task`` for PHP."""
     start_time = time.perf_counter()
@@ -248,6 +328,7 @@ def treat(
         attrs = store.get_json(attr_key)
         attrs["status"] = "ocr_done"
         store.put_json(attr_key, attrs)
+        publish(content_path, "ocr_done")
 
         duration_ms = max(0, round((time.perf_counter() - start_time) * 1000))
 
@@ -272,6 +353,7 @@ def treat(
             attrs["status"] = "error"
             store.put_json(attr_key, attrs)
             store.put_json(event_key(content_path), event_body("OCR failed"))
+            publish(content_path, "error")
         except Exception:
             logger.exception("Failed to record OCR failure for %s", content_path)
         raise

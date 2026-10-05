@@ -8,6 +8,31 @@
         return 301 /corrai/;
     }
 
+    # Nchan SSE Subscriber (clients Web)
+    location ^~ /corrai_test/events-api/ {
+        set $sse_channel "";
+        if ($uri ~ "^/corrai_test/events-api/(.+)$") {
+            set $sse_channel $1;
+        }
+        nchan_subscriber eventsource;
+        nchan_channel_id $sse_channel;
+        nchan_message_buffer_length 10;
+        nchan_message_timeout 5m;
+    }
+    # Nchan Publisher (PHP local)
+    location ^~ /corrai_test/internal/pub/ {
+        set $sse_channel "";
+        if ($uri ~ "^/corrai_test/internal/pub/(.+)$") {
+            set $sse_channel $1;
+        }
+        nchan_publisher;
+        nchan_channel_id $sse_channel;
+        nchan_message_buffer_length 10;
+        nchan_message_timeout 5m;
+        allow 127.0.0.1;
+        deny all;
+    }
+
     location ^~ /corrai_test_adm/api/ {
         include fastcgi_params;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
@@ -24,17 +49,6 @@
 
     location = /corrai_test_adm {
         return 301 /corrai_test_adm/;
-    }
-
-    location = /corrai_test/api/assessment_events {
-        include fastcgi_params;
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME /home/maintainer/corrai_test/server/php/public/api_router.php;
-        fastcgi_param DOCUMENT_ROOT /home/maintainer/corrai_test/server/php/public;
-        fastcgi_param SCRIPT_NAME /api_router.php;
-        fastcgi_buffering off;
-        gzip off;
-        fastcgi_read_timeout 3600s;
     }
 
     location ^~ /corrai_test/api/ {

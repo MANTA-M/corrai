@@ -18,6 +18,8 @@ Group=maintainer
 EnvironmentFile=-/home/maintainer/corrai_test/server/php/.env
 Environment=REDIS_HOST=127.0.0.1
 Environment=REDIS_PORT=6379
+Environment=NCHAN_PUBLISH_URL=https://127.0.0.1/corrai_test/internal/pub
+Environment=NCHAN_PUBLISH_HOST=mantam.eu
 Environment=HOME=/home/maintainer
 Environment=PADDLE_PDX_CACHE_HOME=/home/maintainer/.paddlex
 Environment=PYTHONPATH=/home/maintainer/corrai_test/server/python/pycorrai

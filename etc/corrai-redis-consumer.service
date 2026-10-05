@@ -16,6 +16,8 @@ Group=maintainer
 Environment=REDIS_HOST=127.0.0.1
 Environment=REDIS_PORT=6379
 Environment=PHP_ERROR_LOG_STDERR=true
+Environment=NCHAN_PUBLISH_URL=https://127.0.0.1/corrai_test/internal/pub
+Environment=NCHAN_PUBLISH_HOST=mantam.eu
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=corrai-redis-consumer

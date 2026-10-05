@@ -92,20 +92,13 @@ test.describe('Dictation France CM2', () => {
       await expect(page.getByTestId('add-file-popup').locator('h2')).toHaveText('Ajouter des copies')
       await page.getByTestId('add-file-input').setInputFiles(copyPaths)
 
-      for (const name of copyNames) {
-        const row = page.getByTestId('add-file-status-list').locator('.upload-item', { hasText: name })
-        await expect(row).toContainText('Téléversé', { timeout: 120_000 })
-      }
-      await expect(page.getByTestId('add-file-cancel')).toBeEnabled()
+      await expect(page.getByTestId('add-file-popup')).toHaveCount(0, { timeout: 120_000 })
 
       const unassigned = page.getByTestId('unassigned-files')
       await expect(unassigned.getByTestId('assessment-file-item')).toHaveCount(3)
       for (const name of copyNames) {
         await expect(unassigned.getByTestId('assessment-file-item').filter({ hasText: name })).toBeVisible()
       }
-
-      await page.getByTestId('add-file-cancel').click()
-      await expect(page.getByTestId('add-file-popup')).toHaveCount(0)
     })
 
     await test.step('Launch test correction', async () => {

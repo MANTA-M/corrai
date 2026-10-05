@@ -46,6 +46,7 @@ services:
       HOME: /var/corrai/home
       PADDLE_PDX_CACHE_HOME: /var/corrai/home/.paddlex
       PHP_ERROR_LOG_STDERR: "true"
+      NCHAN_PUBLISH_URL: http://127.0.0.1/internal/pub
     volumes:
       - './server/log:/var/log/corrai'
       - './server/php:/var/corrai/php'
@@ -72,6 +73,7 @@ services:
       PADDLE_PDX_CACHE_HOME: /var/corrai/home/.paddlex
       PYTHONPATH: /var/corrai/python/pycorrai
       PYTHONUNBUFFERED: "1"
+      NCHAN_PUBLISH_URL: http://127.0.0.1/internal/pub
     volumes:
       - './server/log:/var/log/corrai'
       - './server/python/pycorrai:/var/corrai/python/pycorrai'

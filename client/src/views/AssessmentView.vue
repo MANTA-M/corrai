@@ -88,6 +88,11 @@
             >
               <span class="entity-name">{{ student.name }}</span>
               <span
+                v-if="student.status"
+                class="student-status"
+                data-testid="student-status"
+              >{{ student.status }}</span>
+              <span
                 v-if="student.mark != null"
                 class="student-mark"
                 data-testid="student-mark"
@@ -184,8 +189,10 @@
     :assessment-id="assessment.id"
     fixed-type="submission"
     :title="t('assessment.addCopies')"
-    @close="showAddCopies = false"
+    auto-close
+    @close="closeAddCopies"
     @uploaded="onCopiesUploaded"
+    @all-uploaded="onAllCopiesUploaded"
   />
 
   <div
@@ -297,6 +304,8 @@ import AddFilePopup from '@/components/AddFilePopup.vue'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useAssessment } from '@/composables/useAssessment'
+import { useAssessmentStream } from '@/composables/useAssessmentStream'
+import { applyAssessmentStream } from '@/utils/assessmentStream'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
 import { isAssessmentSubject, type AssessmentFile, type AssessmentStats, type AssessmentStudent, type MenuItem } from '@/types/types'
@@ -307,6 +316,23 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
+const streamEnabled = computed(() => Boolean(assessment.value?.id))
+
+useAssessmentStream({
+  assessmentId,
+  locale,
+  enabled: streamEnabled,
+  onEvent: (event) => {
+    if (event.scope !== 'assessment' || !assessment.value) return
+    const merged = applyAssessmentStream(files.value, students.value, event)
+    const stats: AssessmentStats = {}
+    if ('assessed_students_number' in event) stats.assessed_students_number = event.assessed_students_number
+    if ('mark_average' in event) stats.mark_average = event.mark_average
+    if ('mark_min' in event) stats.mark_min = event.mark_min
+    if ('mark_max' in event) stats.mark_max = event.mark_max
+    applyUpdate(merged.files, merged.students, Object.keys(stats).length > 0 ? stats : undefined)
+  },
+})
 const { subjects, load: loadSubjects, levelName } = useSubjectCatalog()
 
 const isDeleting = ref(false)
@@ -489,13 +515,30 @@ const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: Assessmen
   applyUpdate(files, students, stats)
 }
 
-const onCopiesUploaded = async (updatedFiles: AssessmentFile[]) => {
-  applyUpdate(updatedFiles)
-  if (!assessment.value?.id) return
-  const loaded = await sessionStore.load_assessment(assessment.value.id)
+const reloadAssessment = async () => {
+  const id = assessment.value?.id || assessmentId.value
+  if (!id) return
+  const loaded = await sessionStore.load_assessment(id)
   if (loaded) {
     assessment.value = loaded
   }
+}
+
+const closeAddCopies = async () => {
+  showAddCopies.value = false
+  await reloadAssessment()
+}
+
+const onCopiesUploaded = (updatedFiles: AssessmentFile[]) => {
+  applyUpdate(updatedFiles)
+}
+
+const onAllCopiesUploaded = async (updatedFiles: AssessmentFile[]) => {
+  showAddCopies.value = false
+  if (updatedFiles.length > 0) {
+    applyUpdate(updatedFiles)
+  }
+  await reloadAssessment()
 }
 
 const openStartCorrection = () => {
@@ -814,6 +857,15 @@ loadSubjects()
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.student-status {
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+  color: var(--info);
+  font-size: 0.85rem;
 }
 
 .student-mark {

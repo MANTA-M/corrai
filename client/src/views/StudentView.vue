@@ -13,7 +13,10 @@
 
       <div v-else-if="assessment && studentName" class="student-page" data-testid="student-page">
         <div class="header">
-          <h1 data-testid="student-name">{{ studentName }}</h1>
+          <div>
+            <h1 data-testid="student-name">{{ studentName }}</h1>
+            <p v-if="student?.status" class="student-status" data-testid="student-status">{{ student.status }}</p>
+          </div>
           <button type="button" class="button" data-testid="student-back" @click="goBack">
             {{ t('assessment.back') }}
           </button>
@@ -57,6 +60,8 @@ import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import { useAssessment } from '@/composables/useAssessment'
+import { useAssessmentStream } from '@/composables/useAssessmentStream'
+import { applyStudentStream } from '@/utils/assessmentStream'
 import type { AssessmentFile, AssessmentStudent } from '@/types/types'
 import { isDebugFile } from '@/utils/assessmentFiles'
 
@@ -65,8 +70,20 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
-
 const studentId = computed(() => route.params.studentId as string)
+const streamEnabled = computed(() => Boolean(assessment.value?.id))
+
+useAssessmentStream({
+  assessmentId,
+  studentId,
+  locale,
+  enabled: streamEnabled,
+  onEvent: (event) => {
+    if (event.scope !== 'student' || !assessment.value) return
+    const merged = applyStudentStream(files.value, students.value, studentId.value, event)
+    applyUpdate(merged.files, merged.students)
+  },
+})
 
 const student = computed(() => students.value.find((item) => item.id === studentId.value) ?? null)
 
@@ -168,6 +185,12 @@ const markdownToHtml = (source: string): string => {
 
 .header h1 {
   margin: 0;
+}
+
+.student-status {
+  margin: 0.35rem 0 0;
+  color: var(--info);
+  font-size: 0.9rem;
 }
 
 .section {

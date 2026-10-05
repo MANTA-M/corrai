@@ -5,9 +5,12 @@ namespace Corrai\Queue;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\BaseFile;
 use Corrai\Model\File;
+use Corrai\Stream\AssessmentEventFeed;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Utils\ObjectStore;
+use Corrai\Utils\SSEvent;
 use Exception;
+use Throwable;
 
 /**
  * Processes file-status tickets from the Redis work queue.
@@ -24,20 +27,57 @@ class RedisConsumer
      */
     public static function handleTicket(array $ticket): void
     {
+        $fileId = self::ticketFileId($ticket);
+        $before = $fileId !== null ? self::captureState($fileId) : null;
+
         if (isset($ticket['path'], $ticket['task'])) {
             self::treatPathTask($ticket['path'], $ticket['task']);
-            return;
-        }
-        if (isset($ticket['file_id'], $ticket['task'])) {
+        } elseif (isset($ticket['file_id'], $ticket['task'])) {
             self::treatFileTask($ticket['file_id'], $ticket['task']);
-            return;
-        }
-        if (isset($ticket['file_id'])) {
+        } elseif (isset($ticket['file_id'])) {
             self::treat($ticket['file_id']);
+        } else {
+            error_log('Missing path or task on ticket: ' . json_encode($ticket));
             return;
         }
 
-        error_log('Missing path or task on ticket: ' . json_encode($ticket));
+        if ($fileId !== null) {
+            self::publishForFileId($fileId, $before);
+        }
+    }
+
+    /**
+     * @param array{file_id?: string, path?: string, task?: string} $ticket
+     */
+    private static function ticketFileId(array $ticket): ?string
+    {
+        if (isset($ticket['file_id']) && $ticket['file_id'] !== '') {
+            return $ticket['file_id'];
+        }
+        if (!isset($ticket['path']) || $ticket['path'] === '') {
+            return null;
+        }
+        $path = rtrim($ticket['path'], '/');
+        $contentName = '/' . ObjectStore::CONTENT_FILE;
+        if (str_ends_with($path, $contentName)) {
+            $path = substr($path, 0, -strlen($contentName));
+        }
+        $fileId = basename($path);
+        return $fileId !== '' ? $fileId : null;
+    }
+
+    /**
+     * @return array{file: array<string, mixed>, student: array<string, mixed>|null, stats: array<string, mixed>}|null
+     */
+    private static function captureState(string $fileId): ?array
+    {
+        try {
+            $file = BaseFile::from_hash($fileId);
+            $assessment = BaseAssessment::from_hash($file->assessment_id);
+            return AssessmentEventFeed::state($assessment, $file);
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /**
@@ -126,5 +166,32 @@ class RedisConsumer
             $file->id ?? '',
             $status
         ));
+    }
+
+    /**
+     * Publish the fields that differ from $before. A failed publish does not fail the ticket.
+     *
+     * @param array{file: array<string, mixed>, student: array<string, mixed>|null, stats: array<string, mixed>}|null $before
+     */
+    private static function publishForFileId(string $fileId, ?array $before): void
+    {
+        try {
+            $file = BaseFile::from_hash($fileId);
+            $assessment = BaseAssessment::from_hash($file->assessment_id);
+            $after = AssessmentEventFeed::state($assessment, $file);
+            $assessmentEvent = AssessmentEventFeed::delta('assessment', $before, $after);
+            if ($assessmentEvent !== null) {
+                SSEvent::publish(SSEvent::assessmentChannel((string) $assessment->id), $assessmentEvent);
+            }
+            $studentId = trim((string) ($file->student ?? ''));
+            if ($studentId !== '') {
+                $studentEvent = AssessmentEventFeed::delta('student', $before, $after);
+                if ($studentEvent !== null) {
+                    SSEvent::publish(SSEvent::studentChannel($studentId), $studentEvent);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('SSEvent publish failed for file ' . $fileId . ': ' . $e->getMessage());
+        }
     }
 }

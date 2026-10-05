@@ -13,7 +13,7 @@
         {{ file.name }}
       </button>
       <span v-else class="entity-name">{{ file.name }}</span>
-      <span v-if="sessionStore.debugMode && file.status" class="file-status" data-testid="assessment-file-status">
+      <span v-if="statusLabel(file)" class="file-status" data-testid="assessment-file-status">
         {{ statusLabel(file) }}
       </span>
       <span class="file-size">{{ formatFileSize(file.size) }}</span>
