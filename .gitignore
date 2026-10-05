@@ -60,3 +60,5 @@ doc/test_files/
 .env.local
 client/vite.config.ts
 server/php/.phpunit.cache/test-results
+client/vite.config.ts
+client/playwright-report/
