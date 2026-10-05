@@ -60,5 +60,15 @@ doc/test_files/
 .env.local
 client/vite.config.ts
 server/php/.phpunit.cache/test-results
-client/vite.config.ts
+admin_client/vite.config.ts
 client/playwright-report/
+client/test-results/
+
+# Local env files with secrets (commit template.env instead)
+.env
+.env.local
+client/vite.config.ts
+server/php/.phpunit.cache/test-results
+admin_client/vite.config.ts
+client/playwright-report/
+admin_client/playwright-report/
