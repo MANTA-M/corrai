@@ -169,6 +169,7 @@ class Task1Correcting extends PathQueueItemTask
         }
         if ($changed) {
             $student->save();
+            $assessment->on_mark_change($student);
         }
     }
 

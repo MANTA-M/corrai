@@ -87,6 +87,13 @@ export interface SubjectNode {
   levels: SubjectLevelNode[]
 }
 
+export interface AssessmentStats {
+  assessed_students_number?: number
+  mark_average?: number | null
+  mark_min?: number | null
+  mark_max?: number | null
+}
+
 export interface Assessment {
   id: string | null
   author: string
@@ -101,6 +108,10 @@ export interface Assessment {
   questions?: AssessmentQuestion[]
   files?: AssessmentFile[]
   students?: AssessmentStudent[]
+  assessed_students_number?: number
+  mark_average?: number | null
+  mark_min?: number | null
+  mark_max?: number | null
   /** Localized subject name */
   label?: string
   menu?: MenuItem[]

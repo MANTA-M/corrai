@@ -34,6 +34,10 @@ interface ServerAssessment {
   level?: string | null
   date: string
   created_at?: string
+  assessed_students_number?: number | null
+  mark_average?: number | null
+  mark_min?: number | null
+  mark_max?: number | null
   label?: string
   menu?: MenuItem[]
   files?: Assessment['files']
@@ -68,6 +72,11 @@ function normalizeAssessment(raw: ServerAssessment): Assessment {
     country: raw.country || null,
     level: raw.level || null,
     date: raw.date,
+    assessed_students_number:
+      typeof raw.assessed_students_number === 'number' ? raw.assessed_students_number : undefined,
+    mark_average: raw.mark_average ?? null,
+    mark_min: raw.mark_min ?? null,
+    mark_max: raw.mark_max ?? null,
     label: raw.label,
     menu: raw.menu,
     files: raw.files ?? [],

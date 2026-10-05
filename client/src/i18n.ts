@@ -182,6 +182,10 @@ export interface I18nSchema {
         addCopies: string
         studentsHeading: string
         studentsEmpty: string
+        assessedStudentsNumber: string
+        markAverage: string
+        markMin: string
+        markMax: string
         unassignedFiles: string
         unassignedEmpty: string
         studentOpen: string

@@ -602,6 +602,78 @@ class AssessmentLifecycleTest extends TestCase
         $school->delete();
     }
 
+    public function testStudentCreateAndMarkChangeStoreAssessmentStats(): void
+    {
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] Stats Assessment';
+        $assessment->subject = 'Mathematics';
+        $assessment->date = '2026-06-20';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $alice = $assessment->createStudent('[Test] Alice', '', 10);
+        $assessment->createStudent('[Test] Bob', '', 20);
+        $assessment->createStudent('[Test] Cara');
+
+        $loaded = Assessment::from_hash((string) $assessment->id);
+        $this->assertSame(3, $loaded->assessed_students_number);
+        $this->assertEquals(15.0, $loaded->mark_average);
+        $this->assertEquals(10.0, $loaded->mark_min);
+        $this->assertEquals(20.0, $loaded->mark_max);
+
+        $output = $loaded->to_output();
+        $this->assertSame(3, $output['assessed_students_number']);
+        $this->assertEquals(15.0, $output['mark_average']);
+        $this->assertEquals(10.0, $output['mark_min']);
+        $this->assertEquals(20.0, $output['mark_max']);
+
+        $bob = null;
+        foreach ($loaded->listStudentModels() as $student) {
+            if ($student->name === '[Test] Bob') {
+                $bob = $student;
+            }
+        }
+        $this->assertNotNull($bob);
+        $bob->mark = 12.0;
+        $bob->save();
+
+        $reloaded = Assessment::from_hash((string) $assessment->id);
+        $this->assertSame(3, $reloaded->assessed_students_number);
+        $this->assertEquals(11.0, $reloaded->mark_average);
+        $this->assertEquals(10.0, $reloaded->mark_min);
+        $this->assertEquals(12.0, $reloaded->mark_max);
+
+        $alice->mark = null;
+        $alice->save();
+        $cleared = Assessment::from_hash((string) $assessment->id);
+        $this->assertEquals(12.0, $cleared->mark_average);
+        $this->assertEquals(12.0, $cleared->mark_min);
+        $this->assertEquals(12.0, $cleared->mark_max);
+
+        $stale = Assessment::from_hash((string) $assessment->id);
+        $stale->mark_average = null;
+        $stale->mark_min = null;
+        $stale->mark_max = null;
+        $stale->assessed_students_number = null;
+        $stale->save();
+        $repaired = Assessment::from_hash((string) $assessment->id);
+        $this->assertSame(3, $repaired->assessed_students_number);
+        $this->assertEquals(12.0, $repaired->mark_average);
+        $this->assertEquals(12.0, $repaired->mark_min);
+        $this->assertEquals(12.0, $repaired->mark_max);
+
+        $assessment->deleteStudent((string) $bob->id);
+        $afterDelete = Assessment::from_hash((string) $assessment->id);
+        $this->assertSame(2, $afterDelete->assessed_students_number);
+        $this->assertNull($afterDelete->mark_average);
+        $this->assertNull($afterDelete->mark_min);
+        $this->assertNull($afterDelete->mark_max);
+
+        $assessment->delete();
+    }
+
     public function testDeleteStudentUnassignsFiles(): void
     {
         $assessment = new Assessment();

@@ -23,6 +23,20 @@
                 >, <span data-testid="assessment-level-value">{{ levelLabel(assessment.subject, assessment.country, assessment.level) }}</span></template
               >
             </p>
+            <p v-if="showAssessmentStats" class="assessment-stats" data-testid="assessment-stats">
+              <span
+                v-if="(assessment.assessed_students_number ?? 0) > 0"
+                data-testid="assessed-students-number"
+              >{{ t('assessment.assessedStudentsNumber', { count: assessment.assessed_students_number }) }}</span>
+              <template v-if="hasMarkStats">
+                <span v-if="(assessment.assessed_students_number ?? 0) > 0"> · </span>
+                <span data-testid="mark-average">{{ t('assessment.markAverage', { mark: formatMark(displayedMarkAverage ?? 0) }) }}</span>
+                <span> · </span>
+                <span data-testid="mark-min">{{ t('assessment.markMin', { mark: formatMark(displayedMarkMin ?? 0) }) }}</span>
+                <span> · </span>
+                <span data-testid="mark-max">{{ t('assessment.markMax', { mark: formatMark(displayedMarkMax ?? 0) }) }}</span>
+              </template>
+            </p>
           </div>
         <div v-if="headerMenu.length" class="header-actions">
           <button
@@ -61,16 +75,26 @@
             {{ t('assessment.studentsEmpty') }}
           </p>
           <ul v-else class="entity-list" data-testid="student-list">
-            <li v-for="student in studentRows" :key="student.id" class="entity-row" data-testid="student-item">
+            <li
+              v-for="student in studentRows"
+              :key="student.id"
+              class="entity-row student-row"
+              data-testid="student-item"
+              role="button"
+              tabindex="0"
+              @click="goStudent(student.id)"
+              @keydown.enter="goStudent(student.id)"
+              @keydown.space.prevent="goStudent(student.id)"
+            >
               <span class="entity-name">{{ student.name }}</span>
               <span
                 v-if="student.mark != null"
                 class="student-mark"
                 data-testid="student-mark"
               >{{ formatMark(student.mark) }}</span>
-              <div class="row-actions">
+              <div class="row-actions" @click.stop @keydown.stop>
                 <MenuIconButton
-                  v-for="item in student.menu ?? studentMenuFallback"
+                  v-for="item in studentMenu(student)"
                   :key="item.key"
                   :item="item"
                   :test-id="`student-${item.key}`"
@@ -275,7 +299,7 @@ import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
-import { isAssessmentSubject, type AssessmentFile, type AssessmentStudent, type MenuItem } from '@/types/types'
+import { isAssessmentSubject, type AssessmentFile, type AssessmentStats, type AssessmentStudent, type MenuItem } from '@/types/types'
 import { isDebugFile, isUnassignedFile } from '@/utils/assessmentFiles'
 
 const route = useRoute()
@@ -363,8 +387,14 @@ const pageMenu = computed(() => {
 })
 
 const studentMenuFallback = computed(
-  () => students.value.find((student) => student.menu?.length)?.menu ?? []
+  () =>
+    (students.value.find((student) => student.menu?.length)?.menu ?? []).filter(
+      (item) => item.key !== 'view'
+    )
 )
+
+const studentMenu = (student: AssessmentStudent) =>
+  (student.menu ?? studentMenuFallback.value).filter((item) => item.key !== 'view')
 
 const assessmentTestId = (key: string) =>
   key === 'add_copies' ? 'assessment-add-file' : `assessment-${key.replace(/_/g, '-')}`
@@ -391,6 +421,40 @@ const onStudentAction = (student: AssessmentStudent, key: string) => {
 
 const formatMark = (mark: number) =>
   new Intl.NumberFormat(String(locale.value), { maximumFractionDigits: 2 }).format(mark)
+
+const studentMarks = computed(() =>
+  students.value
+    .map((student) => student.mark)
+    .filter((mark): mark is number => typeof mark === 'number' && Number.isFinite(mark))
+)
+
+const displayedMarkAverage = computed(() => {
+  const marks = studentMarks.value
+  if (marks.length === 0) return assessment.value?.mark_average ?? null
+  return marks.reduce((sum, mark) => sum + mark, 0) / marks.length
+})
+
+const displayedMarkMin = computed(() => {
+  const marks = studentMarks.value
+  if (marks.length === 0) return assessment.value?.mark_min ?? null
+  return Math.min(...marks)
+})
+
+const displayedMarkMax = computed(() => {
+  const marks = studentMarks.value
+  if (marks.length === 0) return assessment.value?.mark_max ?? null
+  return Math.max(...marks)
+})
+
+const hasMarkStats = computed(() =>
+  displayedMarkAverage.value != null
+  && displayedMarkMin.value != null
+  && displayedMarkMax.value != null
+)
+
+const showAssessmentStats = computed(() =>
+  (assessment.value?.assessed_students_number ?? 0) > 0 || hasMarkStats.value
+)
 
 const studentRows = computed(() => {
   const byId = new Map<string, AssessmentStudent>()
@@ -420,8 +484,9 @@ const goStudent = (studentId: string) => {
   router.push({ name: 'assessment-student', params: { id: assessment.value.id, studentId } })
 }
 
-const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: AssessmentStudent[] }) => {
-  applyUpdate(payload.files, payload.students)
+const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: AssessmentStudent[] } & AssessmentStats) => {
+  const { files, students, ...stats } = payload
+  applyUpdate(files, students, stats)
 }
 
 const onCopiesUploaded = async (updatedFiles: AssessmentFile[]) => {
@@ -664,7 +729,8 @@ loadSubjects()
   margin: 0;
 }
 
-.assessment-meta {
+.assessment-meta,
+.assessment-stats {
   margin: 0.35rem 0 0;
   color: var(--text-muted);
   font-size: 0.85rem;
@@ -718,8 +784,28 @@ loadSubjects()
   border-bottom: 1px solid var(--border);
 }
 
-.entity-list li:last-child .entity-row {
+.entity-list li:last-child {
   border-bottom: none;
+}
+
+.student-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.student-row:hover,
+.student-row:focus-visible {
+  background-color: var(--pale);
+}
+
+.student-row:first-child {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+
+.student-row:last-child {
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
 }
 
 .entity-name {

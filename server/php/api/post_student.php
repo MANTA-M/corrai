@@ -53,6 +53,10 @@ try {
     Request::add_output("student", $student->to_output());
     Request::add_output("students", $assessment->list_students());
     Request::add_output("files", $assessment->list_files());
+    Request::add_output("assessed_students_number", $assessment->assessed_students_number);
+    Request::add_output("mark_average", $assessment->mark_average);
+    Request::add_output("mark_min", $assessment->mark_min);
+    Request::add_output("mark_max", $assessment->mark_max);
     Request::add_output("id", $assessmentId);
 } catch (\Throwable $th) {
     Request::handle_throwable($th);

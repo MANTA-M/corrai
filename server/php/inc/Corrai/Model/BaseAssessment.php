@@ -104,6 +104,26 @@ abstract class BaseAssessment
     public int $stripe_unit_amount = 100;
 
     /**
+     * Number of students created on this assessment. Null until the first student is created.
+     */
+    public ?int $assessed_students_number = null;
+
+    /**
+     * Mean of the students' marks. Null when no student has a mark.
+     */
+    public ?float $mark_average = null;
+
+    /**
+     * Lowest student mark. Null when no student has a mark.
+     */
+    public ?float $mark_min = null;
+
+    /**
+     * Highest student mark. Null when no student has a mark.
+     */
+    public ?float $mark_max = null;
+
+    /**
      * Allowed file type tags. Empty / unknown is stored as an empty string.
      */
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'];
@@ -203,6 +223,10 @@ abstract class BaseAssessment
             'stripe_checkout_session_id' => $this->stripe_checkout_session_id,
             'stripe_paid_session_id' => $this->stripe_paid_session_id,
             'stripe_unit_amount' => $this->stripe_unit_amount,
+            'assessed_students_number' => $this->assessed_students_number,
+            'mark_average' => $this->mark_average,
+            'mark_min' => $this->mark_min,
+            'mark_max' => $this->mark_max,
             'class' => $this->storedClass(),
         ];
     }
@@ -223,6 +247,10 @@ abstract class BaseAssessment
         $assessment->stripe_checkout_session_id = self::stringAttribute($data['stripe_checkout_session_id'] ?? null);
         $assessment->stripe_paid_session_id = self::stringAttribute($data['stripe_paid_session_id'] ?? null);
         $assessment->stripe_unit_amount = self::unitAmountAttribute($data['stripe_unit_amount'] ?? null);
+        $assessment->assessed_students_number = self::nonNegativeIntAttribute($data['assessed_students_number'] ?? null);
+        $assessment->mark_average = self::nullableNumberAttribute($data['mark_average'] ?? null);
+        $assessment->mark_min = self::nullableNumberAttribute($data['mark_min'] ?? null);
+        $assessment->mark_max = self::nullableNumberAttribute($data['mark_max'] ?? null);
         return $assessment;
     }
 
@@ -249,6 +277,29 @@ abstract class BaseAssessment
             }
         }
         return 100;
+    }
+
+    public static function nonNegativeIntAttribute(mixed $value): ?int
+    {
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if ((is_float($value) || (is_string($value) && is_numeric($value))) && is_numeric($value)) {
+            $int = (int) $value;
+            return $int >= 0 ? $int : null;
+        }
+        return null;
+    }
+
+    public static function nullableNumberAttribute(mixed $value): ?float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+        if (is_string($value) && is_numeric(trim($value))) {
+            return (float) $value;
+        }
+        return null;
     }
 
     public static function optionalAttribute(mixed $value): ?string
@@ -414,6 +465,10 @@ abstract class BaseAssessment
             'correction_language' => $this->correction_language,
             'date' => $this->date,
             'created_at' => $this->created_at,
+            'assessed_students_number' => $this->assessed_students_number,
+            'mark_average' => $this->mark_average,
+            'mark_min' => $this->mark_min,
+            'mark_max' => $this->mark_max,
             'label' => $this->localizedLabel($locale),
             'menu' => $this->get_menu($locale),
         ];
@@ -421,8 +476,21 @@ abstract class BaseAssessment
 
     /**
      * Persist assessment attributes.json and register the _id pointer.
+     *
+     * Mark statistics are recomputed from the stored students first, so a later
+     * save cannot write a stale average, min, or max back over a new mark.
      */
     public function save(): void
+    {
+        $this->prepareForPersist();
+        $this->recomputeStudentStats();
+        $this->persist();
+    }
+
+    /**
+     * Assign an id and creation time, then validate required fields.
+     */
+    private function prepareForPersist(): void
     {
         if ($this->id === null || $this->id === '') {
             $this->id = HashId::create();
@@ -432,7 +500,13 @@ abstract class BaseAssessment
         }
 
         $this->validate();
+    }
 
+    /**
+     * Write the current attributes. Callers recompute student stats first.
+     */
+    private function persist(): void
+    {
         $store = ObjectStore::getInstance();
         $attrKey = ObjectStore::assessmentAttrKey($this->school_id, $this->user_id, $this->id);
         $previousClass = null;
@@ -709,8 +783,79 @@ abstract class BaseAssessment
         $student->name = trim($name);
         $student->status = $status;
         $student->mark = $mark;
-        $student->save(false);
+        $student->save(false, false);
+        $this->on_student_create($student);
+        if ($student->mark !== null) {
+            $this->on_mark_change($student);
+        }
         return $student;
+    }
+
+    /**
+     * Keep assessed_students_number equal to the students stored on this assessment.
+     */
+    public function on_student_create(BaseStudent $student): void
+    {
+        $this->prepareForPersist();
+        $this->recomputeStudentStats($student);
+        $this->persist();
+    }
+
+    /**
+     * Recompute mark_average, mark_min and mark_max from the students' marks.
+     */
+    public function on_mark_change(BaseStudent $student): void
+    {
+        $this->prepareForPersist();
+        $this->recomputeStudentStats($student);
+        $this->persist();
+    }
+
+    /**
+     * Refresh the student count and mark statistics from the students in storage.
+     *
+     * $focus is the student just created or graded. Their mark is used even when
+     * the listing has not caught up with the write yet.
+     */
+    private function recomputeStudentStats(?BaseStudent $focus = null): void
+    {
+        if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
+            return;
+        }
+
+        $marks = [];
+        $count = 0;
+        $seen = false;
+        foreach ($this->listStudentModels() as $existing) {
+            $count++;
+            $isFocus = $focus !== null && $existing->id !== null && $existing->id === $focus->id;
+            if ($isFocus) {
+                $seen = true;
+            }
+            $mark = $isFocus ? $focus->mark : $existing->mark;
+            if ($mark !== null) {
+                $marks[] = $mark;
+            }
+        }
+        if ($focus !== null && !$seen) {
+            $count++;
+            if ($focus->mark !== null) {
+                $marks[] = $focus->mark;
+            }
+        }
+
+        if ($count > 0 || $this->assessed_students_number !== null) {
+            $this->assessed_students_number = $count;
+        }
+        if ($marks === []) {
+            $this->mark_average = null;
+            $this->mark_min = null;
+            $this->mark_max = null;
+        } else {
+            $this->mark_min = min($marks);
+            $this->mark_max = max($marks);
+            $this->mark_average = array_sum($marks) / count($marks);
+        }
     }
 
     /**
@@ -729,6 +874,7 @@ abstract class BaseAssessment
             $file->saveAttributes();
         }
         $student->delete();
+        $this->save();
         return $this->list_files();
     }
 

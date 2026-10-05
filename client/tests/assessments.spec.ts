@@ -189,7 +189,8 @@ test.describe('Assessments CRUD', () => {
     })
 
     await test.step('Open the student page, then view, rename, and delete a file', async () => {
-      await page.getByTestId('student-view').click()
+      await expect(page.getByTestId('student-view')).toHaveCount(0)
+      await page.getByTestId('student-item').click()
       await page.waitForURL(/\/assessment\/[^/]+\/student\/[^/]+$/, { timeout: 10000 })
       await expect(page.getByTestId('student-name')).toHaveText('[Test] Alice')
       await expect(page.getByTestId('assessment-file-item')).toHaveCount(2)

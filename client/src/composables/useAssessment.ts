@@ -2,7 +2,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import type { Assessment, AssessmentFile, AssessmentStudent } from '@/types/types'
+import type { Assessment, AssessmentFile, AssessmentStats, AssessmentStudent } from '@/types/types'
 
 export function useAssessment() {
   const route = useRoute()
@@ -17,11 +17,17 @@ export function useAssessment() {
   const files = computed(() => assessment.value?.files ?? [])
   const students = computed(() => assessment.value?.students ?? [])
 
-  const applyUpdate = (nextFiles: AssessmentFile[], nextStudents?: AssessmentStudent[]) => {
+  const applyUpdate = (
+    nextFiles: AssessmentFile[],
+    nextStudents?: AssessmentStudent[],
+    stats?: AssessmentStats,
+  ) => {
     if (!assessment.value) return
     const studentsValue = nextStudents ?? assessment.value.students ?? []
+    const nextStats = stats ?? {}
     assessment.value = {
       ...assessment.value,
+      ...nextStats,
       files: nextFiles,
       students: studentsValue,
     }
@@ -31,6 +37,7 @@ export function useAssessment() {
     if (index !== -1) {
       sessionStore.own_assessments[index] = {
         ...sessionStore.own_assessments[index],
+        ...nextStats,
         files: nextFiles,
         students: studentsValue,
       }

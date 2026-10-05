@@ -112,8 +112,10 @@ class BaseStudent
 
     /**
      * Persist with optional If-Match. Retries a few times on conflict when $retry is true.
+     *
+     * A created or changed mark notifies the assessment, unless $notifyMarkChange is false.
      */
-    public function save(bool $retry = true): void
+    public function save(bool $retry = true, bool $notifyMarkChange = true): void
     {
         if ($this->id === null || $this->id === '') {
             $this->id = HashId::create();
@@ -128,12 +130,18 @@ class BaseStudent
             'appreciation' => $this->appreciation,
         ];
 
-        $attempts = $retry ? 5 : 1;
         $store = ObjectStore::getInstance();
+        $existed = $store->exists($this->attrKey());
+        $previousMark = $existed ? self::markFromPayload($store->getJson($this->attrKey())['data'] ?? []) : null;
+
+        $attempts = $retry ? 5 : 1;
         for ($i = 0; $i < $attempts; $i++) {
             try {
                 $this->etag = $store->putJson($this->attrKey(), $payload, $this->etag);
                 $store->setIdPointer($this->id, $this->prefix());
+                if ($notifyMarkChange && ($this->mark !== null || self::markCreatedOrChanged($existed, $previousMark, $this->mark))) {
+                    $this->notifyAssessmentOfMarkChange();
+                }
                 return;
             } catch (StoreConflictException $e) {
                 if ($i === $attempts - 1) {
@@ -141,8 +149,39 @@ class BaseStudent
                 }
                 $loaded = $store->getJson($this->attrKey());
                 $this->etag = $loaded['etag'];
+                $previousMark = self::markFromPayload($loaded['data'] ?? []);
+                $existed = true;
             }
         }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function markFromPayload(array $data): ?float
+    {
+        $mark = $data['mark'] ?? null;
+        return is_numeric($mark) ? (float) $mark : null;
+    }
+
+    private static function markCreatedOrChanged(bool $existed, ?float $previousMark, ?float $mark): bool
+    {
+        if (!$existed) {
+            return $mark !== null;
+        }
+        if ($previousMark === null || $mark === null) {
+            return $previousMark !== $mark;
+        }
+        return abs($previousMark - $mark) >= 0.0000001;
+    }
+
+    private function notifyAssessmentOfMarkChange(): void
+    {
+        if ($this->assessment_id === '') {
+            return;
+        }
+        $assessment = BaseAssessment::from_hash($this->assessment_id);
+        $assessment->on_mark_change($this);
     }
 
     public function delete(): void

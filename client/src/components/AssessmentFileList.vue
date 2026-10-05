@@ -293,7 +293,7 @@ import { useI18n } from 'vue-i18n'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useSessionStore } from '@/stores/session'
 import { isEditableTextFile } from '@/utils/assessmentFiles'
-import type { AssessmentFile, AssessmentStudent } from '@/types/types'
+import type { AssessmentFile, AssessmentStats, AssessmentStudent } from '@/types/types'
 
 const NOT_FOUND = '__not_found__'
 
@@ -306,7 +306,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  updated: [payload: { files: AssessmentFile[]; students?: AssessmentStudent[] }]
+  updated: [payload: { files: AssessmentFile[]; students?: AssessmentStudent[] } & AssessmentStats]
   editText: [file: AssessmentFile]
 }>()
 
@@ -397,6 +397,18 @@ const eventLabel = (event: FileEvent) => {
     timeStyle: 'medium',
   }).format(new Date(event.timestamp * 1000))
   return `${name} — ${when}`
+}
+
+const assessmentStats = (source: AssessmentStats | null | undefined): AssessmentStats => {
+  if (!source) return {}
+  const stats: AssessmentStats = {}
+  if (typeof source.assessed_students_number === 'number') {
+    stats.assessed_students_number = source.assessed_students_number
+  }
+  if ('mark_average' in source) stats.mark_average = source.mark_average ?? null
+  if ('mark_min' in source) stats.mark_min = source.mark_min ?? null
+  if ('mark_max' in source) stats.mark_max = source.mark_max ?? null
+  return stats
 }
 
 const applyUpdatedFiles = (files: AssessmentFile[], students?: AssessmentStudent[]) => {
@@ -506,12 +518,17 @@ const confirmReassign = async () => {
         const created = await wsClient.queryWs<{
           student?: AssessmentStudent
           students?: AssessmentStudent[]
-        }>('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
+        } & AssessmentStats>('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
         studentId = created?.student?.id ?? ''
         students = created?.students ?? students
         if (!studentId) {
           throw new Error('Student create returned no id')
         }
+        emit('updated', {
+          files: props.files,
+          students,
+          ...assessmentStats(created),
+        })
       }
     }
 
