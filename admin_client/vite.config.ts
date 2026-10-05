@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/corrai_test_adm/',
+  base: '/corrai_test/adm/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -18,7 +18,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/corrai_test_adm/api': {
+      '/corrai_test/adm/api': {
         target: 'http://localhost:80',
         changeOrigin: true,
         secure: false,

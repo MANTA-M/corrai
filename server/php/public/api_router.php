@@ -34,6 +34,7 @@ $allowedPrefixes = array_values(array_unique([
     $configuredPrefix,
     '/api',
     '/corrai_test/api',
+    '/corrai_test/adm/api',
     '/corrai_test_adm/api',
 ]));
 $matchedPrefix = null;
