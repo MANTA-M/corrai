@@ -38,6 +38,7 @@ jobs:
             --exclude 'server/python/.venv/' \
             --exclude 'client/.env.local' \
             --exclude 'client/vite.config.ts' \
+            --exclude 'admin_client/vite.config.ts' \
             --exclude 'docker/storage/' \
             ./ maintainer@mantam.eu:/home/maintainer/corrai_test/
 
@@ -58,6 +59,9 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes maintainer@mantam.eu '
             set -e
             cd /home/maintainer/corrai_test/admin_client
+            if [ ! -f vite.config.ts ]; then
+              cp vite.config.ts.template vite.config.ts
+            fi
             npm ci
             VITE_BASE=/corrai_test_adm/ VITE_CORRAI_ROOT=/corrai_test npm run build
           '
