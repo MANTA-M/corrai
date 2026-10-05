@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { e2eBaseURL } from './playwright.target'
 
 /**
  * Long end-to-end suite that creates a teacher, runs a real dictation correction,
@@ -16,7 +17,7 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173/corrai_test/',
+    baseURL: e2eBaseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -27,10 +28,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173/corrai_test/',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
 })

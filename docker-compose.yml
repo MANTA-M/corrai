@@ -19,6 +19,7 @@ services:
       - './docker/php/nginx-default.conf:/etc/nginx/sites-available/default'
       - './docker/php.ini:/usr/local/etc/php/conf.d/99-custom.ini'
       - './docker/php/zz-clear-env.conf:/usr/local/etc/php-fpm.d/zz-clear-env.conf'
+      - './client/dist:/var/www/client'
       - './admin_client/dist:/var/www/admin_client'
     ports:
       - '80:80'
