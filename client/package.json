@@ -15,7 +15,8 @@
     "format": "prettier --write src/",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "test:dictation": "playwright test --config=playwright.special.config.ts"
   },
   "dependencies": {
     "pinia": "^3.0.3",
