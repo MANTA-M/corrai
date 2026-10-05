@@ -4,6 +4,7 @@ namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\Student;
+use Corrai\Utils\WSException;
 
 class Assessment extends BaseAssessment
 {
@@ -121,9 +122,52 @@ class Assessment extends BaseAssessment
         return $file;
     }
 
+    /**
+     * Copies still waiting for a correction: unclassified files, or submissions
+     * that are not already corrected.
+     */
+    public function pricedCopyCount(): int
+    {
+        $unclassified = count($this->unclassifiedFileIds());
+        if ($unclassified > 0) {
+            return $unclassified;
+        }
+
+        return count($this->pendingSubmissionIds());
+    }
+
     public function startCorrection(): array
     {
-        return $this->correctFirstCopy();
+        if ($this->unclassifiedFileIds() !== []) {
+            return $this->correctUnclassifiedFiles();
+        }
+
+        $ids = $this->pendingSubmissionIds();
+        if ($ids === []) {
+            throw new WSException('No copies to correct', 400);
+        }
+        foreach ($ids as $fileId) {
+            $this->correctSubmission($fileId);
+        }
+        return $this->list_files();
+    }
+
+    /**
+     * @return string[]
+     */
+    private function pendingSubmissionIds(): array
+    {
+        $ids = [];
+        foreach ($this->listFileModels() as $file) {
+            if ($file->type !== 'submission' || $file->id === null || $file->id === '') {
+                continue;
+            }
+            if ($file->status === 'corrected') {
+                continue;
+            }
+            $ids[] = $file->id;
+        }
+        return $ids;
     }
 
     public function testCorrection(): array

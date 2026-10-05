@@ -39,7 +39,7 @@ class CorrectionCheckout
      */
     public function create(BaseAssessment $assessment): array
     {
-        $count = count($assessment->unclassifiedFileIds());
+        $count = $assessment->pricedCopyCount();
         if ($count < 1) {
             throw new WSException('No copies to correct', 400);
         }
@@ -107,7 +107,7 @@ class CorrectionCheckout
         }
 
         $session = $this->stripe->retrieveSession($sessionId);
-        $this->assertPayable($session, $assessment, count($assessment->unclassifiedFileIds()));
+        $this->assertPayable($session, $assessment, $assessment->pricedCopyCount());
 
         if ($assessment->id === null || $assessment->id === '') {
             throw new WSException('Assessment id is required', 400);

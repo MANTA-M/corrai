@@ -1217,6 +1217,14 @@ abstract class BaseAssessment
     }
 
     /**
+     * Copies billed by hosted checkout. Matches what startCorrection() processes.
+     */
+    public function pricedCopyCount(): int
+    {
+        return count($this->unclassifiedFileIds());
+    }
+
+    /**
      * Start correction for all unclassified copies or submissions.
      *
      * Subclasses may override this method to adjust which files are processed.

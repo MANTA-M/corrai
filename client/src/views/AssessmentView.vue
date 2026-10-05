@@ -342,7 +342,7 @@ const unassignedFiles = computed(() =>
 )
 
 const copyFiles = computed(() =>
-  files.value.filter((file) => (file.type ?? '') === 'submission')
+  files.value.filter((file) => (file.type ?? '') === 'submission' && (file.status ?? '') !== 'corrected')
 )
 
 const effectiveDiscountRate = computed(() => {

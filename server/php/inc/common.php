@@ -56,10 +56,16 @@ if ($logToStderr) {
 }
 
 function request_error_handler($errno, $errstr) {
+    // @-suppressed warnings (Stripe telemetry mkdir, optional caches) must not
+    // become an HTTP 400 for the caller.
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
     $msg = "Error: [$errno] $errstr";
     error_log($msg);
     Corrai\Utils\Request::add_error_message("error", $msg);
     // Don't call output_all() here - let the application code handle output
+    return true;
 }
 set_error_handler("request_error_handler");
 ?>
