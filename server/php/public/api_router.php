@@ -33,8 +33,8 @@ $configuredPrefix = $_ENV['API_PREFIX'] ?? '/api';
 $allowedPrefixes = array_values(array_unique([
     $configuredPrefix,
     '/api',
+    '/adm/api',
     '/corrai_test/api',
-    '/corrai_test/adm/api',
     '/corrai_test_adm/api',
 ]));
 $matchedPrefix = null;

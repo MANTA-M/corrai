@@ -80,7 +80,7 @@ See [client/README.md](client/README.md) for setup and features.
 
 ## Admin Client (Vue Frontend)
 
-See [admin_client/README.md](admin_client/README.md) for setup. Served at `/corrai_test_adm/`.
+See [admin_client/README.md](admin_client/README.md) for setup. Served at `/adm/` in development. The test server uses `/corrai_test_adm/`.
 
 ## Server (PHP Backend)
 

@@ -3,9 +3,11 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
+const base = process.env.VITE_BASE?.replace(/\/?$/, '/') || '/adm/'
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/corrai_test/adm/',
+  base,
   plugins: [vue()],
   resolve: {
     alias: {
@@ -18,7 +20,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/corrai_test/adm/api': {
+      [`${base}api`]: {
         target: 'http://localhost:80',
         changeOrigin: true,
         secure: false,

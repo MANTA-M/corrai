@@ -10,7 +10,9 @@ npm install
 npm run dev
 ```
 
-The development server runs with base path `/corrai_test_adm/`.
+The development server runs with base path `/adm/`. The Vue app it links to is served at `/`.
+
+On the test server, build with `VITE_BASE=/corrai_test_adm/` and `VITE_CORRAI_ROOT=/corrai_test`.
 
 ## Build
 
@@ -18,4 +20,4 @@ The development server runs with base path `/corrai_test_adm/`.
 npm run build
 ```
 
-Output is written to `dist/` and served at `/corrai_test_adm/` by nginx.
+Output is written to `dist/` and served at `/adm/` by nginx.

@@ -115,6 +115,8 @@ const discountValid = computed(
 
 const canSave = computed(() => name.value.trim() !== '' && discountValid.value)
 
+const corraiRoot = (import.meta.env.VITE_CORRAI_ROOT ?? '').replace(/\/$/, '')
+
 const openInCorraiUrl = computed(() => {
   if (!teacher.value?.id) return '#'
   const params = new URLSearchParams({ as: teacher.value.id })
@@ -122,7 +124,7 @@ const openInCorraiUrl = computed(() => {
   if (teacherName) {
     params.set('name', teacherName)
   }
-  return `/corrai_test/assessment-list?${params.toString()}`
+  return `${corraiRoot}/assessment-list?${params.toString()}`
 })
 
 const loadTeacher = async (id: string) => {

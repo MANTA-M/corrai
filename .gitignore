@@ -70,5 +70,4 @@ client/test-results/
 client/vite.config.ts
 server/php/.phpunit.cache/test-results
 admin_client/vite.config.ts
-client/playwright-report/
 admin_client/playwright-report/

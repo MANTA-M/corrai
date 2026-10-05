@@ -59,7 +59,7 @@ jobs:
             set -e
             cd /home/maintainer/corrai_test/admin_client
             npm ci
-            npm run build
+            VITE_BASE=/corrai_test_adm/ VITE_CORRAI_ROOT=/corrai_test npm run build
           '
 
       - name: Clean up SSH key
