@@ -1225,9 +1225,11 @@ abstract class BaseAssessment
     }
 
     /**
-     * Start correction for all unclassified copies or submissions.
+     * Start correction for every unclassified copy.
      *
-     * Subclasses may override this method to adjust which files are processed.
+     * Checkout calls this after payment, and also when the batch is free.
+     * The set of copies does not depend on whether a charge was made.
+     * A single-copy trial is testCorrection().
      *
      * @return array Updated file list
      */
@@ -1256,23 +1258,15 @@ abstract class BaseAssessment
     }
 
     /**
-     * Start correction without checkout. Used from the test-correction button.
+     * Start correction for one copy, without checkout. Used from the test-correction button.
      *
-     * Subclasses may override this method to adjust test behavior.
+     * The paid or free full launch is startCorrection(), which processes every copy.
      *
      * @return array Updated file list
      */
     public function testCorrection(): array
     {
-        if ($this->unclassifiedFileIds() !== []) {
-            return $this->correctUnclassifiedFiles();
-        }
-        foreach ($this->listFileModels() as $file) {
-            if ($file->type === 'submission' && $file->id !== null && $file->id !== '') {
-                return $this->correctSubmission($file->id);
-            }
-        }
-        throw new WSException('No copies to correct', 400);
+        return $this->correctFirstCopy();
     }
 
     /**

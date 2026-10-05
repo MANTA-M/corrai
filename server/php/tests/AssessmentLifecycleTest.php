@@ -734,12 +734,12 @@ class AssessmentLifecycleTest extends TestCase
         $assessment->delete();
     }
 
-    public function testDictationOnlyCorrectsFirstFile(): void
+    public function testDictationStartCorrectionCoversEveryCopyAndTestCoversOne(): void
     {
         $assessment = new \Corrai\Subject\Dictation\Assessment();
         $assessment->school_id = $this->user->school_id;
         $assessment->user_id = $this->user->id;
-        $assessment->name = '[Test] Dictation First Copy Only Assessment';
+        $assessment->name = '[Test] Dictation Full Correction Assessment';
         $assessment->date = '2026-10-04';
         $assessment->id = HashId::create();
         $assessment->save();
@@ -758,11 +758,33 @@ class AssessmentLifecycleTest extends TestCase
         $reloaded2 = $assessment->getFile($file2->id);
         $events2 = array_column($reloaded2->listEvents(), 'name');
 
-        $queuedCount = (in_array('OCR queued', $events1, true) ? 1 : 0)
-            + (in_array('OCR queued', $events2, true) ? 1 : 0);
-        $this->assertSame(1, $queuedCount, 'Exactly one copy should have OCR queued');
+        $this->assertContains('OCR queued', $events1);
+        $this->assertContains('OCR queued', $events2);
 
         $assessment->delete();
+
+        $sample = new \Corrai\Subject\Dictation\Assessment();
+        $sample->school_id = $this->user->school_id;
+        $sample->user_id = $this->user->id;
+        $sample->name = '[Test] Dictation Test Correction Assessment';
+        $sample->date = '2026-10-04';
+        $sample->id = HashId::create();
+        $sample->save();
+
+        $sample1 = $this->createRandomTempFile('sample1_', '.txt');
+        $sampleFile1 = $sample->createFileFromPath(basename($sample1), $sample1, 'text/plain', 'submission', null);
+        $sample2 = $this->createRandomTempFile('sample2_', '.txt');
+        $sampleFile2 = $sample->createFileFromPath(basename($sample2), $sample2, 'text/plain', 'submission', null);
+
+        $sample->testCorrection();
+
+        $sampleEvents1 = array_column($sample->getFile($sampleFile1->id)->listEvents(), 'name');
+        $sampleEvents2 = array_column($sample->getFile($sampleFile2->id)->listEvents(), 'name');
+        $queuedCount = (in_array('OCR queued', $sampleEvents1, true) ? 1 : 0)
+            + (in_array('OCR queued', $sampleEvents2, true) ? 1 : 0);
+        $this->assertSame(1, $queuedCount, 'Test correction queues a single copy');
+
+        $sample->delete();
     }
 
     /**

@@ -120,14 +120,4 @@ class Assessment extends BaseAssessment
 
         return $file;
     }
-
-    public function startCorrection(): array
-    {
-        return $this->correctFirstCopy();
-    }
-
-    public function testCorrection(): array
-    {
-        return $this->correctFirstCopy();
-    }
 }

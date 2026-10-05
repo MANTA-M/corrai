@@ -169,9 +169,4 @@ class Assessment extends BaseAssessment
         }
         return $ids;
     }
-
-    public function testCorrection(): array
-    {
-        return $this->correctFirstCopy();
-    }
 }
