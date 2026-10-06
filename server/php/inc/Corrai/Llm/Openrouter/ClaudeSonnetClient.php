@@ -9,7 +9,6 @@ class ClaudeSonnetClient extends OpenrouterClient
 {
     public const MAX_IMAGE_DIMENTION = 1568;
     public float $rescale = 1.0;
-    public int $debug = 0;
 
     public function __construct()
     {

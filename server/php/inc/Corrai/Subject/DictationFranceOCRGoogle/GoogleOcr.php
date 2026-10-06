@@ -46,6 +46,15 @@ class GoogleOcr extends PathQueueItemTask
             return;
         }
 
+        if ($file->size > GoogleOCRClient::MAX_FILE_SIZE) {
+            try {
+                $file->appendEvent('Image file too heavy');
+            } catch (\Throwable $e) {
+                error_log($e->getMessage());
+            }
+            throw new \Exception('Image file too heavy');
+        }
+
         $copyPath = null;
         try {
             $file->appendEvent('OCR started');
@@ -53,7 +62,7 @@ class GoogleOcr extends PathQueueItemTask
             $copyPath = $store->downloadToTemp($file->contentKey());
 
             $client = $this->createGoogleOCRClient();
-            $client->set_file($copyPath, $file->name);
+            $client->set_file($copyPath, $file->name, $file);
             $client->set_language(self::OCR_LANG);
             $result = OCRResult::from_google($client->process());
 

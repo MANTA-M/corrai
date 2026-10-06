@@ -798,6 +798,60 @@ class AssessmentLifecycleTest extends TestCase
     /**
      * Create a temp file with random bytes; tracked for tearDown cleanup.
      */
+    public function testHeicSubjectPagesAndStudentCopiesAreStoredAsWebp(): void
+    {
+        if (!extension_loaded('imagick')) {
+            $this->markTestSkipped('Imagick extension required');
+        }
+        $formats = array_map('strtoupper', (new \Imagick())->queryFormats('HEI*'));
+        if (!in_array('HEIC', $formats, true) && !in_array('HEIF', $formats, true)) {
+            $this->markTestSkipped('Imagick has no HEIC decoder');
+        }
+
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] HEIC Assessment';
+        $assessment->subject = 'Other';
+        $assessment->date = '2026-10-06';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $source = __DIR__ . '/fixtures/capture.heic';
+        $bytes = file_get_contents($source);
+        $this->assertNotFalse($bytes);
+
+        $subject = $assessment->createFileFromPath('page.HEIC', $source, 'image/heic', 'subject', null);
+        $copy = $assessment->createFileModel('copie.heic', $bytes, 'image/heic', 'submission', null);
+        $solution = $assessment->createFileModel('corrige.heic', $bytes, 'image/heic', 'solution', null);
+
+        $store = ObjectStore::getInstance();
+        $subjectWebp = $store->getContents($subject->contentKey());
+        $copyWebp = $store->getContents($copy->contentKey());
+        $subjectInfo = getimagesizefromstring($subjectWebp);
+        $copyInfo = getimagesizefromstring($copyWebp);
+
+        $this->assertSame('page.webp', $subject->name);
+        $this->assertSame('image/webp', $subject->content_type);
+        $this->assertSame(strlen($subjectWebp), $subject->size);
+        $this->assertNotFalse($subjectInfo);
+        $this->assertSame(IMAGETYPE_WEBP, $subjectInfo[2]);
+
+        $this->assertSame('copie.webp', $copy->name);
+        $this->assertSame('image/webp', $copy->content_type);
+        $this->assertNotFalse($copyInfo);
+        $this->assertSame(IMAGETYPE_WEBP, $copyInfo[2]);
+
+        $this->assertSame('corrige.webp', $solution->name);
+        $this->assertSame('image/webp', $solution->content_type);
+        $solutionWebp = $store->getContents($solution->contentKey());
+        $solutionInfo = getimagesizefromstring($solutionWebp);
+        $this->assertNotFalse($solutionInfo);
+        $this->assertSame(IMAGETYPE_WEBP, $solutionInfo[2]);
+
+        $assessment->delete();
+    }
+
     private function createRandomTempFile(string $prefix, string $suffix): string
     {
         $path = tempnam(sys_get_temp_dir(), $prefix);

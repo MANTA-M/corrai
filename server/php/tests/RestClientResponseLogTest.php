@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
+use Corrai\Llm\LlmClient;
 use Corrai\Utils\Http\RestClient;
 use PHPUnit\Framework\TestCase;
 
@@ -129,7 +130,7 @@ class RestClientResponseLogTest extends TestCase
     }
 }
 
-class TestableRestClient extends RestClient
+class TestableRestClient extends LlmClient
 {
     public function __construct()
     {

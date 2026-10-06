@@ -460,71 +460,90 @@ const uploadSubjectFiles = async (files: File[]) => {
   }))
 
   const wsClient = sessionStore.getWsClient()
+  const addingToDraft = draftId.value !== ''
   try {
+    if (!addingToDraft) {
+      for (const item of uploadItems.value) {
+        item.kind = 'intake'
+        item.status = 'uploading'
+      }
+      const formData = new FormData()
+      for (const file of files) {
+        formData.append('files[]', file)
+      }
+      const response = await wsClient.queryWs<{
+        hash?: string
+        name?: string
+        subject?: string
+        level?: string | null
+        country?: string | null
+        date?: string
+      }>('POST', '/assessment_subject', { locale: String(locale.value) }, formData, 'form')
+
+      const id = response?.hash
+      if (!id) {
+        for (const item of uploadItems.value) item.status = 'error'
+        error.value = t('createAssessment.analyzeError')
+        return
+      }
+
+      draftId.value = id
+      analyzedCountry.value = response.country ?? null
+      form.name = response.name || ''
+      form.subject = response.subject || ''
+      form.level = response.level || ''
+      form.date = response.date || ''
+      sessionStore.own_assessments.push({
+        id,
+        author: userId,
+        name: form.name,
+        subject: form.subject,
+        country: analyzedCountry.value,
+        level: form.level || null,
+        date: form.date,
+        files: []
+      })
+      for (const item of uploadItems.value) item.status = 'done'
+      step.value = 'details'
+      return
+    }
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const item = uploadItems.value[i]
-      item.kind = draftId.value ? 'extra' : 'intake'
+      item.kind = 'extra'
       item.status = 'uploading'
       try {
-        if (item.kind === 'intake') {
-          const formData = new FormData()
-          formData.append('file', file)
-          const response = await wsClient.queryWs<{
-            hash?: string
-            name?: string
-            subject?: string
-            level?: string | null
-            country?: string | null
-            date?: string
-          }>('POST', '/assessment_subject', { locale: String(locale.value) }, formData, 'form')
-
-          const id = response?.hash
-          if (!id) {
-            item.status = 'error'
-            error.value = t('createAssessment.analyzeError')
-            continue
-          }
-
-          draftId.value = id
-          analyzedCountry.value = response.country ?? null
-          form.name = response.name || ''
-          form.subject = response.subject || ''
-          form.level = response.level || ''
-          form.date = response.date || ''
-          sessionStore.own_assessments.push({
-            id,
-            author: userId,
-            name: form.name,
-            subject: form.subject,
-            country: analyzedCountry.value,
-            level: form.level || null,
-            date: form.date,
-            files: []
-          })
-          item.status = 'done'
-        } else {
-          const formData = new FormData()
-          formData.append('file', file)
-          await wsClient.queryWs(
-            'POST',
-            '/file',
-            { assessment: draftId.value, locale: String(locale.value), type: 'subject' },
-            formData,
-            'form'
-          )
-          item.status = 'done'
-        }
+        const formData = new FormData()
+        formData.append('file', file)
+        await wsClient.queryWs(
+          'POST',
+          '/file',
+          { assessment: draftId.value, locale: String(locale.value), type: 'subject' },
+          formData,
+          'form'
+        )
+        item.status = 'done'
       } catch (err) {
         console.error('Error uploading subject file:', err)
         item.status = 'error'
-        error.value = item.kind === 'intake' ? t('createAssessment.analyzeError') : t('assessment.uploadError')
+        error.value = t('assessment.uploadError')
       }
     }
 
     const allSucceeded = uploadItems.value.every((item) => item.status === 'done')
     if (allSucceeded && draftId.value) {
       step.value = 'details'
+    }
+  } catch (err) {
+    console.error('Error uploading subject file:', err)
+    for (const item of uploadItems.value) {
+      if (item.status === 'uploading' || item.status === 'pending') {
+        item.status = 'error'
+      }
+    }
+    if (!error.value) {
+      error.value = t('createAssessment.analyzeError')
     }
   } finally {
     isAnalyzing.value = false

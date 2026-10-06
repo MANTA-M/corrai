@@ -2,11 +2,11 @@
 
 namespace Corrai\Llm\Openrouter;
 
+use Corrai\Llm\LlmClient;
 use Corrai\Utils\Http\JsonUtils;
-use Corrai\Utils\Http\RestClient;
 use Corrai\Utils\Http\WSException;
 
-abstract class OpenrouterClient extends RestClient
+abstract class OpenrouterClient extends LlmClient
 {
     const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -18,9 +18,6 @@ abstract class OpenrouterClient extends RestClient
     protected function __construct(string $model)
     {
         parent::__construct('', $_ENV['OPENROUTER_API_KEY'] ?? '');
-        $this->send_length = true;
-        $this->verbose = true;
-        $this->timeout = 180;
         $this->payload["model"] = $model;
     }
 

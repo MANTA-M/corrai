@@ -2,8 +2,8 @@
 
 namespace Corrai\Llm\Mistral;
 
+use Corrai\Llm\LlmClient;
 use Corrai\Utils\Image\ImageRedimentioner;
-use Corrai\Utils\Http\RestClient;
 use Corrai\Utils\Utils;
 use Corrai\Utils\Http\WSException;
 use InvalidArgumentException;
@@ -12,7 +12,7 @@ use InvalidArgumentException;
  * Direct Mistral OCR client.
  * Posts to https://api.mistral.ai/v1/ocr using MISTRAL_API_KEY.
  */
-class MistralOcrClient extends RestClient
+class MistralOcrClient extends LlmClient
 {
     public const MISTRAL_OCR_URL = 'https://api.mistral.ai/v1/ocr';
     public const MAX_IMAGE_DIMENTION = 1568;
@@ -27,9 +27,6 @@ class MistralOcrClient extends RestClient
     public function __construct(?string $model = null)
     {
         parent::__construct('', $_ENV['MISTRAL_API_KEY'] ?? '');
-        $this->send_length = true;
-        $this->verbose = true;
-        $this->timeout = 180;
         $this->payload['model'] = $model
             ?: ($_ENV['MISTRAL_OCR_MODEL'] ?? 'mistral-ocr-latest');
     }

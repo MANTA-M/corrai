@@ -56,6 +56,42 @@ class ThumbnailTaskTest extends TestCase
         $this->assertSame(40, $size[1]);
     }
 
+    public function testJpegBytesAcceptsWebpSource(): void
+    {
+        if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+            $this->markTestSkipped('GD with WebP support required');
+        }
+
+        $jpeg = Thumbnail::jpegBytes($this->webpBytes(300, 150), 200);
+        $size = @getimagesizefromstring($jpeg);
+
+        $this->assertNotFalse($size);
+        $this->assertSame(IMAGETYPE_JPEG, $size[2]);
+        $this->assertSame(200, $size[0]);
+        $this->assertSame(100, $size[1]);
+    }
+
+    public function testJpegBytesAcceptsHeicSource(): void
+    {
+        if (!extension_loaded('imagick')) {
+            $this->markTestSkipped('Imagick is required to decode HEIC');
+        }
+        $formats = array_map('strtoupper', (new \Imagick())->queryFormats('HEI*'));
+        if (!in_array('HEIC', $formats, true) && !in_array('HEIF', $formats, true)) {
+            $this->markTestSkipped('Imagick has no HEIC decoder');
+        }
+
+        $heic = file_get_contents(__DIR__ . '/fixtures/capture.heic');
+        $this->assertNotFalse($heic);
+        $jpeg = Thumbnail::jpegBytes($heic, 256);
+        $size = @getimagesizefromstring($jpeg);
+
+        $this->assertNotFalse($size);
+        $this->assertSame(IMAGETYPE_JPEG, $size[2]);
+        $this->assertSame(16, $size[0]);
+        $this->assertSame(10, $size[1]);
+    }
+
     public function testJpegBytesAcceptsTiffSource(): void
     {
         if (!extension_loaded('imagick')) {
@@ -215,6 +251,20 @@ class ThumbnailTaskTest extends TestCase
         imagefilledrectangle($image, 0, 0, $width, $height, $blue);
         ob_start();
         imagejpeg($image, null, 90);
+        imagedestroy($image);
+        $bytes = ob_get_clean();
+        $this->assertNotFalse($bytes);
+        return $bytes;
+    }
+
+    private function webpBytes(int $width, int $height): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $this->assertNotFalse($image);
+        $green = imagecolorallocate($image, 40, 200, 80);
+        imagefilledrectangle($image, 0, 0, $width, $height, $green);
+        ob_start();
+        imagewebp($image, null, 90);
         imagedestroy($image);
         $bytes = ob_get_clean();
         $this->assertNotFalse($bytes);

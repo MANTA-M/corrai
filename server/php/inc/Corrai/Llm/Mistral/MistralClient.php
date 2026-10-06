@@ -2,9 +2,9 @@
 
 namespace Corrai\Llm\Mistral;
 
+use Corrai\Llm\LlmClient;
 use Corrai\Utils\Image\ImageRedimentioner;
 use Corrai\Utils\Http\JsonUtils;
-use Corrai\Utils\Http\RestClient;
 use Corrai\Utils\Utils;
 use Corrai\Utils\Http\WSException;
 
@@ -12,7 +12,7 @@ use Corrai\Utils\Http\WSException;
  * Direct Mistral chat client with the same call surface as OpenrouterClient.
  * Posts to https://api.mistral.ai/v1/chat/completions using MISTRAL_API_KEY.
  */
-class MistralClient extends RestClient
+class MistralClient extends LlmClient
 {
     public const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
     public const MAX_IMAGE_DIMENTION = 1568;
@@ -27,9 +27,6 @@ class MistralClient extends RestClient
     public function __construct(?string $model = null)
     {
         parent::__construct('', $_ENV['MISTRAL_API_KEY'] ?? '');
-        $this->send_length = true;
-        $this->verbose = true;
-        $this->timeout = 180;
         $this->payload['model'] = $model
             ?: ($_ENV['MISTRAL_MODEL'] ?? 'mistral-large-latest');
     }

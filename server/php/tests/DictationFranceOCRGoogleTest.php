@@ -188,6 +188,81 @@ class DictationFranceOCRGoogleTest extends TestCase
         $this->assertInstanceOf(GoogleOCRClient::class, $method->invoke($task));
         $this->assertSame('ocr/ocr/google', GoogleOCRClient::MODEL);
     }
+
+    public function testSetFileThrowsWhenFileExceeds10Mb(): void
+    {
+        $largeFilePath = tempnam(sys_get_temp_dir(), 'large_img_') . '.png';
+        $fp = fopen($largeFilePath, 'wb');
+        $this->assertNotFalse($fp);
+        fseek($fp, 10 * 1024 * 1024);
+        fwrite($fp, "\0");
+        fclose($fp);
+
+        try {
+            $client = new GoogleOCRClient();
+            $this->expectException(\Exception::class);
+            $this->expectExceptionMessage('Image file too heavy');
+            $client->set_file($largeFilePath, 'scan.png');
+        } finally {
+            @unlink($largeFilePath);
+        }
+    }
+
+    public function testSetFileAppendsEventWhenFileIsInputFileAndExceeds10Mb(): void
+    {
+        $largeFilePath = tempnam(sys_get_temp_dir(), 'large_img_') . '.png';
+        $fp = fopen($largeFilePath, 'wb');
+        $this->assertNotFalse($fp);
+        fseek($fp, 10 * 1024 * 1024);
+        fwrite($fp, "\0");
+        fclose($fp);
+
+        $file = $this->createMock(File::class);
+        $file->name = 'scan.png';
+        $file->expects($this->once())
+            ->method('appendEvent')
+            ->with('Image file too heavy');
+
+        try {
+            $client = new GoogleOCRClient();
+            $this->expectException(\Exception::class);
+            $this->expectExceptionMessage('Image file too heavy');
+            $client->set_file($largeFilePath, 'scan.png', $file);
+        } finally {
+            @unlink($largeFilePath);
+        }
+    }
+
+    public function testSetFileInputFileWithSizeOver10MbThrowsAndAppendsEvent(): void
+    {
+        $file = $this->createMock(File::class);
+        $file->size = 11 * 1024 * 1024;
+        $file->name = 'scan.png';
+        $file->expects($this->once())
+            ->method('appendEvent')
+            ->with('Image file too heavy');
+
+        $client = new GoogleOCRClient();
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Image file too heavy');
+        $client->set_file($file);
+    }
+
+    public function testGoogleOcrRecognizeThrowsAndAppendsEventWhenFileExceeds10Mb(): void
+    {
+        $file = $this->createMock(File::class);
+        $file->type = 'submission';
+        $file->size = 11 * 1024 * 1024;
+        $file->name = 'copy.png';
+        $file->expects($this->once())
+            ->method('appendEvent')
+            ->with('Image file too heavy');
+
+        $ocr = new GoogleOcr();
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Image file too heavy');
+        $ocr->recognize($file);
+    }
 }
 
 class TestableOcrGoogleCorrectingTask extends Task1Correcting

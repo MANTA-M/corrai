@@ -7,6 +7,7 @@ use Corrai\Llm\Openrouter\LlmClientFactory;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
+use Corrai\Utils\Image\HeicToWebp;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 use Corrai\Subject\Catalog;
@@ -1065,28 +1066,57 @@ abstract class BaseAssessment
         string $content,
         string $contentType,
         ?string $type,
-        ?string $student
+        ?string $student,
+        bool $enqueue = true
     ): InputFile|S3File {
+        $converted = $this->heicStoredAsWebp($filename, $type, $content);
+        if ($converted !== null) {
+            $filename = $converted['filename'];
+            $content = $converted['bytes'];
+            $contentType = $converted['contentType'];
+        }
         [$filename, $type, $studentHash] = $this->prepareNewFile($filename, $type, $student);
         $contentType = $contentType !== '' ? $contentType : 'application/octet-stream';
         if (S3File::storesAsBlob($type)) {
             return $this->storeNewBlob($filename, $contentType, $type, $studentHash, strlen($content), null, $content);
         }
         $file = $this->newInputFile($filename, $contentType, $type, $studentHash, strlen($content));
-        $this->storeNewInput($file, null, $content);
+        $this->storeNewInput($file, null, $content, $enqueue);
         return $file;
     }
 
     /**
      * Upload from a local path (multipart upload).
+     *
+     * Subject intake stores the files it is still reading with $enqueue false.
+     * Files added once the subject is known use the default and join the queue.
      */
     public function createFileFromPath(
         string $filename,
         string $localPath,
         ?string $contentType,
         ?string $type,
-        ?string $student
+        ?string $student,
+        bool $enqueue = true
     ): InputFile|S3File {
+        $head = file_get_contents($localPath, false, null, 0, 264);
+        if (is_string($head) && HeicToWebp::isHeif($head)) {
+            $bytes = file_get_contents($localPath);
+            if ($bytes === false || $bytes === '') {
+                throw new WSException('Failed to read uploaded file', 400);
+            }
+            $converted = $this->heicStoredAsWebp($filename, $type, $bytes);
+            if ($converted !== null) {
+                return $this->createFileModel(
+                    $converted['filename'],
+                    $converted['bytes'],
+                    $converted['contentType'],
+                    $type,
+                    $student,
+                    $enqueue
+                );
+            }
+        }
         [$filename, $type, $studentHash] = $this->prepareNewFile($filename, $type, $student);
         $size = filesize($localPath);
         if ($size === false) {
@@ -1099,7 +1129,7 @@ abstract class BaseAssessment
             return $this->storeNewBlob($filename, $resolvedType, $type, $studentHash, (int) $size, $localPath, null);
         }
         $file = $this->newInputFile($filename, $resolvedType, $type, $studentHash, (int) $size);
-        $this->storeNewInput($file, $localPath, null);
+        $this->storeNewInput($file, $localPath, null, $enqueue);
         return $file;
     }
 
@@ -1161,6 +1191,14 @@ abstract class BaseAssessment
     {
         $file = $this->getFile($fileId);
         $type = $contentType ?? $file->content_type;
+        if (HeicToWebp::isHeif($content)) {
+            try {
+                $content = (new HeicToWebp($content))->webp;
+                $type = 'image/webp';
+            } catch (\Throwable $exception) {
+                throw new WSException('Cannot convert HEIC image', 400, $exception);
+            }
+        }
         if ($type === '') {
             $type = 'text/plain; charset=utf-8';
         }
@@ -1517,6 +1555,31 @@ abstract class BaseAssessment
     }
 
     /**
+     * All uploaded HEIC images are converted and stored as WebP.
+     *
+     * @return array{filename: string, contentType: string, bytes: string}|null
+     */
+    private function heicStoredAsWebp(string $filename, ?string $type, string $bytes): ?array
+    {
+        if (!HeicToWebp::isHeif($bytes)) {
+            return null;
+        }
+
+        try {
+            $webp = (new HeicToWebp($bytes))->webp;
+        } catch (\Throwable $exception) {
+            throw new WSException('Cannot convert HEIC image', 400, $exception);
+        }
+
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        return [
+            'filename' => ($base !== '' ? $base : 'image') . '.webp',
+            'contentType' => 'image/webp',
+            'bytes' => $webp,
+        ];
+    }
+
+    /**
      * @return array{0: string, 1: string, 2: ?string}
      */
     private function prepareNewFile(string $filename, ?string $type, ?string $student): array
@@ -1580,7 +1643,7 @@ abstract class BaseAssessment
         return $file;
     }
 
-    private function storeNewInput(InputFile $file, ?string $localPath, ?string $bytes): void
+    private function storeNewInput(InputFile $file, ?string $localPath, ?string $bytes, bool $enqueue = true): void
     {
         $store = ObjectStore::getInstance();
         if ($localPath !== null) {
@@ -1590,7 +1653,9 @@ abstract class BaseAssessment
         }
         $file->saveAttributes(false);
         $file->appendEvent('Stored');
-        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
+        if ($enqueue) {
+            RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
+        }
     }
 
     private function storeNewBlob(

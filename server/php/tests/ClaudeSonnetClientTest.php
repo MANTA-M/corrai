@@ -115,6 +115,29 @@ class ClaudeSonnetClientTest extends TestCase
         }
     }
 
+    public function testWebpImageBytesUseWebpDataUrl(): void
+    {
+        if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+            $this->markTestSkipped('GD extension with WebP required');
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'corrai_webp_') . '.webp';
+        $image = imagecreatetruecolor(400, 300);
+        $this->assertNotFalse($image);
+        imagewebp($image, $path);
+        imagedestroy($image);
+
+        try {
+            $client = new TestableClaudeSonnetClient();
+            $client->add_file($path, 'scan.webp');
+
+            $url = $client->userContent()[0]['image_url']['url'] ?? '';
+            $this->assertMatchesRegularExpression('#^data:image/webp;base64,#', $url);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function testJsonResponseFormatIsSetOnThePayload(): void
     {
         $schema = [

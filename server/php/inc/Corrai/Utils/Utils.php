@@ -209,6 +209,8 @@ class Utils
             'bmp' => 'image/bmp',
             'tif' => 'image/tiff',
             'tiff' => 'image/tiff',
+            'heic' => 'image/heic',
+            'heif' => 'image/heif',
             'pdf' => 'application/pdf',
             'txt' => 'text/plain; charset=utf-8',
             'csv' => 'text/csv; charset=utf-8',

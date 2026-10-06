@@ -46,11 +46,13 @@ class File extends SubmissionFile
             'image/webp',
             'image/bmp',
             'image/tiff',
+            'image/heic',
+            'image/heif',
         ], true)) {
             return true;
         }
         $extension = strtolower(pathinfo($file->name, PATHINFO_EXTENSION));
-        return in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff'], true);
+        return in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff', 'heic', 'heif'], true);
     }
 
     public function on_correction_asked(): void

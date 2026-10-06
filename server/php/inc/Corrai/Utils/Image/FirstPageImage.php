@@ -26,6 +26,14 @@ class FirstPageImage
             return self::pdfFirstPage($sourcePath);
         }
 
+        if (HeicToWebp::isHeif($bytes)) {
+            try {
+                $bytes = (new HeicToWebp($bytes))->webp;
+            } catch (\Throwable $exception) {
+                throw new WSException('Cannot convert HEIC image', 400, $exception);
+            }
+        }
+
         if (!str_starts_with($mime, 'image/') && @getimagesizefromstring($bytes) === false) {
             throw new WSException('Subject file must be a PDF or an image', 400);
         }

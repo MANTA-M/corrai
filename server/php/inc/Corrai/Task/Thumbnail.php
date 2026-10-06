@@ -4,6 +4,7 @@ namespace Corrai\Task;
 
 use Corrai\Model\S3File;
 use Corrai\Model\Task\PathQueueItemTask;
+use Corrai\Utils\Image\HeicToWebp;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 use Exception;
@@ -15,8 +16,9 @@ use InvalidArgumentException;
 /**
  * Writes a JPEG thumbnail annex next to a stored image.
  *
- * JPG and PNG are decoded by PHP GD. TIFF is rasterized first because GD
- * cannot read TIFF, then the miniature is produced with GD.
+ * JPG, PNG, and WebP are decoded by PHP GD. HEIC is converted to WebP via Imagick.
+ * TIFF is rasterized first because GD cannot read TIFF, then the miniature
+ * is produced with GD.
  */
 class Thumbnail extends PathQueueItemTask
 {
@@ -114,6 +116,18 @@ class Thumbnail extends PathQueueItemTask
         $image = @imagecreatefromstring($bytes);
         if ($image instanceof GdImage) {
             return $image;
+        }
+
+        if (HeicToWebp::isHeif($bytes)) {
+            try {
+                $webp = (new HeicToWebp($bytes))->webp;
+                $image = @imagecreatefromstring($webp);
+                if ($image instanceof GdImage) {
+                    return $image;
+                }
+            } catch (\Throwable) {
+                // fall through to TIFF / error
+            }
         }
 
         if (!self::isTiff($bytes)) {

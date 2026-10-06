@@ -2,8 +2,10 @@
 
 namespace Corrai\Llm\Eden;
 
+use Corrai\Llm\LlmClient;
+use Corrai\Model\InputFile;
 use Corrai\Utils\Http\JsonUtils;
-use Corrai\Utils\Http\RestClient;
+use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Utils;
 use Corrai\Utils\Http\WSException;
 use InvalidArgumentException;
@@ -21,11 +23,12 @@ use InvalidArgumentException;
  * `input.file` is a file id from POST /v3/upload, or an http(s) URL Eden can fetch.
  * Docs: https://www.edenai.co/docs/v3/expert-models/features/ocr/ocr
  */
-class GoogleOCRClient extends RestClient
+class GoogleOCRClient extends LlmClient
 {
     public const UNIVERSAL_AI_URL = 'https://api.edenai.run/v3/universal-ai/';
     public const UPLOAD_URL = 'https://api.edenai.run/v3/upload';
     public const MODEL = 'ocr/ocr/google';
+    public const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo (10 MB)
 
     /** @var array<string, mixed> */
     protected array $payload = [
@@ -37,26 +40,88 @@ class GoogleOCRClient extends RestClient
     public function __construct()
     {
         parent::__construct('', $_ENV['EDENAI_API_KEY'] ?? '');
-        $this->send_length = true;
-        $this->verbose = true;
-        $this->timeout = 180;
     }
 
     /**
      * Upload a local PDF or image and use the returned file id as input.file.
+     *
+     * @param string|InputFile $file_path Local path to file or an InputFile instance.
+     * @param string|InputFile|null $file_name File name (or InputFile if path and file are given).
+     * @param InputFile|null $inputFile Optional InputFile instance when file_path is a string path.
      */
-    public function set_file(string $file_path, string $file_name): void
-    {
-        if (!is_readable($file_path)) {
-            throw new \Exception("Cannot read file: $file_name");
+    public function set_file(
+        string|InputFile $file_path,
+        string|InputFile|null $file_name = null,
+        ?InputFile $inputFile = null
+    ): void {
+        $actualInputFile = null;
+        $tempPath = null;
+
+        if ($file_path instanceof InputFile) {
+            $actualInputFile = $file_path;
+            if (is_string($file_name) && is_file($file_name)) {
+                $actualPath = $file_name;
+                $file_name = $actualInputFile->name;
+            } else {
+                $actualPath = null;
+                $file_name = is_string($file_name) && $file_name !== '' ? $file_name : $actualInputFile->name;
+            }
+        } else {
+            $actualPath = $file_path;
+            if ($file_name instanceof InputFile) {
+                $actualInputFile = $file_name;
+                $file_name = $actualInputFile->name;
+            } elseif ($inputFile instanceof InputFile) {
+                $actualInputFile = $inputFile;
+            }
+            if (!is_string($file_name) || $file_name === '') {
+                $file_name = basename($file_path);
+            }
         }
 
-        $mime = strtolower(trim(explode(';', Utils::mimeTypeForFilename($file_name))[0]));
-        if ($mime !== 'application/pdf' && !str_starts_with($mime, 'image/')) {
-            throw new InvalidArgumentException("Unsupported OCR file type: $file_name");
+        if ($actualInputFile !== null && $actualInputFile->size > self::MAX_FILE_SIZE) {
+            try {
+                $actualInputFile->appendEvent('Image file too heavy');
+            } catch (\Throwable $e) {
+                error_log($e->getMessage());
+            }
+            throw new \Exception('Image file too heavy');
         }
 
-        $this->payload['input']['file'] = $this->upload($file_path, $file_name, $mime);
+        try {
+            if ($actualPath === null) {
+                $store = ObjectStore::getInstance();
+                $tempPath = $store->downloadToTemp($actualInputFile->contentKey());
+                $actualPath = $tempPath;
+            }
+
+            if (!is_readable($actualPath)) {
+                throw new \Exception("Cannot read file: $file_name");
+            }
+
+            $size = filesize($actualPath);
+            if ($size !== false && $size > self::MAX_FILE_SIZE) {
+                if ($actualInputFile !== null) {
+                    try {
+                        $actualInputFile->appendEvent('Image file too heavy');
+                    } catch (\Throwable $e) {
+                        error_log($e->getMessage());
+                    }
+                }
+                throw new \Exception('Image file too heavy');
+            }
+
+            $mime = strtolower(trim(explode(';', Utils::mimeTypeForFilename($file_name))[0]));
+            if ($mime !== 'application/pdf' && !str_starts_with($mime, 'image/')) {
+                throw new InvalidArgumentException("Unsupported OCR file type: $file_name");
+            }
+
+            $this->payload['input']['file'] = $this->upload($actualPath, $file_name, $mime);
+        } finally {
+            if ($tempPath !== null && is_file($tempPath)) {
+                @unlink($tempPath);
+            }
+        }
     }
 
     /**
@@ -232,7 +297,7 @@ class GoogleOCRClient extends RestClient
             $opts[CURLOPT_SSL_VERIFYHOST] = 0;
             $opts[CURLOPT_SSL_VERIFYPEER] = false;
         }
-        if ($this->verbose) {
+        if ($this->shouldLog()) {
             error_log('REST QUERY POST ' . self::UPLOAD_URL);
         }
 
