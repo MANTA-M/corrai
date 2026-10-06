@@ -3,11 +3,11 @@
 namespace Corrai\Model;
 
 use Exception;
-use Corrai\Utils\HashId;
+use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\StoreConflictException;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Store\StoreConflictException;
+use Corrai\Utils\Http\WSException;
 
 /**
  * Shared student model. Subject packages may provide a concrete Student.
@@ -25,6 +25,44 @@ class BaseStudent
     public string $name = '';
 
     public string $status = '';
+
+    /**
+     * Student state labels. Subject students may add states.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const STATUS_LABELS = [
+        'pending' => [
+            'en' => 'Pending',
+            'fr' => 'En attente',
+            'ru' => 'Ожидает',
+            'uk' => 'Очікує',
+            'es' => 'Pendiente',
+            'pt' => 'Pendente',
+            'ro' => 'În așteptare',
+            'de' => 'Ausstehend',
+        ],
+        'graded' => [
+            'en' => 'Graded',
+            'fr' => 'Noté',
+            'ru' => 'Оценён',
+            'uk' => 'Оцінено',
+            'es' => 'Calificado',
+            'pt' => 'Classificado',
+            'ro' => 'Notat',
+            'de' => 'Benotet',
+        ],
+        'error' => [
+            'en' => 'Error',
+            'fr' => 'Erreur',
+            'ru' => 'Ошибка',
+            'uk' => 'Помилка',
+            'es' => 'Error',
+            'pt' => 'Erro',
+            'ro' => 'Eroare',
+            'de' => 'Fehler',
+        ],
+    ];
 
     public ?float $mark = null;
 
@@ -192,6 +230,29 @@ class BaseStudent
         $store = ObjectStore::getInstance();
         $store->deletePrefix($this->prefix());
         $store->deleteIdPointer($this->id);
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    protected static function statusLabelTable(): array
+    {
+        return self::STATUS_LABELS;
+    }
+
+    /**
+     * Every student state, as key => label in the queried locale.
+     *
+     * @return array<string, string>
+     */
+    public static function statusLabels(?string $locale = null): array
+    {
+        $locale = MenuLabels::locale($locale);
+        $map = [];
+        foreach (static::statusLabelTable() as $status => $labels) {
+            $map[$status] = MenuLabels::pick($labels, $locale, $status);
+        }
+        return $map;
     }
 
     public function to_output(?string $locale = null): array

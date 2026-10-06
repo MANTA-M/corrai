@@ -15,7 +15,7 @@ require_once $root . '/vendor/autoload.php';
 require_once $root . '/inc/autoload.php';
 
 use Corrai\Model\Assessment;
-use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Utils;
 
 $envFile = $root . '/.env';

@@ -10,7 +10,7 @@ use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\SubjectIntake;
 use Corrai\Subject\SubjectPageReader;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 use Redis;
 

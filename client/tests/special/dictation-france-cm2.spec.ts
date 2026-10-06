@@ -55,6 +55,11 @@ test.describe('Dictation France CM2', () => {
         throw new Error(await analyzeError.innerText())
       }
 
+      const currentName = (await nameField.inputValue()).trim()
+      if (!currentName.startsWith('[Test]')) {
+        await nameField.fill(currentName ? `[Test] ${currentName}` : teacherName)
+      }
+
       await page.getByTestId('assessment-submit').click()
       try {
         await page.waitForURL(/\/assessment\/[^/]+$/, { timeout: 20_000 })

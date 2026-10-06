@@ -7,8 +7,8 @@ use Corrai\Model\BaseAssessment;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\WSException;
 use Throwable;
 
 /**

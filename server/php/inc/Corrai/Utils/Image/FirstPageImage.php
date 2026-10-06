@@ -1,6 +1,9 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Image;
+
+use Corrai\Utils\Http\WSException;
+use Corrai\Utils\Utils;
 
 /**
  * Raster of the first page of a subject file, as JPEG bytes on disk.

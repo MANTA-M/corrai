@@ -7,9 +7,9 @@ namespace Corrai\Tests;
 use Corrai\Model\Assessment;
 use Corrai\Model\School;
 use Corrai\Model\User;
-use Corrai\Utils\HashId;
+use Corrai\Utils\Store\HashId;
 use Corrai\Utils\TestData;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 
 class TestDataDeleteTest extends TestCase

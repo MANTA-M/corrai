@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Http;
 
 use Exception;
 

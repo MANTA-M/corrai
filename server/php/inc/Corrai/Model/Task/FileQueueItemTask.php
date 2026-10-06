@@ -2,7 +2,7 @@
 
 namespace Corrai\Model\Task;
 
-use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Store\ObjectStore;
 
 /**
  * Base class for tasks that process files from the object store.

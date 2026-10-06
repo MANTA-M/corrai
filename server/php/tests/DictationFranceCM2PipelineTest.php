@@ -11,7 +11,7 @@ use Corrai\Subject\DictationFranceCM2\File;
 use Corrai\Subject\DictationFranceCM2\Task1Correcting;
 use Corrai\Subject\DictationFranceCM2\Task2Annotating;
 use Corrai\Subject\DictationFranceCM2\Pipeline;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 
 class DictationFranceCM2PipelineTest extends TestCase

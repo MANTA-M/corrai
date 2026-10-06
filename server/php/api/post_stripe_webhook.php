@@ -3,7 +3,7 @@
 use Corrai\Model\Assessment;
 use Corrai\Payment\CorrectionCheckout;
 use Corrai\Payment\StripeClient;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\Request;
 
 try {
     $payload = file_get_contents('php://input');

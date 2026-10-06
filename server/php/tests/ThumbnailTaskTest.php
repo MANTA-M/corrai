@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Corrai\Tests;
+
+use Corrai\Model\Assessment;
+use Corrai\Model\School;
+use Corrai\Model\User;
+use Corrai\Queue\RedisQueue;
+use Corrai\Task\Thumbnail;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Store\ObjectStore;
+use InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
+use Redis;
+
+class ThumbnailTaskTest extends TestCase
+{
+    private array $tempFiles = [];
+
+    protected function setUp(): void
+    {
+        if (!extension_loaded('gd')) {
+            $this->markTestSkipped('GD extension required');
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        RedisQueue::setInstance(null);
+        foreach ($this->tempFiles as $path) {
+            @unlink($path);
+        }
+    }
+
+    public function testJpegBytesShrinksAPngSoTheLongSideFits(): void
+    {
+        $jpeg = Thumbnail::jpegBytes($this->pngBytes(400, 200), 256);
+        $size = @getimagesizefromstring($jpeg);
+
+        $this->assertNotFalse($size);
+        $this->assertSame(IMAGETYPE_JPEG, $size[2]);
+        $this->assertSame(256, $size[0]);
+        $this->assertSame(128, $size[1]);
+    }
+
+    public function testJpegBytesAcceptsJpegSource(): void
+    {
+        $jpeg = Thumbnail::jpegBytes($this->jpegBytes(80, 40), 256);
+        $size = @getimagesizefromstring($jpeg);
+
+        $this->assertNotFalse($size);
+        $this->assertSame(IMAGETYPE_JPEG, $size[2]);
+        $this->assertSame(80, $size[0]);
+        $this->assertSame(40, $size[1]);
+    }
+
+    public function testJpegBytesAcceptsTiffSource(): void
+    {
+        if (!extension_loaded('imagick')) {
+            $this->markTestSkipped('Imagick is required to decode TIFF');
+        }
+
+        $jpeg = Thumbnail::jpegBytes($this->tiffBytes(300, 100), 150);
+        $size = @getimagesizefromstring($jpeg);
+
+        $this->assertNotFalse($size);
+        $this->assertSame(IMAGETYPE_JPEG, $size[2]);
+        $this->assertSame(150, $size[0]);
+        $this->assertSame(50, $size[1]);
+    }
+
+    public function testJpegBytesRejectsNonImages(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        Thumbnail::jpegBytes('not-an-image');
+    }
+
+    public function testTaskWritesThumbnailAnnex(): void
+    {
+        $redis = $this->getMockBuilder(Redis::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['lPush', 'brPop', 'connect'])
+            ->getMock();
+        $redis->method('lPush')->willReturn(1);
+        RedisQueue::setInstance(new RedisQueue($redis));
+
+        $school = School::ensureIndependent();
+        $suffix = bin2hex(random_bytes(4));
+        $user = $school->addUser(
+            "teacher_{$suffix}@ind.test",
+            "Teacher {$suffix}",
+            "pass-{$suffix}",
+            User::ROLE_TEACHER
+        );
+        $assessment = new Assessment();
+        $assessment->school_id = $user->school_id;
+        $assessment->user_id = $user->id;
+        $assessment->name = 'Test Assessment ' . $suffix;
+        $assessment->subject = 'Dictation';
+        $assessment->date = '2026-06-15';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $path = $this->writeTemp($this->pngBytes(320, 160));
+        $file = $assessment->createFileFromPath('copy.png', $path, 'image/png', 'submission', null);
+
+        $task = new Thumbnail();
+        $task->process_task((object) [
+            'path' => $file->contentKey(),
+            'task' => Thumbnail::class,
+            'task_id' => Thumbnail::class,
+            'file_id' => $file->id,
+        ]);
+
+        $store = ObjectStore::getInstance();
+        $this->assertTrue($store->exists($file->thumbnailKey()));
+        $this->assertContains(ObjectStore::THUMBNAIL_FILE, $file->listAnnexes());
+
+        $size = @getimagesizefromstring($store->getContents($file->thumbnailKey()));
+        $this->assertNotFalse($size);
+        $this->assertSame(IMAGETYPE_JPEG, $size[2]);
+        $this->assertSame(256, $size[0]);
+        $this->assertSame(128, $size[1]);
+    }
+
+    private function pngBytes(int $width, int $height): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $this->assertNotFalse($image);
+        $red = imagecolorallocate($image, 200, 40, 40);
+        imagefilledrectangle($image, 0, 0, $width, $height, $red);
+        ob_start();
+        imagepng($image);
+        imagedestroy($image);
+        $bytes = ob_get_clean();
+        $this->assertNotFalse($bytes);
+        return $bytes;
+    }
+
+    private function jpegBytes(int $width, int $height): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $this->assertNotFalse($image);
+        $blue = imagecolorallocate($image, 40, 80, 200);
+        imagefilledrectangle($image, 0, 0, $width, $height, $blue);
+        ob_start();
+        imagejpeg($image, null, 90);
+        imagedestroy($image);
+        $bytes = ob_get_clean();
+        $this->assertNotFalse($bytes);
+        return $bytes;
+    }
+
+    private function tiffBytes(int $width, int $height): string
+    {
+        $imagick = new \Imagick();
+        $imagick->newImage($width, $height, new \ImagickPixel('#228B22'));
+        $imagick->setImageFormat('tiff');
+        $bytes = $imagick->getImageBlob();
+        $imagick->clear();
+        $this->assertNotSame('', $bytes);
+        return $bytes;
+    }
+
+    private function writeTemp(string $content): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'test_thumb_');
+        file_put_contents($path, $content);
+        $this->tempFiles[] = $path;
+        return $path;
+    }
+}

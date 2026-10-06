@@ -70,7 +70,7 @@
                 </option>
               </select>
             </div>
-            <div v-if="educationCycles.length" class="form-group">
+            <div v-if="possibleLevels.length || unknownLevel" class="form-group">
               <label for="assessment-level">{{ t('assessment.level') }}</label>
               <select
                 id="assessment-level"
@@ -84,19 +84,13 @@
                 >
                   {{ unknownLevel }}
                 </option>
-                <optgroup
-                  v-for="cycle in educationCycles"
-                  :key="cycle.code"
-                  :label="cycle.name"
+                <option
+                  v-for="level in possibleLevels"
+                  :key="level.level"
+                  :value="level.level"
                 >
-                  <option
-                    v-for="level in cycle.levels"
-                    :key="level.code"
-                    :value="level.code"
-                  >
-                    {{ level.name }}
-                  </option>
-                </optgroup>
+                  {{ level.name }}
+                </option>
               </select>
             </div>
             <div class="form-group">
@@ -158,7 +152,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
-import { EDUCATION_LEVELS, educationLevelName } from '@/data/levels'
 import type { Assessment } from '@/types/types'
 
 const route = useRoute()
@@ -175,7 +168,7 @@ const step = ref<'subject' | 'details'>('subject')
 const draftId = ref('')
 const analyzedCountry = ref<string | null>(null)
 
-const { subjects, load: loadSubjects } = useSubjectCatalog()
+const { subjects, load: loadSubjects, levelsFor } = useSubjectCatalog()
 
 const form = reactive({
   name: '',
@@ -185,15 +178,29 @@ const form = reactive({
 })
 
 const userCountry = computed(() => sessionStore.country.trim())
-const educationCycles = computed(() => {
-  if (!userCountry.value) return []
-  return (EDUCATION_LEVELS[userCountry.value] ?? []).filter(cycle => cycle.levels.length > 0)
+const possibleLevels = computed(() => {
+  const subject = form.subject.trim()
+  if (!subject) return []
+  if (!userCountry.value) {
+    return subjects.value.find(node => node.subject === subject)?.levels ?? []
+  }
+  return levelsFor(subject, userCountry.value)
 })
 const unknownLevel = computed(() => {
   const code = form.level.trim()
-  if (!code || educationLevelName(userCountry.value, code)) return ''
+  if (!code || possibleLevels.value.some(item => item.level === code)) return ''
   return code
 })
+
+watch(
+  () => form.subject,
+  (subject, previous) => {
+    if (!previous || subject === previous) return
+    const code = form.level.trim()
+    if (!code || possibleLevels.value.some(item => item.level === code)) return
+    form.level = ''
+  }
+)
 
 function optionalText(value: string): string | null {
   const trimmed = value.trim()

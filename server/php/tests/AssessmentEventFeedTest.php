@@ -10,57 +10,6 @@ use PHPUnit\Framework\TestCase;
 
 class AssessmentEventFeedTest extends TestCase
 {
-    public function testAssessmentSnapshotKeepsUnassignedFilesStudentsAndMarks(): void
-    {
-        $payload = AssessmentEventFeed::assessmentPayload(
-            [
-                ['id' => 'subject', 'type' => 'subject', 'student' => null, 'status' => 'stored'],
-                ['id' => 'copy', 'type' => 'submission', 'student' => '', 'status' => 'ocr_done'],
-                ['id' => 'debug', 'type' => 'debug', 'student' => null, 'status' => 'stored'],
-                ['id' => 'assigned', 'type' => 'submission', 'student' => 'stu-1', 'status' => 'corrected'],
-            ],
-            [
-                ['id' => 'stu-1', 'name' => 'Ada', 'status' => 'graded', 'mark' => 14.5],
-            ],
-            [
-                'assessed_students_number' => 1,
-                'mark_average' => 14.5,
-                'mark_min' => 14.5,
-                'mark_max' => 14.5,
-            ]
-        );
-
-        $this->assertSame('assessment', $payload['scope']);
-        $this->assertSame(['copy', 'debug'], array_column($payload['files'], 'id'));
-        $this->assertSame('ocr_done', $payload['files'][0]['status']);
-        $this->assertSame('graded', $payload['students'][0]['status']);
-        $this->assertSame(14.5, $payload['mark_average']);
-        $this->assertSame(14.5, $payload['mark_min']);
-        $this->assertSame(14.5, $payload['mark_max']);
-        $this->assertSame(1, $payload['assessed_students_number']);
-    }
-
-    public function testStudentSnapshotKeepsThatStudentsFilesAndAttributes(): void
-    {
-        $payload = AssessmentEventFeed::studentPayload(
-            [
-                ['id' => 'copy', 'type' => 'submission', 'student' => 'stu-1', 'status' => 'corrected'],
-                ['id' => 'other', 'type' => 'submission', 'student' => 'stu-2', 'status' => 'stored'],
-                ['id' => 'loose', 'type' => 'submission', 'student' => '', 'status' => 'stored'],
-            ],
-            ['id' => 'stu-1', 'name' => 'Ada', 'status' => 'graded', 'mark' => 16, 'appreciation' => 'Bien'],
-            'stu-1'
-        );
-
-        $this->assertSame('student', $payload['scope']);
-        $this->assertSame('Ada', $payload['student']['name']);
-        $this->assertSame('graded', $payload['student']['status']);
-        $this->assertSame(16, $payload['student']['mark']);
-        $this->assertSame('Bien', $payload['student']['appreciation']);
-        $this->assertSame(['copy'], array_column($payload['files'], 'id'));
-        $this->assertSame('corrected', $payload['files'][0]['status']);
-    }
-
     public function testChangedFileSendsOnlyThePipelineFields(): void
     {
         $file = new File();
@@ -161,11 +110,83 @@ class AssessmentEventFeedTest extends TestCase
         $this->assertArrayNotHasKey('assessed_students_number', $payload);
     }
 
-    public function testMissingStudentIsReportedWithoutFiles(): void
+    public function testChangedFileIncludesLoadingWhenProvided(): void
     {
-        $payload = AssessmentEventFeed::studentPayload([], null, 'missing');
+        $file = new File();
+        $file->id = 'f1';
+        $file->status = 'stored';
+        $file->type = 'submission';
 
-        $this->assertNull($payload['student']);
-        $this->assertSame([], $payload['files']);
+        $payloadTrue = AssessmentEventFeed::changedFile($file, null, true);
+        $this->assertTrue($payloadTrue['loading']);
+
+        $payloadFalse = AssessmentEventFeed::changedFile($file, null, false);
+        $this->assertFalse($payloadFalse['loading']);
+
+        $file->loading = true;
+        $payloadFromProp = AssessmentEventFeed::changedFile($file, null);
+        $this->assertTrue($payloadFromProp['loading']);
+    }
+
+    public function testDeltaIncludesLoadingTrueAtTaskStart(): void
+    {
+        $before = [
+            'file' => [
+                'id' => 'f1',
+                'status' => 'ocr_done',
+                'status_label' => 'OCR terminé',
+                'type' => 'submission',
+                'student' => null,
+                'student_name' => null,
+                'loading' => false,
+            ],
+            'student' => null,
+            'stats' => [],
+        ];
+        $start = $before;
+        $start['file']['loading'] = true;
+
+        $payload = AssessmentEventFeed::delta('assessment', $before, $start);
+
+        $this->assertSame([
+            'scope' => 'assessment',
+            'file' => [
+                'id' => 'f1',
+                'loading' => true,
+            ],
+        ], $payload);
+    }
+
+    public function testDeltaIncludesLoadingFalseAtTaskEnd(): void
+    {
+        $start = [
+            'file' => [
+                'id' => 'f1',
+                'status' => 'ocr_done',
+                'status_label' => 'OCR terminé',
+                'type' => 'submission',
+                'student' => null,
+                'student_name' => null,
+                'loading' => true,
+            ],
+            'student' => null,
+            'stats' => [],
+        ];
+        $end = $start;
+        $end['file']['status'] = 'errors_found';
+        $end['file']['status_label'] = 'Erreurs trouvées';
+        $end['file']['loading'] = false;
+
+        $payload = AssessmentEventFeed::delta('assessment', $start, $end);
+
+        $this->assertSame([
+            'scope' => 'assessment',
+            'file' => [
+                'id' => 'f1',
+                'status' => 'errors_found',
+                'status_label' => 'Erreurs trouvées',
+                'loading' => false,
+            ],
+        ], $payload);
     }
 }

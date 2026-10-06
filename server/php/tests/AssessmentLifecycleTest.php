@@ -6,14 +6,14 @@ namespace Corrai\Tests;
 
 use Corrai\Model\Assessment;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\CsvStore;
+use Corrai\Utils\Store\CsvStore;
 use Corrai\Utils\CsvTreeMigrator;
-use Corrai\Utils\HashId;
-use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Store\ObjectStore;
 use Corrai\Model\School;
 use Corrai\Model\User;
-use Corrai\Utils\StoreConflictException;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\StoreConflictException;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 use Redis;
 
@@ -281,8 +281,9 @@ class AssessmentLifecycleTest extends TestCase
         $file = $assessment->createFileFromPath($oldName, $tmp, 'image/png', null, null);
         $bob = $assessment->createStudent('[Test] Bob');
         $assessment->setFileTags($file->id, 'submission', $bob->id);
+        $stored = $assessment->getFile($file->id);
 
-        $contentBefore = ObjectStore::getInstance()->getContents($file->contentKey());
+        $contentBefore = ObjectStore::getInstance()->getContents($stored->contentKey());
         $files = $assessment->renameFile($file->id, $newName);
         $this->assertCount(1, $files);
         $this->assertSame($newName, $files[0]['name']);
@@ -291,7 +292,7 @@ class AssessmentLifecycleTest extends TestCase
         $this->assertSame($bob->id, $files[0]['student']);
         $this->assertSame(
             $contentBefore,
-            ObjectStore::getInstance()->getContents($file->contentKey())
+            ObjectStore::getInstance()->getContents($assessment->getFile($file->id)->contentKey())
         );
 
         try {
@@ -367,6 +368,21 @@ class AssessmentLifecycleTest extends TestCase
         $text = array_values(array_filter($files, fn($f) => $f['name'] === 'copy_correction.txt'))[0];
         $this->assertSame('correction', $text['type']);
         $this->assertSame($carol->id, $text['student']);
+        $store = ObjectStore::getInstance();
+        $this->assertTrue($store->exists(ObjectStore::assessmentBlobKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            $assessment->id,
+            $text['id']
+        )));
+        $this->assertFalse($store->exists(ObjectStore::assessmentFileAttrKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            $assessment->id,
+            $text['id'],
+            'correction',
+            $carol->id
+        )));
 
         $again = $assessment->createFile(
             'copy_correction.txt',

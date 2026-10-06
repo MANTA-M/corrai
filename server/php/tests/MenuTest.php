@@ -9,6 +9,7 @@ use Corrai\Model\Student;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
 use Corrai\Subject\DictationFranceCM2\File as DictationFranceCM2File;
 use Corrai\Subject\Math\Assessment as MathAssessment;
+use Corrai\Model\StateLocales;
 use PHPUnit\Framework\TestCase;
 
 class MenuTest extends TestCase
@@ -109,5 +110,39 @@ class MenuTest extends TestCase
         $this->assertSame(['view', 'events', 'rename', 'delete'], $instructionKeys);
         $instructionOutputFr = $instructions->to_output(null, 'fr');
         $this->assertSame('Consignes particulières', $instructionOutputFr['label']);
+    }
+
+    public function testStateLocalesAreKeyLabelMapsForTheQueriedLocale(): void
+    {
+        $dictation = new DictationFranceCM2Assessment();
+        $french = StateLocales::maps($dictation, 'fr');
+        $this->assertSame('Noté', $french['student_states']['graded']);
+        $this->assertSame('En attente', $french['student_states']['pending']);
+        $this->assertSame('Brouillon', $french['assessment_states']['draft']);
+        $this->assertSame('Correction en cours', $french['assessment_states']['correcting']);
+        $this->assertSame('Corrigé', $french['assessment_states']['corrected']);
+        $this->assertSame('Stocké', $french['file_states']['stored']);
+        $this->assertSame('OCR terminé', $french['file_states']['ocr_done']);
+        $this->assertSame('Erreurs trouvées', $french['file_states']['errors_found']);
+        $this->assertSame('Annotations', $french['file_states']['annotations']);
+
+        $english = StateLocales::maps($dictation, 'en-US');
+        $this->assertSame('Graded', $english['student_states']['graded']);
+        $this->assertSame('Draft', $english['assessment_states']['draft']);
+        $this->assertSame('OCR done', $english['file_states']['ocr_done']);
+        $this->assertSame('Annotations', $english['file_states']['annotations']);
+
+        $math = StateLocales::maps(new MathAssessment(), 'de');
+        $this->assertSame('Benotet', $math['student_states']['graded']);
+        $this->assertSame('Entwurf', $math['assessment_states']['draft']);
+        $this->assertSame('Gespeichert', $math['file_states']['stored']);
+        $this->assertSame('Transkribiert', $math['file_states']['transcribed']);
+        $this->assertSame('Korrektur bereit', $math['file_states']['correction_ready']);
+        $this->assertArrayNotHasKey('ocr_done', $math['file_states']);
+
+        $generic = new File();
+        $generic->status = 'correction_asked';
+        $this->assertSame('Correction demandée', $generic->get_status_label('fr'));
+        $this->assertArrayNotHasKey('ocr_done', $generic::statusLabels('fr'));
     }
 }

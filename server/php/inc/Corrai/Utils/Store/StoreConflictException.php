@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Store;
 
 /**
  * Raised when an If-Match conditional put fails (HTTP 412).

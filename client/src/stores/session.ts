@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { WSClient, type ApiMessage } from '@/backend/WSClient'
-import type { Assessment, MenuItem } from '@/types/types'
+import type { Assessment, MenuItem, StateLabelMap, StateLocales } from '@/types/types'
 
 import { DEFAULT_LOCALE, type AvailableLocale } from '@/i18n'
 
@@ -20,6 +20,9 @@ interface SessionState {
   user_id: string | null
   own_assessments: Assessment[]
   debugMode: boolean
+  studentStates: StateLabelMap
+  assessmentStates: StateLabelMap
+  fileStates: StateLabelMap
 }
 
 /** Server assessment payload (uses user_id; client Assessment uses author). */
@@ -57,6 +60,9 @@ const defaultState: SessionState = {
   user_id: null,
   own_assessments: [],
   debugMode: false,
+  studentStates: {},
+  assessmentStates: {},
+  fileStates: {},
 }
 
 export function isValidUserId(id: string | null | undefined): id is string {
@@ -94,6 +100,9 @@ export const useSessionStore = defineStore('session', () => {
   const user_id = ref<string | null>(defaultState.user_id)
   const own_assessments = ref<Assessment[]>(defaultState.own_assessments)
   const debugMode = ref<boolean>(defaultState.debugMode)
+  const studentStates = ref<StateLabelMap>({ ...defaultState.studentStates })
+  const assessmentStates = ref<StateLabelMap>({ ...defaultState.assessmentStates })
+  const fileStates = ref<StateLabelMap>({ ...defaultState.fileStates })
 
   const hasValidUserId = computed(() => isValidUserId(user_id.value))
   const isAuthenticated = computed(
@@ -223,7 +232,30 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function setLocale(newLocale: AvailableLocale): void {
+    if (locale.value !== newLocale) {
+      studentStates.value = {}
+      assessmentStates.value = {}
+      fileStates.value = {}
+    }
     locale.value = newLocale
+  }
+
+  function applyStateLocales(payload?: StateLocales | null): void {
+    if (!payload) return
+    if (payload.student_states) {
+      studentStates.value = { ...payload.student_states }
+    }
+    if (payload.assessment_states) {
+      assessmentStates.value = { ...payload.assessment_states }
+    }
+    if (payload.file_states) {
+      fileStates.value = { ...payload.file_states }
+    }
+  }
+
+  function stateLabel(map: StateLabelMap, key?: string | null, fallback?: string | null): string {
+    if (!key) return ''
+    return map[key] || fallback || key
   }
 
   function setDebugMode(enabled: boolean): void {
@@ -238,6 +270,9 @@ export const useSessionStore = defineStore('session', () => {
     keyPair.value = null
     user_id.value = null
     own_assessments.value = []
+    studentStates.value = {}
+    assessmentStates.value = {}
+    fileStates.value = {}
   }
 
   const getWsClient = (noRedirect = false) => {
@@ -274,7 +309,9 @@ export const useSessionStore = defineStore('session', () => {
         assessment: ServerAssessment
         files?: Assessment['files']
         students?: Assessment['students']
-      }>('GET', '/assessment', { hash, locale: locale.value })
+      } & StateLocales>('GET', '/assessment', { hash, locale: locale.value })
+
+      applyStateLocales(response)
 
       if (!response || !response.assessment || !response.assessment.id) {
         console.error('Assessment loaded but missing id')
@@ -314,6 +351,9 @@ export const useSessionStore = defineStore('session', () => {
     user_id,
     own_assessments,
     debugMode,
+    studentStates,
+    assessmentStates,
+    fileStates,
     hasValidUserId,
     isAuthenticated,
     isInitialized,
@@ -330,6 +370,8 @@ export const useSessionStore = defineStore('session', () => {
     saveCountry,
     deleteAccount,
     setLocale,
+    applyStateLocales,
+    stateLabel,
     setDebugMode,
     logout,
     clearSession,
@@ -340,15 +382,22 @@ export const useSessionStore = defineStore('session', () => {
     remove_assessment,
   }
 }, {
-  persist: {
-    key: STORAGE_KEY,
-    storage: localStorage,
-    pick: ['user_name', 'user_email', 'country', 'discountRate', 'locale', 'keyPair', 'user_id', 'debugMode'],
-    afterHydrate: ({ store }) => {
-      store.discardInvalidUserId()
-      if (typeof store.debugMode !== 'boolean') {
-        store.debugMode = false
-      }
+  persist: [
+    {
+      key: STORAGE_KEY,
+      storage: localStorage,
+      pick: ['user_name', 'user_email', 'country', 'discountRate', 'locale', 'keyPair', 'user_id', 'debugMode'],
+      afterHydrate: ({ store }) => {
+        store.discardInvalidUserId()
+        if (typeof store.debugMode !== 'boolean') {
+          store.debugMode = false
+        }
+      },
     },
-  }
+    {
+      key: 'corrai-session-states',
+      storage: sessionStorage,
+      pick: ['studentStates', 'assessmentStates', 'fileStates'],
+    },
+  ],
 })

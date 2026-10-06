@@ -9,8 +9,8 @@ use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\DictationFranceCM2\Assessment;
 use Corrai\Utils\CsvTreeMigrator;
-use Corrai\Utils\HashId;
-use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Store\ObjectStore;
 use PHPUnit\Framework\TestCase;
 use Redis;
 

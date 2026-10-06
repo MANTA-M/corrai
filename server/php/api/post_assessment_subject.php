@@ -4,8 +4,8 @@ use Corrai\Llm\Openrouter\GeminiFlashLiteClient;
 use Corrai\Model\User;
 use Corrai\Subject\GeminiSubjectPageReader;
 use Corrai\Subject\SubjectIntake;
-use Corrai\Utils\Request;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\Request;
+use Corrai\Utils\Http\WSException;
 
 try {
     set_time_limit(180);

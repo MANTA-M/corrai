@@ -4,7 +4,7 @@ namespace Corrai\Subject\DictationFranceOCRGoogle;
 
 use Corrai\Model\File as BaseFile;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\MenuLabels;
+use Corrai\Subject\Dictation\StatusLabels;
 
 /**
  * Dictation France OCR Google submission state machine.
@@ -13,51 +13,9 @@ use Corrai\Utils\MenuLabels;
  */
 class File extends BaseFile
 {
-    /**
-     * Statuses added by this subject, on top of the base file labels.
-     *
-     * @var array<string, array<string, string>>
-     */
-    private const EXTRA_STATUS_LABELS = [
-        'ocr_done' => [
-            'en' => 'OCR done',
-            'fr' => 'OCR terminé',
-            'ru' => 'OCR выполнен',
-            'uk' => 'OCR виконано',
-            'es' => 'OCR terminado',
-            'pt' => 'OCR concluído',
-            'ro' => 'OCR finalizat',
-            'de' => 'OCR abgeschlossen',
-        ],
-        'errors_found' => [
-            'en' => 'Errors found',
-            'fr' => 'Erreurs trouvées',
-            'ru' => 'Ошибки найдены',
-            'uk' => 'Помилки знайдено',
-            'es' => 'Errores encontrados',
-            'pt' => 'Erros encontrados',
-            'ro' => 'Erori găsite',
-            'de' => 'Fehler gefunden',
-        ],
-        'annotations' => [
-            'en' => 'Annotations',
-            'fr' => 'Annotations',
-            'ru' => 'Аннотации',
-            'uk' => 'Анотації',
-            'es' => 'Anotaciones',
-            'pt' => 'Anotações',
-            'ro' => 'Adnotări',
-            'de' => 'Anmerkungen',
-        ],
-    ];
-
-    public function get_status_label(?string $locale = null): string
+    protected static function statusLabelTable(): array
     {
-        $labels = self::EXTRA_STATUS_LABELS[$this->status] ?? null;
-        if (!is_array($labels)) {
-            return parent::get_status_label($locale);
-        }
-        return MenuLabels::pick($labels, MenuLabels::locale($locale), $this->status);
+        return array_merge(parent::statusLabelTable(), StatusLabels::table());
     }
 
     public function on_stored(): void

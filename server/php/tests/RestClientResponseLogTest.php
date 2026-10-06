@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils\RestClient;
+use Corrai\Utils\Http\RestClient;
 use PHPUnit\Framework\TestCase;
 
 class RestClientResponseLogTest extends TestCase

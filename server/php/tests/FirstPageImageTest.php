@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils\FirstPageImage;
+use Corrai\Utils\Image\FirstPageImage;
 use PHPUnit\Framework\TestCase;
 
 class FirstPageImageTest extends TestCase

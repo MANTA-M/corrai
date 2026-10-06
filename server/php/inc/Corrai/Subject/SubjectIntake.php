@@ -4,9 +4,9 @@ namespace Corrai\Subject;
 
 use Corrai\Model\Assessment;
 use Corrai\Model\User;
-use Corrai\Utils\FirstPageImage;
-use Corrai\Utils\HashId;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Image\FirstPageImage;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Http\WSException;
 
 /**
  * Creates the assessment in object storage, stores the subject file, then fills attributes from the first page.

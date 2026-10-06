@@ -2,8 +2,8 @@
 
 use Corrai\Model\File;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\Request;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\Request;
 
 /**
  * Resolve file metadata for a known file id. On failure, keep the id and an error status.

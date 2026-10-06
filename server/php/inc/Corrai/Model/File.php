@@ -3,9 +3,9 @@
 namespace Corrai\Model;
 
 /**
- * Default concrete file.
+ * Default submission file when a subject has no pipeline of its own.
  */
-class File extends BaseFile
+class File extends SubmissionFile
 {
     public function on_stored(): void
     {

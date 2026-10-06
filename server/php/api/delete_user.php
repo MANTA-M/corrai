@@ -1,7 +1,7 @@
 <?php
 
 use Corrai\Model\User;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\Request;
 
 try {
     $authorId = Request::get_mandatory_author();

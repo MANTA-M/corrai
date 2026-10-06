@@ -1,7 +1,8 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Image;
 
+use Corrai\Utils\Http\JsonUtils;
 use InvalidArgumentException;
 use RuntimeException;
 

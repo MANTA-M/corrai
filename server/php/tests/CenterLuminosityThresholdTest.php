@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils\CenterLuminosityThreshold;
+use Corrai\Utils\Image\CenterLuminosityThreshold;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 

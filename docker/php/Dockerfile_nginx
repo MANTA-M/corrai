@@ -98,7 +98,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 #COPY php/composer* /var/composer
 #RUN cd /var/composer && composer install
 
-# PaddleOCR virtualenv used by Corrai\Utils\OCR (../python/.venv next to the PHP tree)
+# PaddleOCR virtualenv used by Corrai\Utils\Image\OCR (../python/.venv next to the PHP tree)
 # plus the Redis client. pycorrai itself is imported from /var/corrai/python/pycorrai.
 ENV HOME=/var/corrai/home
 ENV PADDLE_PDX_CACHE_HOME=/var/corrai/home/.paddlex

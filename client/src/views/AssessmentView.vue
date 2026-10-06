@@ -79,6 +79,7 @@
               v-for="student in studentRows"
               :key="student.id"
               class="entity-row student-row"
+              :class="{ 'is-loading': student.loading }"
               data-testid="student-item"
               role="button"
               tabindex="0"
@@ -88,10 +89,18 @@
             >
               <span class="entity-name">{{ student.name }}</span>
               <span
+                v-if="student.loading"
+                class="student-loading"
+                data-testid="student-loading"
+                aria-label="Loading"
+              >
+                <span class="loading-spinner"></span>
+              </span>
+              <span
                 v-if="student.status"
                 class="student-status"
                 data-testid="student-status"
-              >{{ student.status }}</span>
+              >{{ sessionStore.stateLabel(sessionStore.studentStates, student.status) }}</span>
               <span
                 v-if="student.mark != null"
                 class="student-mark"
@@ -312,7 +321,7 @@ import { useAssessmentStream } from '@/composables/useAssessmentStream'
 import { applyAssessmentStream } from '@/utils/assessmentStream'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
-import { isAssessmentSubject, type AssessmentFile, type AssessmentStats, type AssessmentStudent, type MenuItem } from '@/types/types'
+import { isAssessmentSubject, type AssessmentFile, type AssessmentStats, type AssessmentStudent, type MenuItem, type StateLocales } from '@/types/types'
 import { isDebugFile, isUnassignedFile } from '@/utils/assessmentFiles'
 
 const route = useRoute()
@@ -707,7 +716,8 @@ const submitRenameStudent = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('PUT', '/student', { id: assessment.value.id, student: renameStudent.value.id, locale: String(locale.value) }, { name })
+    } & StateLocales>('PUT', '/student', { id: assessment.value.id, student: renameStudent.value.id, locale: String(locale.value) }, { name })
+    sessionStore.applyStateLocales(response)
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
@@ -728,7 +738,8 @@ const submitDeleteStudent = async () => {
     const response = await sessionStore.getWsClient().queryWs<{
       files?: AssessmentFile[]
       students?: AssessmentStudent[]
-    }>('DELETE', '/student', { id: assessment.value.id, student: deleteStudentTarget.value.id, locale: String(locale.value) })
+    } & StateLocales>('DELETE', '/student', { id: assessment.value.id, student: deleteStudentTarget.value.id, locale: String(locale.value) })
+    sessionStore.applyStateLocales(response)
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }

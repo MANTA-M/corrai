@@ -2,7 +2,7 @@
 
 namespace Corrai\Llm\Openrouter;
 
-use Corrai\Utils\ImageRedimentioner;
+use Corrai\Utils\Image\ImageRedimentioner;
 use Corrai\Utils\Utils;
 
 class ClaudeSonnetClient extends OpenrouterClient

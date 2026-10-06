@@ -2,11 +2,11 @@
 
 use Corrai\Model\Assessment;
 use Corrai\Subject\AssessmentFactory;
-use Corrai\Utils\HashId;
-use Corrai\Utils\Request;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Http\Request;
 use Corrai\Model\User;
-use Corrai\Utils\JsonUtils;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\JsonUtils;
+use Corrai\Utils\Http\WSException;
 
 try {
     $post_data = Request::getPostStr();

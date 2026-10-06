@@ -1,7 +1,7 @@
 <?php
 
 use Corrai\Model\School;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\Request;
 
 try {
     $schools = array_map(

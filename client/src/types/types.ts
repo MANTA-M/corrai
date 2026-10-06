@@ -35,6 +35,15 @@ export interface MenuItem {
   color: string
 }
 
+/** Localised state catalogue: status key => label in one locale. */
+export type StateLabelMap = Record<string, string>
+
+export interface StateLocales {
+  student_states?: StateLabelMap
+  assessment_states?: StateLabelMap
+  file_states?: StateLabelMap
+}
+
 export interface AssessmentFile {
   id: string
   name: string
@@ -51,6 +60,8 @@ export interface AssessmentFile {
   /** Localized type name */
   label?: string
   menu?: MenuItem[]
+  /** True when a queue task is actively processing this file */
+  loading?: boolean
 }
 
 export interface AssessmentStudent {
@@ -61,6 +72,8 @@ export interface AssessmentStudent {
   /** Teacher comment, stored as Markdown */
   appreciation?: string
   menu?: MenuItem[]
+  /** True when a queue task is actively processing this student's submission */
+  loading?: boolean
 }
 
 export interface AssessmentQuestion {

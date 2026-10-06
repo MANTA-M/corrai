@@ -1,7 +1,7 @@
 <?php
 
 use Corrai\Model\Assessment;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\Request;
 
 try {
     $assessmentId = Request::getStringParam("assessment");

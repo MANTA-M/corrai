@@ -6,7 +6,7 @@ use Corrai\Llm\Eden\GoogleOCRClient;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Store\ObjectStore;
 use Throwable;
 
 /**

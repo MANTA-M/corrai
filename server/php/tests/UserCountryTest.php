@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Model\User;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 
 class UserCountryTest extends TestCase

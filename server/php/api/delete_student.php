@@ -1,8 +1,9 @@
 <?php
 
 use Corrai\Model\Assessment;
-use Corrai\Utils\Request;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\Request;
+use Corrai\Model\StateLocales;
+use Corrai\Utils\Http\WSException;
 
 try {
     $assessmentId = Request::getStringParam("id");
@@ -37,8 +38,10 @@ try {
     Request::add_output("student", $studentId);
     Request::add_output("id", $assessmentId);
     Request::add_output("message", "Student deleted successfully");
+    $locale = Request::getStringParam('locale');
     Request::add_output("files", $files);
-    Request::add_output("students", $assessment->list_students());
+    Request::add_output("students", $assessment->list_students($locale));
+    StateLocales::addToOutput($assessment, $locale);
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

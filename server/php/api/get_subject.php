@@ -1,7 +1,7 @@
 <?php
 
 use Corrai\Subject\Catalog;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\Request;
 
 try {
     $locale = Request::getStringParam('locale');

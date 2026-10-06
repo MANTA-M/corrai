@@ -2,8 +2,8 @@
 
 use Corrai\Model\Assessment;
 use Corrai\Payment\CorrectionCheckout;
-use Corrai\Utils\Request;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\Request;
+use Corrai\Utils\Http\WSException;
 
 try {
     $assessmentId = Request::getStringParam("id");

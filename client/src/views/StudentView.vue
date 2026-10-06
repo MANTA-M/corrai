@@ -14,8 +14,20 @@
       <div v-else-if="assessment && studentName" class="student-page" data-testid="student-page">
         <div class="header">
           <div>
-            <h1 data-testid="student-name">{{ studentName }}</h1>
-            <p v-if="student?.status" class="student-status" data-testid="student-status">{{ student.status }}</p>
+            <h1 data-testid="student-name">
+              {{ studentName }}
+              <span
+                v-if="student?.loading"
+                class="student-loading"
+                data-testid="student-loading"
+                aria-label="Loading"
+              >
+                <span class="loading-spinner"></span>
+              </span>
+            </h1>
+            <p v-if="student?.status" class="student-status" data-testid="student-status">
+              {{ sessionStore.stateLabel(sessionStore.studentStates, student.status) }}
+            </p>
           </div>
           <button type="button" class="button" data-testid="student-back" @click="goBack">
             {{ t('assessment.back') }}

@@ -3,7 +3,7 @@
 namespace Corrai\Subject;
 
 use Corrai\Llm\Openrouter\GeminiFlashLiteClient;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 
 /**
  * Synchronous first-page reading with google/gemini-2.5-flash-lite.

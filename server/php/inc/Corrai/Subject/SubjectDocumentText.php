@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject;
 
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 
 /**
  * Plain-text excerpt of a subject stored as text, ODT, or DOCX.

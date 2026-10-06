@@ -19,6 +19,7 @@ from pycorrai.consumer import (
     file_prefix,
     format_ocr_json,
     make_redis_client,
+    make_s3_client,
     ocr_json_key,
     parse_ticket,
     php_task_ticket,
@@ -373,6 +374,18 @@ class RedisClientTest(unittest.TestCase):
         kwargs = redis_cls.call_args.kwargs
         self.assertGreater(kwargs["socket_timeout"], BRPOP_TIMEOUT)
         self.assertEqual(kwargs["socket_connect_timeout"], 5)
+
+
+class S3ClientTest(unittest.TestCase):
+    @patch.dict("os.environ", {"S3_ACCESS_KEY": "test_key", "S3_SECRET_KEY": "test_secret"})
+    def test_make_s3_client_sets_timeouts_and_retries(self) -> None:
+        with patch("pycorrai.consumer.boto3.client") as boto_client:
+            make_s3_client()
+        kwargs = boto_client.call_args.kwargs
+        config = kwargs["config"]
+        self.assertEqual(config.connect_timeout, 2.0)
+        self.assertEqual(config.read_timeout, 10.0)
+        self.assertEqual(config.retries, {"max_attempts": 3, "mode": "standard"})
 
 
 class EngineCacheTest(unittest.TestCase):

@@ -57,9 +57,9 @@ class AssessmentEventFeed
      *
      * @return array<string, mixed>
      */
-    public static function changedFile(BaseFile $file, ?string $studentName): array
+    public static function changedFile(BaseFile $file, ?string $studentName, ?bool $loading = null): array
     {
-        return [
+        $payload = [
             'id' => $file->id,
             'status' => $file->status,
             'status_label' => $file->get_status_label(null),
@@ -67,6 +67,12 @@ class AssessmentEventFeed
             'student' => $file->student,
             'student_name' => $studentName,
         ];
+        if ($loading !== null) {
+            $payload['loading'] = $loading;
+        } elseif (isset($file->loading) && $file->loading !== null) {
+            $payload['loading'] = (bool) $file->loading;
+        }
+        return $payload;
     }
 
     /**
@@ -74,11 +80,11 @@ class AssessmentEventFeed
      *
      * @return array{file: array<string, mixed>, student: array<string, mixed>|null, stats: array<string, mixed>}
      */
-    public static function state(BaseAssessment $assessment, BaseFile $file): array
+    public static function state(BaseAssessment $assessment, BaseFile $file, ?bool $loading = null): array
     {
-        $student = self::changedStudent($assessment, $file, true);
+        $student = self::changedStudent($assessment, $file, true, $loading);
         return [
-            'file' => self::changedFile($file, is_array($student) ? (string) $student['name'] : null),
+            'file' => self::changedFile($file, is_array($student) ? (string) $student['name'] : null, $loading),
             'student' => $student,
             'stats' => [
                 'assessed_students_number' => $assessment->assessed_students_number,
@@ -100,7 +106,7 @@ class AssessmentEventFeed
     {
         $payload = ['scope' => $scope];
         $beforeFile = is_array($before) && is_array($before['file'] ?? null) ? $before['file'] : null;
-        $fileDiff = self::diffMap($beforeFile, $after['file'], ['status', 'status_label', 'type', 'student', 'student_name']);
+        $fileDiff = self::diffMap($beforeFile, $after['file'], ['status', 'status_label', 'type', 'student', 'student_name', 'loading']);
         if ($fileDiff !== []) {
             $fileDiff = ['id' => $after['file']['id']] + $fileDiff;
             $payload['file'] = $fileDiff;
@@ -110,7 +116,7 @@ class AssessmentEventFeed
         if (is_array($afterStudent)) {
             $beforeStudent = is_array($before) && is_array($before['student'] ?? null) ? $before['student'] : null;
             $sameStudent = is_array($beforeStudent) && ($beforeStudent['id'] ?? null) === ($afterStudent['id'] ?? null);
-            $studentKeys = ['name', 'status', 'mark'];
+            $studentKeys = ['name', 'status', 'mark', 'loading'];
             if ($scope === 'student') {
                 $studentKeys[] = 'appreciation';
             }
@@ -133,7 +139,7 @@ class AssessmentEventFeed
     /**
      * @return array<string, mixed>|null
      */
-    private static function changedStudent(BaseAssessment $assessment, BaseFile $file, bool $withAppreciation): ?array
+    private static function changedStudent(BaseAssessment $assessment, BaseFile $file, bool $withAppreciation, ?bool $loading = null): ?array
     {
         $studentId = trim((string) ($file->student ?? ''));
         if ($studentId === '') {
@@ -153,6 +159,9 @@ class AssessmentEventFeed
         if ($withAppreciation) {
             $payload['appreciation'] = $student->appreciation;
         }
+        if ($loading !== null) {
+            $payload['loading'] = $loading;
+        }
         return $payload;
     }
 
@@ -166,6 +175,9 @@ class AssessmentEventFeed
     {
         $diff = [];
         foreach ($keys as $key) {
+            if (!array_key_exists($key, $after) && ($before === null || !array_key_exists($key, $before))) {
+                continue;
+            }
             $next = $after[$key] ?? null;
             if ($before === null || !self::sameValue($before[$key] ?? null, $next)) {
                 $diff[$key] = $next;

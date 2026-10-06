@@ -3,9 +3,9 @@
 namespace Corrai\Model;
 
 use Exception;
-use Corrai\Utils\HashId;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\WSException;
 
 class School
 {

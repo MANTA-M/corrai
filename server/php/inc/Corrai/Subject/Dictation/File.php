@@ -4,6 +4,7 @@ namespace Corrai\Subject\Dictation;
 
 use Corrai\Model\File as BaseFile;
 use Corrai\Queue\RedisQueue;
+use Corrai\Subject\Dictation\StatusLabels;
 
 /**
  * Submission state machine.
@@ -13,6 +14,11 @@ use Corrai\Queue\RedisQueue;
 class File extends BaseFile
 {
     private const OCR_LANG = 'fr';
+
+    protected static function statusLabelTable(): array
+    {
+        return array_merge(parent::statusLabelTable(), StatusLabels::table());
+    }
 
     public const TRANSCRIPTION_INSTRUCTION =
         'Transcript only what is writen without correcting it. DO NOT ADD ANY LETTER OR SIGN. '

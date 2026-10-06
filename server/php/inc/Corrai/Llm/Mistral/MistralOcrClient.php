@@ -2,10 +2,10 @@
 
 namespace Corrai\Llm\Mistral;
 
-use Corrai\Utils\ImageRedimentioner;
-use Corrai\Utils\RestClient;
+use Corrai\Utils\Image\ImageRedimentioner;
+use Corrai\Utils\Http\RestClient;
 use Corrai\Utils\Utils;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use InvalidArgumentException;
 
 /**

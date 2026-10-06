@@ -1,7 +1,7 @@
 <?php
 
-use Corrai\Utils\JsonUtils;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\JsonUtils;
+use Corrai\Utils\Http\Request;
 use Corrai\Model\School;
 
 try {

@@ -1,8 +1,8 @@
 <?php
 
 use Corrai\Model\Assessment;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\Request;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\Request;
 use Corrai\Utils\Utils;
 
 try {

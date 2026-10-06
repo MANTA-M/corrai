@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Model;
 
-use Corrai\Utils\JsonUtils;
+use Corrai\Utils\Http\JsonUtils;
 use Exception;
 use InvalidArgumentException;
 use JsonSerializable;

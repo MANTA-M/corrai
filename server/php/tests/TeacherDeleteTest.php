@@ -6,8 +6,8 @@ namespace Corrai\Tests;
 
 use Corrai\Model\School;
 use Corrai\Model\User;
-use Corrai\Utils\HashId;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 
 class TeacherDeleteTest extends TestCase

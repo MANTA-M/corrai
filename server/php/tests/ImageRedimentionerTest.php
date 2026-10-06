@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils\ImageRedimentioner;
+use Corrai\Utils\Image\ImageRedimentioner;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 

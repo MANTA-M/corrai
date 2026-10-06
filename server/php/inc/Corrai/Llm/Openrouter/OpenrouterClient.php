@@ -2,9 +2,9 @@
 
 namespace Corrai\Llm\Openrouter;
 
-use Corrai\Utils\JsonUtils;
-use Corrai\Utils\RestClient;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\JsonUtils;
+use Corrai\Utils\Http\RestClient;
+use Corrai\Utils\Http\WSException;
 
 abstract class OpenrouterClient extends RestClient
 {

@@ -1,9 +1,11 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Store;
 
+use Aws\CommandInterface;
 use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
+use Corrai\Utils\Http\JsonUtils;
 use Exception;
 
 /**
@@ -21,11 +23,15 @@ use Exception;
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/events/<eventId>.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/unclassified/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/unclassified/<fileId>/content
- *   _id/{hash}  — pointer to node prefix for O(1) from_hash
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/blobs/<fileId>
+ *   _id/{hash}  — pointer to a node prefix, or to a blobs/<fileId> object
  *
- * File bytes follow the classification: subject material under subject/, student copies
- * under students/<studentId>/<fileId>/, and files not yet classified under unclassified/.
- * The legacy files/<fileId>/ prefix is still recognized so older objects stay readable.
+ * Input files keep a directory: subject material and instructions under subject/,
+ * student copies under students/<studentId>/<fileId>/, copies not yet assigned
+ * under unclassified/. Solution, correction, debug and files with no role are a
+ * single object under blobs/. The legacy files/<fileId>/ prefix is still recognized
+ * so older objects stay readable. Older solution, correction and debug directories
+ * stay readable too.
  *
  * Legacy CSV keys (school.csv, user.csv, exam.csv, files.csv) remain for migration only.
  */
@@ -36,25 +42,44 @@ class ObjectStore
     public const OCR_RESULT_FILE = 'ocr_result.json';
     public const FOUND_ERRORS_FILE = 'found_errors.json';
     public const MARKUP_ANNOTATIONS_FILE = 'markup_annotations.php';
+    public const THUMBNAIL_FILE = 'thumbnail.jpg';
     public const SCHEMA = 1;
 
+    public const DEFAULT_CONNECT_TIMEOUT = 2.0;
+    public const DEFAULT_TIMEOUT = 10.0;
+    public const DEFAULT_RETRIES = 3;
+    public const DEFAULT_SLOW_THRESHOLD_MS = 500.0;
+
     private static ?self $instance = null;
+    /** @var (\Closure(string, string, float, CommandInterface): void)|null */
+    private static ?\Closure $logCallback = null;
 
     private S3Client $client;
     private string $bucket;
     private bool $bucketReady = false;
 
-    private function __construct()
+    public function __construct(?S3Client $client = null, ?string $bucket = null)
     {
+        if ($client !== null) {
+            $this->client = $client;
+            $this->bucket = $bucket ?? self::envValue('S3_BUCKET', 'corrai');
+            self::attachTimingMiddleware($this->client);
+            return;
+        }
+
         $endpoint = self::envValue('S3_ENDPOINT', 'http://seaweedfs:8333');
         $region = self::envValue('S3_REGION', 'us-east-1');
         $accessKey = self::envValue('S3_ACCESS_KEY');
         $secretKey = self::envValue('S3_SECRET_KEY');
-        $this->bucket = self::envValue('S3_BUCKET', 'corrai');
+        $this->bucket = $bucket ?? self::envValue('S3_BUCKET', 'corrai');
 
         if ($endpoint === '' || $accessKey === '' || $secretKey === '') {
             throw new Exception('S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY must be configured');
         }
+
+        $connectTimeout = (float) self::envValue('S3_CONNECT_TIMEOUT', (string) self::DEFAULT_CONNECT_TIMEOUT);
+        $timeout = (float) self::envValue('S3_TIMEOUT', (string) self::DEFAULT_TIMEOUT);
+        $retries = (int) self::envValue('S3_RETRIES', (string) self::DEFAULT_RETRIES);
 
         $this->client = new S3Client([
             'version' => 'latest',
@@ -67,7 +92,14 @@ class ObjectStore
                 'key' => $accessKey,
                 'secret' => $secretKey,
             ],
+            'http' => [
+                'connect_timeout' => $connectTimeout,
+                'timeout' => $timeout,
+            ],
+            'retries' => $retries,
         ]);
+
+        self::attachTimingMiddleware($this->client);
     }
 
     public static function getInstance(): self
@@ -76,6 +108,105 @@ class ObjectStore
             self::$instance = new self();
         }
         return self::$instance;
+    }
+
+    public static function setInstance(?self $instance): void
+    {
+        self::$instance = $instance;
+    }
+
+    public static function resetInstance(): void
+    {
+        self::$instance = null;
+    }
+
+    public function getClient(): S3Client
+    {
+        return $this->client;
+    }
+
+    public static function setLogCallback(?\Closure $callback): void
+    {
+        self::$logCallback = $callback;
+    }
+
+    public static function getSlowThresholdMs(): float
+    {
+        $raw = self::envValue('S3_SLOW_THRESHOLD_MS');
+        if ($raw !== '' && is_numeric($raw)) {
+            return (float) $raw;
+        }
+        return self::DEFAULT_SLOW_THRESHOLD_MS;
+    }
+
+    public static function attachTimingMiddleware(S3Client $client): void
+    {
+        $client->getHandlerList()->remove('s3-timing');
+        $client->getHandlerList()->appendInit(
+            static function (callable $handler) {
+                return static function (CommandInterface $cmd, $req = null) use ($handler) {
+                    $start = microtime(true);
+                    return $handler($cmd, $req)->then(
+                        static function ($result) use ($cmd, $start) {
+                            self::logSlowRequest($cmd, $start);
+                            return $result;
+                        },
+                        static function ($reason) use ($cmd, $start) {
+                            self::logSlowRequest($cmd, $start);
+                            throw $reason;
+                        }
+                    );
+                };
+            },
+            's3-timing'
+        );
+    }
+
+    public static function logSlowRequest(CommandInterface $cmd, float $start): void
+    {
+        $durationMs = (microtime(true) - $start) * 1000;
+        $thresholdMs = self::getSlowThresholdMs();
+        if ($durationMs > $thresholdMs) {
+            $key = self::extractCommandKey($cmd);
+            $message = sprintf(
+                'S3 slow request (%s): key=%s duration=%.1f ms',
+                $cmd->getName(),
+                $key !== '' ? $key : '(none)',
+                $durationMs
+            );
+            if (self::$logCallback !== null) {
+                (self::$logCallback)($message, $key, $durationMs, $cmd);
+            }
+            error_log($message);
+        }
+    }
+
+    public static function extractCommandKey(CommandInterface $cmd): string
+    {
+        if (isset($cmd['Key']) && is_string($cmd['Key']) && $cmd['Key'] !== '') {
+            return $cmd['Key'];
+        }
+        if (isset($cmd['Prefix']) && is_string($cmd['Prefix']) && $cmd['Prefix'] !== '') {
+            return $cmd['Prefix'];
+        }
+        if (isset($cmd['Delete']['Objects']) && is_array($cmd['Delete']['Objects'])) {
+            $keys = [];
+            foreach ($cmd['Delete']['Objects'] as $obj) {
+                if (isset($obj['Key']) && is_string($obj['Key']) && $obj['Key'] !== '') {
+                    $keys[] = $obj['Key'];
+                }
+            }
+            if (!empty($keys)) {
+                if (count($keys) > 5) {
+                    return implode(', ', array_slice($keys, 0, 5)) . '... (' . count($keys) . ' objects)';
+                }
+                return implode(', ', $keys);
+            }
+        }
+        if (isset($cmd['Bucket']) && is_string($cmd['Bucket']) && $cmd['Bucket'] !== '') {
+            return $cmd['Bucket'];
+        }
+        return '';
     }
 
     /**
@@ -171,8 +302,9 @@ class ObjectStore
      * Where a file lives given its type and optional student assignment.
      *
      * A student id stores the copy under that student. Subject material
-     * (subject, solution, instructions) lives under subject/. Anything else
-     * is not yet classified.
+     * (subject and instructions, plus legacy solution directories) lives under
+     * subject/. A submission that has no student yet stays under unclassified/.
+     * New solution, correction and debug objects use assessmentBlobKey().
      *
      * @return 'student'|'subject'|'unclassified'
      */
@@ -204,6 +336,23 @@ class ObjectStore
             return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . $fileId . '/';
         }
         return self::assessmentUnclassifiedFilesPrefix($schoolId, $teacherId, $assessmentId) . $fileId . '/';
+    }
+
+    /**
+     * Single-object files (solution, correction, debug, or no role yet).
+     */
+    public static function assessmentBlobsPrefix(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'blobs/';
+    }
+
+    public static function assessmentBlobKey(
+        string $schoolId,
+        string $teacherId,
+        string $assessmentId,
+        string $fileId
+    ): string {
+        return self::assessmentBlobsPrefix($schoolId, $teacherId, $assessmentId) . $fileId;
     }
 
     public static function assessmentFileAttrKey(
@@ -264,6 +413,18 @@ class ObjectStore
     ): string {
         return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
             . self::MARKUP_ANNOTATIONS_FILE;
+    }
+
+    public static function assessmentFileThumbnailKey(
+        string $schoolId,
+        string $teacherId,
+        string $assessmentId,
+        string $fileId,
+        string $type = '',
+        ?string $studentId = null
+    ): string {
+        return self::assessmentFilePrefix($schoolId, $teacherId, $assessmentId, $fileId, $type, $studentId)
+            . self::THUMBNAIL_FILE;
     }
 
     public static function assessmentFileEventsPrefix(
@@ -359,6 +520,17 @@ class ObjectStore
         }
 
         $area = $parts[6] ?? '';
+        if ($area === 'blobs' && isset($parts[7]) && !isset($parts[8])) {
+            return [
+                'kind' => 'blob',
+                'school_id' => $schoolId,
+                'teacher_id' => $teacherId,
+                'assessment_id' => $assessmentId,
+                'file_id' => $parts[7],
+                'area' => 'blobs',
+            ];
+        }
+
         if (in_array($area, ['subject', 'unclassified', 'files'], true) && isset($parts[7]) && !isset($parts[8])) {
             return [
                 'kind' => 'file',
@@ -488,8 +660,13 @@ class ObjectStore
      *
      * @return string|null New ETag when the store returns one
      */
-    public function put(string $key, string $localPath, ?string $contentType = null, ?string $ifMatch = null): ?string
-    {
+    public function put(
+        string $key,
+        string $localPath,
+        ?string $contentType = null,
+        ?string $ifMatch = null,
+        ?array $metadata = null
+    ): ?string {
         $this->ensureBucket();
 
         $params = [
@@ -499,6 +676,9 @@ class ObjectStore
         ];
         if ($contentType !== null && $contentType !== '') {
             $params['ContentType'] = $contentType;
+        }
+        if ($metadata !== null && $metadata !== []) {
+            $params['Metadata'] = $metadata;
         }
         self::applyIfMatch($params, $ifMatch);
 
@@ -523,7 +703,8 @@ class ObjectStore
         string $key,
         string $body,
         ?string $contentType = null,
-        ?string $ifMatch = null
+        ?string $ifMatch = null,
+        ?array $metadata = null
     ): ?string {
         $this->ensureBucket();
 
@@ -534,6 +715,9 @@ class ObjectStore
         ];
         if ($contentType !== null && $contentType !== '') {
             $params['ContentType'] = $contentType;
+        }
+        if ($metadata !== null && $metadata !== []) {
+            $params['Metadata'] = $metadata;
         }
         self::applyIfMatch($params, $ifMatch);
 
@@ -645,7 +829,7 @@ class ObjectStore
     /**
      * Head an object for ETag / size without reading the body.
      *
-     * @return array{ETag: string|null, ContentLength: int, ContentType: string}
+     * @return array{ETag: string|null, ContentLength: int, ContentType: string, Metadata: array<string, mixed>}
      */
     public function head(string $key): array
     {
@@ -660,7 +844,30 @@ class ObjectStore
             'ETag' => self::normalizeEtag($result['ETag'] ?? null),
             'ContentLength' => (int) ($result['ContentLength'] ?? 0),
             'ContentType' => (string) ($result['ContentType'] ?? 'application/octet-stream'),
+            'Metadata' => is_array($result['Metadata'] ?? null) ? $result['Metadata'] : [],
         ];
+    }
+
+    /**
+     * Replace user metadata and content type. The body is unchanged.
+     *
+     * @param array<string, string> $metadata
+     */
+    public function replaceMetadata(string $key, array $metadata, ?string $contentType = null): void
+    {
+        $this->ensureBucket();
+
+        $params = [
+            'Bucket' => $this->bucket,
+            'CopySource' => $this->bucket . '/' . $key,
+            'Key' => $key,
+            'MetadataDirective' => 'REPLACE',
+            'Metadata' => $metadata,
+        ];
+        if ($contentType !== null && $contentType !== '') {
+            $params['ContentType'] = $contentType;
+        }
+        $this->client->copyObject($params);
     }
 
     /**
@@ -937,9 +1144,13 @@ class ObjectStore
     /**
      * Register or update the _id/{hash} pointer to a node prefix.
      */
-    public function setIdPointer(string $hash, string $nodePrefix): void
+    public function setIdPointer(string $hash, string $nodePrefix, bool $directory = true): void
     {
-        $this->putContents(self::idIndexKey($hash), rtrim($nodePrefix, '/') . '/', 'text/plain');
+        $value = rtrim($nodePrefix, '/');
+        if ($directory) {
+            $value .= '/';
+        }
+        $this->putContents(self::idIndexKey($hash), $value, 'text/plain');
     }
 
     /**
@@ -954,9 +1165,6 @@ class ObjectStore
         $prefix = trim($this->getContents($key));
         if ($prefix === '') {
             throw new Exception("ID pointer for hash $hash is empty");
-        }
-        if (substr($prefix, -1) !== '/') {
-            $prefix .= '/';
         }
         return $prefix;
     }

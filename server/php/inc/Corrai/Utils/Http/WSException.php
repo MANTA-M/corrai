@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Http;
 
 /**
  * Web-service exception class that extends Exception.

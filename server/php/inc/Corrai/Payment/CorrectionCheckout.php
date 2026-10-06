@@ -5,7 +5,7 @@ namespace Corrai\Payment;
 use Corrai\Model\Assessment;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\User;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use Stripe\Checkout\Session;
 
 /**

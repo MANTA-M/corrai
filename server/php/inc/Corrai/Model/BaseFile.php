@@ -3,14 +3,19 @@
 namespace Corrai\Model;
 
 use Exception;
-use Corrai\Utils\HashId;
+use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\StoreConflictException;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Store\StoreConflictException;
+use Corrai\Utils\Http\WSException;
 
 /**
- * Shared assessment file model. Subject packages may provide a concrete File.
+ * Assessment file stored as a directory.
+ *
+ * Layout under the file id: content and attributes.json are S3File objects,
+ * and events/ holds one JSON S3File per event. InputFile names this role.
+ * Subject pipelines subclass SubmissionFile; subject material and instructions
+ * use SubjectFile and InstructionFile.
  */
 abstract class BaseFile
 {
@@ -41,6 +46,11 @@ abstract class BaseFile
     public string $status = '';
 
     public string $content_type = 'application/octet-stream';
+
+    /**
+     * Transient flag indicating active background task processing.
+     */
+    public ?bool $loading = null;
 
     /** @var string|null Last known ETag for conditional attribute updates */
     public ?string $etag = null;
@@ -101,14 +111,13 @@ abstract class BaseFile
             return false;
         }
         $reflection = new \ReflectionClass($class);
-        return !$reflection->isAbstract()
-            && ($class === File::class || $reflection->isSubclassOf(File::class));
+        return !$reflection->isAbstract() && $reflection->isSubclassOf(self::class);
     }
 
     /**
      * Class written to S3 for this file.
      *
-     * @return class-string<File>
+     * @return class-string<InputFile>
      */
     public function storedClass(): string
     {
@@ -218,7 +227,7 @@ abstract class BaseFile
      *
      * @param array<string, mixed> $data
      * @param array<string, mixed> $parsed
-     * @return class-string<File>
+     * @return class-string<InputFile>
      */
     private static function resolveFileClass(array $data, array $parsed): string
     {
@@ -300,6 +309,18 @@ abstract class BaseFile
         );
     }
 
+    public function thumbnailKey(): string
+    {
+        return ObjectStore::assessmentFileThumbnailKey(
+            $this->school_id,
+            $this->user_id,
+            $this->assessment_id,
+            $this->id,
+            $this->type,
+            $this->student
+        );
+    }
+
     public function prefix(): string
     {
         return ObjectStore::assessmentFilePrefix(
@@ -310,6 +331,22 @@ abstract class BaseFile
             $this->type,
             $this->student
         );
+    }
+
+    /**
+     * Bytes of this file.
+     */
+    public function contentFile(): S3File
+    {
+        return S3File::at($this->contentKey());
+    }
+
+    /**
+     * Attribute document for this file.
+     */
+    public function attributesFile(): S3File
+    {
+        return S3File::at($this->attrKey());
     }
 
     /**
@@ -442,7 +479,7 @@ abstract class BaseFile
             $this->type,
             $this->student
         );
-        ObjectStore::getInstance()->putJson($key, [
+        S3File::at($key)->putJson([
             'timestamp' => $timestamp,
             'name' => $name,
         ]);
@@ -473,6 +510,36 @@ abstract class BaseFile
             'pt' => 'Armazenado',
             'ro' => 'Stocat',
             'de' => 'Gespeichert',
+        ],
+        'correction_asked' => [
+            'en' => 'Correction requested',
+            'fr' => 'Correction demandée',
+            'ru' => 'Запрошена проверка',
+            'uk' => 'Запитано перевірку',
+            'es' => 'Corrección solicitada',
+            'pt' => 'Correção pedida',
+            'ro' => 'Corectare cerută',
+            'de' => 'Korrektur angefordert',
+        ],
+        'transcribed' => [
+            'en' => 'Transcribed',
+            'fr' => 'Transcrit',
+            'ru' => 'Транскрибировано',
+            'uk' => 'Транскрибовано',
+            'es' => 'Transcrito',
+            'pt' => 'Transcrito',
+            'ro' => 'Transcris',
+            'de' => 'Transkribiert',
+        ],
+        'correction_ready' => [
+            'en' => 'Correction ready',
+            'fr' => 'Correction prête',
+            'ru' => 'Проверка готова',
+            'uk' => 'Перевірка готова',
+            'es' => 'Corrección lista',
+            'pt' => 'Correção pronta',
+            'ro' => 'Corectare pregătită',
+            'de' => 'Korrektur bereit',
         ],
         'corrected' => [
             'en' => 'Corrected',
@@ -506,12 +573,37 @@ abstract class BaseFile
     }
 
     /**
+     * Status labels for this file class. Subject files add their own statuses.
+     *
+     * @return array<string, array<string, string>>
+     */
+    protected static function statusLabelTable(): array
+    {
+        return self::STATUS_LABELS;
+    }
+
+    /**
+     * Every status of this file class, as key => label in the queried locale.
+     *
+     * @return array<string, string>
+     */
+    public static function statusLabels(?string $locale = null): array
+    {
+        $locale = MenuLabels::locale($locale);
+        $map = [];
+        foreach (static::statusLabelTable() as $status => $labels) {
+            $map[$status] = MenuLabels::pick($labels, $locale, $status);
+        }
+        return $map;
+    }
+
+    /**
      * Localized label of the current status. An unknown status is returned unchanged.
      */
     public function get_status_label(?string $locale = null): string
     {
         $status = $this->status === 'loaded' ? 'stored' : $this->status;
-        $labels = self::STATUS_LABELS[$status] ?? null;
+        $labels = static::statusLabelTable()[$status] ?? null;
         if (!is_array($labels)) {
             return $status;
         }

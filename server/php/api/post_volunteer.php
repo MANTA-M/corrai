@@ -1,8 +1,8 @@
 <?php
 
 use Corrai\Utils\Emailer;
-use Corrai\Utils\JsonUtils;
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\JsonUtils;
+use Corrai\Utils\Http\Request;
 
 try {
     $post_data = Request::getPostStr();

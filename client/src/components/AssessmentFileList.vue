@@ -2,7 +2,13 @@
   <p v-if="error" class="error-message">{{ error }}</p>
   <p v-if="!sortedFiles.length" class="zone-empty">{{ emptyText || t('assessment.fileZoneEmpty') }}</p>
   <ul v-else class="entity-list" data-testid="assessment-file-list">
-    <li v-for="file in sortedFiles" :key="file.id" class="entity-row" data-testid="assessment-file-item">
+    <li
+      v-for="file in sortedFiles"
+      :key="file.id"
+      class="entity-row"
+      :class="{ 'is-loading': file.loading }"
+      data-testid="assessment-file-item"
+    >
       <button
         v-if="allowTextEdit && isEditableTextFile(file)"
         type="button"
@@ -13,6 +19,14 @@
         {{ file.name }}
       </button>
       <span v-else class="entity-name">{{ file.name }}</span>
+      <span
+        v-if="file.loading"
+        class="file-loading"
+        data-testid="assessment-file-loading"
+        aria-label="Loading"
+      >
+        <span class="loading-spinner"></span>
+      </span>
       <span v-if="statusLabel(file)" class="file-status" data-testid="assessment-file-status">
         {{ statusLabel(file) }}
       </span>
@@ -293,7 +307,7 @@ import { useI18n } from 'vue-i18n'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useSessionStore } from '@/stores/session'
 import { isEditableTextFile } from '@/utils/assessmentFiles'
-import type { AssessmentFile, AssessmentStats, AssessmentStudent } from '@/types/types'
+import type { AssessmentFile, AssessmentStats, AssessmentStudent, StateLocales } from '@/types/types'
 
 const NOT_FOUND = '__not_found__'
 
@@ -385,7 +399,8 @@ const annexUrl = (name: string) =>
     annex: name,
   })
 
-const statusLabel = (file: AssessmentFile) => file.status_label || file.status || ''
+const statusLabel = (file: AssessmentFile) =>
+  sessionStore.stateLabel(sessionStore.fileStates, file.status, file.status_label)
 
 const eventLabel = (event: FileEvent) => {
   const name = event.name === 'Stored' || event.name === 'Loaded'
@@ -518,7 +533,8 @@ const confirmReassign = async () => {
         const created = await wsClient.queryWs<{
           student?: AssessmentStudent
           students?: AssessmentStudent[]
-        } & AssessmentStats>('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
+        } & AssessmentStats & StateLocales>('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
+        sessionStore.applyStateLocales(created)
         studentId = created?.student?.id ?? ''
         students = created?.students ?? students
         if (!studentId) {

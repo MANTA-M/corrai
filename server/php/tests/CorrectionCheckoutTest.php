@@ -7,7 +7,7 @@ namespace Corrai\Tests;
 use Corrai\Model\Assessment;
 use Corrai\Payment\CorrectionCheckout;
 use Corrai\Payment\StripeClient;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 use Stripe\Checkout\Session;
 use Stripe\WebhookSignature;

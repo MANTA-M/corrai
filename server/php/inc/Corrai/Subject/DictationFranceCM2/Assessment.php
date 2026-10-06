@@ -4,7 +4,7 @@ namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\Student;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 
 class Assessment extends BaseAssessment
 {
@@ -82,44 +82,6 @@ class Assessment extends BaseAssessment
         }
 
         return null;
-    }
-
-    /**
-     * Creates the assessment's instruction file from the template file if one exists.
-     */
-    public function createInstructionFileFromTemplate(?string $locale = null): ?File
-    {
-        if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
-            return null;
-        }
-
-        $path = $this->templateInstructionPath($locale);
-        if ($path === null) {
-            return null;
-        }
-
-        foreach ($this->listFileModels() as $file) {
-            if ($file->type === 'instructions') {
-                /** @var File $file */
-                return $file;
-            }
-        }
-
-        $content = file_get_contents($path);
-        if ($content === false) {
-            return null;
-        }
-
-        /** @var File $file */
-        $file = $this->createFileModel(
-            'instructions.md',
-            $content,
-            'text/markdown',
-            'instructions',
-            null
-        );
-
-        return $file;
     }
 
     /**

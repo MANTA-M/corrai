@@ -2,7 +2,7 @@
 
 namespace Corrai\Payment;
 
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\WSException;
 use Stripe\Checkout\Session;
 use Stripe\Event;
 use Stripe\Exception\ApiErrorException;

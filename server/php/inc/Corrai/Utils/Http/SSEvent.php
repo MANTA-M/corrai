@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Utils;
+namespace Corrai\Utils\Http;
 
 /**
  * Publishes a JSON payload on an Nchan channel.
@@ -9,6 +9,9 @@ namespace Corrai\Utils;
  */
 class SSEvent
 {
+    /** @var (\Closure(string, array<string, mixed>): void)|null */
+    public static ?\Closure $publisher = null;
+
     public static function assessmentChannel(string $assessmentId): string
     {
         return 'assessment:' . $assessmentId;
@@ -26,6 +29,11 @@ class SSEvent
      */
     public static function publish(string $channel, array $payload): void
     {
+        if (self::$publisher !== null) {
+            (self::$publisher)($channel, $payload);
+            return;
+        }
+
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
             error_log('SSEvent: failed to encode payload for ' . $channel);

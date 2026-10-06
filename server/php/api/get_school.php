@@ -2,8 +2,8 @@
 
 use Corrai\Model\School;
 use Corrai\Model\User;
-use Corrai\Utils\Request;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Http\Request;
+use Corrai\Utils\Http\WSException;
 
 try {
     $hash = Request::getStringParam('hash');

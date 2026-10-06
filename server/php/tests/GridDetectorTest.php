@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils\GridDetector;
+use Corrai\Utils\Image\GridDetector;
 use Exception;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;

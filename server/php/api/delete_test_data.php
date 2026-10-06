@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Utils\Request;
+use Corrai\Utils\Http\Request;
 use Corrai\Utils\TestData;
 
 try {

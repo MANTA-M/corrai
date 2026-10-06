@@ -2,6 +2,8 @@
 
 namespace Corrai\Utils;
 
+use Corrai\Utils\Http\Request;
+
 /**
  * Localized menu labels shared by assessments and files.
  */

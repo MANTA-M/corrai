@@ -159,16 +159,27 @@ def make_s3_client():
     if access_key == "" or secret_key == "":
         raise RuntimeError("S3_ACCESS_KEY and S3_SECRET_KEY must be configured")
 
+    connect_timeout = float(env("S3_CONNECT_TIMEOUT", "2"))
+    timeout = float(env("S3_TIMEOUT", "10"))
+    retries = int(env("S3_RETRIES", "3"))
+
+    config_kwargs = {
+        "s3": {"addressing_style": "path"},
+        "connect_timeout": connect_timeout,
+        "read_timeout": timeout,
+        "retries": {"max_attempts": retries, "mode": "standard"},
+    }
+
     # Newer botocore defaults to always sending checksums; SeaweedFS rejects them.
     # Older botocore has no such knobs, so fall back to path-style only.
     try:
         config = Config(
-            s3={"addressing_style": "path"},
             request_checksum_calculation="when_required",
             response_checksum_validation="when_required",
+            **config_kwargs,
         )
     except TypeError:
-        config = Config(s3={"addressing_style": "path"})
+        config = Config(**config_kwargs)
 
     return boto3.client(
         "s3",
@@ -200,9 +211,20 @@ class ObjectStore:
         self.bucket = bucket if bucket is not None else env("S3_BUCKET", "corrai")
 
     def get_bytes(self, key: str) -> bytes:
-        response = self.client.get_object(Bucket=self.bucket, Key=key)
-        body = response["Body"].read()
-        return body if isinstance(body, bytes) else bytes(body)
+        start = time.monotonic()
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+            body = response["Body"].read()
+            return body if isinstance(body, bytes) else bytes(body)
+        finally:
+            elapsed_ms = (time.monotonic() - start) * 1000
+            threshold_ms = float(env("S3_SLOW_THRESHOLD_MS", "500"))
+            if elapsed_ms > threshold_ms:
+                logger.warning(
+                    "S3 slow request (GetObject): key=%s duration=%.1f ms",
+                    key,
+                    elapsed_ms,
+                )
 
     def get_json(self, key: str) -> dict[str, Any]:
         raw = self.get_bytes(key)
@@ -214,12 +236,23 @@ class ObjectStore:
     def put_bytes(self, key: str, body: bytes | str, content_type: str) -> None:
         if isinstance(body, str):
             body = body.encode("utf-8")
-        self.client.put_object(
-            Bucket=self.bucket,
-            Key=key,
-            Body=body,
-            ContentType=content_type,
-        )
+        start = time.monotonic()
+        try:
+            self.client.put_object(
+                Bucket=self.bucket,
+                Key=key,
+                Body=body,
+                ContentType=content_type,
+            )
+        finally:
+            elapsed_ms = (time.monotonic() - start) * 1000
+            threshold_ms = float(env("S3_SLOW_THRESHOLD_MS", "500"))
+            if elapsed_ms > threshold_ms:
+                logger.warning(
+                    "S3 slow request (PutObject): key=%s duration=%.1f ms",
+                    key,
+                    elapsed_ms,
+                )
 
     def put_json(self, key: str, data: dict[str, Any]) -> None:
         payload = dict(data)

@@ -5,10 +5,10 @@ namespace Corrai\Model;
 use Exception;
 use Corrai\Llm\Openrouter\LlmClientFactory;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\HashId;
+use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\WSException;
 use Corrai\Subject\Catalog;
 use Corrai\Subject\Dictation\Task1Correcting as Dictation;
 use Corrai\Subject\AssessmentFactory;
@@ -451,6 +451,70 @@ abstract class BaseAssessment
         return false;
     }
 
+    /**
+     * Assessment state labels.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const STATUS_LABELS = [
+        'draft' => [
+            'en' => 'Draft',
+            'fr' => 'Brouillon',
+            'ru' => 'Черновик',
+            'uk' => 'Чернетка',
+            'es' => 'Borrador',
+            'pt' => 'Rascunho',
+            'ro' => 'Ciornă',
+            'de' => 'Entwurf',
+        ],
+        'correcting' => [
+            'en' => 'Correcting',
+            'fr' => 'Correction en cours',
+            'ru' => 'Проверяется',
+            'uk' => 'Перевіряється',
+            'es' => 'Corrigiendo',
+            'pt' => 'A corrigir',
+            'ro' => 'În corectare',
+            'de' => 'Wird korrigiert',
+        ],
+        'corrected' => [
+            'en' => 'Corrected',
+            'fr' => 'Corrigé',
+            'ru' => 'Проверено',
+            'uk' => 'Перевірено',
+            'es' => 'Corregido',
+            'pt' => 'Corrigido',
+            'ro' => 'Corectat',
+            'de' => 'Korrigiert',
+        ],
+    ];
+
+    /**
+     * Every assessment state, as key => label in the queried locale.
+     *
+     * @return array<string, string>
+     */
+    public static function statusLabels(?string $locale = null): array
+    {
+        $locale = MenuLabels::locale($locale);
+        $map = [];
+        foreach (self::STATUS_LABELS as $status => $labels) {
+            $map[$status] = MenuLabels::pick($labels, $locale, $status);
+        }
+        return $map;
+    }
+
+    /**
+     * File states for this assessment's subject, as key => label.
+     *
+     * @return array<string, string>
+     */
+    public function fileStatusLabels(?string $locale = null): array
+    {
+        $class = $this->fileClass();
+        return $class::statusLabels($locale);
+    }
+
     public function to_output(?string $locale = null): array
     {
         $locale = MenuLabels::locale($locale);
@@ -586,7 +650,7 @@ abstract class BaseAssessment
     }
 
     /**
-     * @return File[]
+     * @return array<int, InputFile|S3File>
      */
     public function listFileModels(): array
     {
@@ -596,19 +660,43 @@ abstract class BaseAssessment
 
         $files = [];
         $seen = [];
-        $class = $this->fileClass();
         foreach ($this->storedFileIds() as $fileId) {
             if (isset($seen[$fileId])) {
                 continue;
             }
-            $seen[$fileId] = true;
             try {
-                $files[] = $class::from_hash($fileId);
+                $files[] = InputFile::from_hash($fileId);
+                $seen[$fileId] = true;
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        foreach ($this->blobFileIds() as $fileId) {
+            if (isset($seen[$fileId])) {
+                continue;
+            }
+            try {
+                $files[] = S3File::from_hash($fileId);
+                $seen[$fileId] = true;
             } catch (\Exception $e) {
                 continue;
             }
         }
         return $files;
+    }
+
+    /**
+     * Bare object ids under blobs/.
+     *
+     * @return string[]
+     */
+    private function blobFileIds(): array
+    {
+        if (empty($this->id) || $this->school_id === '' || $this->user_id === '') {
+            return [];
+        }
+        $prefix = ObjectStore::assessmentBlobsPrefix($this->school_id, $this->user_id, $this->id);
+        return ObjectStore::getInstance()->listImmediateFiles($prefix);
     }
 
     /**
@@ -715,10 +803,14 @@ abstract class BaseAssessment
         return $out;
     }
 
-    public function getFile(string $fileId): File
+    public function getFile(string $fileId): InputFile|S3File
     {
-        $class = $this->fileClass();
-        $file = $class::from_hash($fileId);
+        $store = ObjectStore::getInstance();
+        $pointer = $store->resolveIdPointer($fileId);
+        $parsed = ObjectStore::parseNodePrefix($pointer);
+        $file = ($parsed['kind'] ?? '') === 'blob'
+            ? S3File::from_hash($fileId)
+            : InputFile::from_hash($fileId);
         if (
             $file->school_id !== $this->school_id
             || $file->user_id !== $this->user_id
@@ -888,6 +980,7 @@ abstract class BaseAssessment
     {
         $file = $this->getFile($fileId);
 
+        $nextType = $file->type;
         if ($type !== null) {
             if ($type === 'unknown') {
                 $type = '';
@@ -895,19 +988,37 @@ abstract class BaseAssessment
             if ($type !== '' && !in_array($type, static::FILE_TYPES, true)) {
                 throw new WSException('Invalid file type', 400);
             }
-            $file->type = $type;
+            $nextType = $type;
         }
+
+        $nextStudent = $file->student;
         if ($student !== null) {
             $trimmed = trim($student);
             if ($trimmed === '') {
-                $file->student = null;
+                $nextStudent = null;
             } else {
                 $this->getStudent($trimmed);
-                $file->student = $trimmed;
+                $nextStudent = $trimmed;
             }
         }
 
-        $file->saveAttributes();
+        $blobNow = $file instanceof S3File;
+        $blobNext = S3File::storesAsBlob($nextType);
+        if ($blobNow && !$blobNext && $file instanceof S3File) {
+            $this->promoteBlob($file, $nextType, $nextStudent);
+        } elseif (!$blobNow && $blobNext && $file instanceof InputFile) {
+            $this->demoteInput($file, $nextType, $nextStudent);
+        } else {
+            $file->type = $nextType;
+            $file->student = $nextStudent;
+            if ($file instanceof InputFile) {
+                $expected = $this->classForInputType($nextType);
+                if ($file::class !== $expected) {
+                    $file = $file->asClass($expected);
+                }
+            }
+            $file->saveAttributes();
+        }
         return $this->list_files();
     }
 
@@ -936,40 +1047,14 @@ abstract class BaseAssessment
         string $contentType,
         ?string $type,
         ?string $student
-    ): File {
-        $filename = $this->uniqueDisplayName($filename);
-        if ($type === 'unknown') {
-            $type = '';
+    ): InputFile|S3File {
+        [$filename, $type, $studentHash] = $this->prepareNewFile($filename, $type, $student);
+        $contentType = $contentType !== '' ? $contentType : 'application/octet-stream';
+        if (S3File::storesAsBlob($type)) {
+            return $this->storeNewBlob($filename, $contentType, $type, $studentHash, strlen($content), null, $content);
         }
-        if ($type !== null && $type !== '' && !in_array($type, static::FILE_TYPES, true)) {
-            throw new WSException('Invalid file type', 400);
-        }
-        $studentHash = null;
-        if ($student !== null && trim($student) !== '') {
-            $this->getStudent(trim($student));
-            $studentHash = trim($student);
-        }
-
-        $class = $this->fileClass();
-        $file = new $class();
-        $file->id = HashId::create();
-        $file->school_id = $this->school_id;
-        $file->user_id = $this->user_id;
-        $file->assessment_id = $this->id;
-        $file->name = $filename;
-        $file->type = $type ?? '';
-        $file->student = $studentHash;
-        $file->status = 'stored';
-        $file->content_type = $contentType !== '' ? $contentType : 'application/octet-stream';
-        $file->size = strlen($content);
-        $file->created = time();
-
-        $store = ObjectStore::getInstance();
-        $store->putContents($file->contentKey(), $content, $file->content_type);
-        $file->saveAttributes(false);
-        $file->appendEvent('Stored');
-        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
-
+        $file = $this->newInputFile($filename, $contentType, $type, $studentHash, strlen($content));
+        $this->storeNewInput($file, null, $content);
         return $file;
     }
 
@@ -982,57 +1067,34 @@ abstract class BaseAssessment
         ?string $contentType,
         ?string $type,
         ?string $student
-    ): File {
-        $filename = $this->uniqueDisplayName($filename);
-        if ($type === 'unknown') {
-            $type = '';
-        }
-        if ($type !== null && $type !== '' && !in_array($type, static::FILE_TYPES, true)) {
-            throw new WSException('Invalid file type', 400);
-        }
-        $studentHash = null;
-        if ($student !== null && trim($student) !== '') {
-            $this->getStudent(trim($student));
-            $studentHash = trim($student);
-        }
-
+    ): InputFile|S3File {
+        [$filename, $type, $studentHash] = $this->prepareNewFile($filename, $type, $student);
         $size = filesize($localPath);
         if ($size === false) {
             throw new WSException('Failed to read uploaded file size', 400);
         }
-
-        $class = $this->fileClass();
-        $file = new $class();
-        $file->id = HashId::create();
-        $file->school_id = $this->school_id;
-        $file->user_id = $this->user_id;
-        $file->assessment_id = $this->id;
-        $file->name = $filename;
-        $file->type = $type ?? '';
-        $file->student = $studentHash;
-        $file->status = 'stored';
-        $file->content_type = ($contentType !== null && $contentType !== '')
+        $resolvedType = ($contentType !== null && $contentType !== '')
             ? $contentType
             : 'application/octet-stream';
-        $file->size = (int) $size;
-        $file->created = time();
-
-        $store = ObjectStore::getInstance();
-        $store->put($file->contentKey(), $localPath, $file->content_type);
-        $file->saveAttributes(false);
-        $file->appendEvent('Stored');
-        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
-
+        if (S3File::storesAsBlob($type)) {
+            return $this->storeNewBlob($filename, $resolvedType, $type, $studentHash, (int) $size, $localPath, null);
+        }
+        $file = $this->newInputFile($filename, $resolvedType, $type, $studentHash, (int) $size);
+        $this->storeNewInput($file, $localPath, null);
         return $file;
     }
 
     /**
      * Build a File model from S3 attribute payload for this assessment.
      */
-    public function fileFromAttributes(array $data, string $fileId, ?string $etag = null): File
+    public function fileFromAttributes(array $data, string $fileId, ?string $etag = null): InputFile
     {
-        $class = BaseFile::classFromPayload($data) ?? $this->fileClass();
-        if (!BaseFile::isFileClass($class)) {
+        $type = (string) ($data['type'] ?? '');
+        $class = InputFile::classFromPayload($data);
+        if ($class === null) {
+            $class = S3File::storesAsBlob($type) ? $this->fileClass() : $this->classForInputType($type);
+        }
+        if (!InputFile::isFileClass($class)) {
             $class = File::class;
         }
         $file = $class::from_array($data);
@@ -1083,10 +1145,15 @@ abstract class BaseAssessment
         if ($type === '') {
             $type = 'text/plain; charset=utf-8';
         }
-        ObjectStore::getInstance()->putContents($file->contentKey(), $content, $type);
         $file->size = strlen($content);
         $file->content_type = $type;
-        $file->saveAttributes();
+        if ($file instanceof S3File) {
+            $file->putContents($content, $type);
+            ObjectStore::getInstance()->setIdPointer($file->id, $file->key, false);
+        } else {
+            ObjectStore::getInstance()->putContents($file->contentKey(), $content, $type);
+            $file->saveAttributes();
+        }
         return $this->list_files();
     }
 
@@ -1165,7 +1232,7 @@ abstract class BaseAssessment
     public function correctSubmission(string $fileId): array
     {
         $file = $this->getFile($fileId);
-        if ($file->type !== 'submission') {
+        if (!$file instanceof InputFile || $file->type !== 'submission') {
             throw new WSException('File is not a submission', 400);
         }
 
@@ -1379,7 +1446,7 @@ abstract class BaseAssessment
     /**
      * Creates the assessment's instruction file from the template file if one exists.
      */
-    public function createInstructionFileFromTemplate(?string $locale = null): ?File
+    public function createInstructionFileFromTemplate(?string $locale = null): ?InputFile
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
             return null;
@@ -1408,5 +1475,176 @@ abstract class BaseAssessment
             'instructions',
             null
         );
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: ?string}
+     */
+    private function prepareNewFile(string $filename, ?string $type, ?string $student): array
+    {
+        $filename = $this->uniqueDisplayName($filename);
+        if ($type === 'unknown') {
+            $type = '';
+        }
+        $type = $type ?? '';
+        if ($type !== '' && !in_array($type, static::FILE_TYPES, true)) {
+            throw new WSException('Invalid file type', 400);
+        }
+        $studentHash = null;
+        if ($student !== null && trim($student) !== '') {
+            $this->getStudent(trim($student));
+            $studentHash = trim($student);
+        }
+        return [$filename, $type, $studentHash];
+    }
+
+    /**
+     * @return class-string<InputFile>
+     */
+    private function classForInputType(string $type): string
+    {
+        if ($type === 'subject') {
+            return SubjectFile::class;
+        }
+        if ($type === 'instructions') {
+            return InstructionFile::class;
+        }
+        $class = $this->submissionClass();
+        if (!InputFile::isFileClass($class)) {
+            return File::class;
+        }
+        return $class;
+    }
+
+    private function newInputFile(
+        string $filename,
+        string $contentType,
+        string $type,
+        ?string $student,
+        int $size
+    ): InputFile {
+        $class = $this->classForInputType($type);
+        $file = new $class();
+        $file->id = HashId::create();
+        $file->school_id = $this->school_id;
+        $file->user_id = $this->user_id;
+        $file->assessment_id = $this->id;
+        $file->name = $filename;
+        $file->type = $type;
+        $file->student = $student;
+        $file->status = 'stored';
+        $file->content_type = $contentType;
+        $file->size = $size;
+        $file->created = time();
+        return $file;
+    }
+
+    private function storeNewInput(InputFile $file, ?string $localPath, ?string $bytes): void
+    {
+        $store = ObjectStore::getInstance();
+        if ($localPath !== null) {
+            $store->put($file->contentKey(), $localPath, $file->content_type);
+        } else {
+            $store->putContents($file->contentKey(), (string) $bytes, $file->content_type);
+        }
+        $file->saveAttributes(false);
+        $file->appendEvent('Stored');
+        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
+    }
+
+    private function storeNewBlob(
+        string $filename,
+        string $contentType,
+        string $type,
+        ?string $student,
+        int $size,
+        ?string $localPath,
+        ?string $bytes
+    ): S3File {
+        $blob = new S3File();
+        $blob->id = HashId::create();
+        $blob->school_id = $this->school_id;
+        $blob->user_id = $this->user_id;
+        $blob->assessment_id = $this->id ?? '';
+        $blob->name = $filename;
+        $blob->type = $type;
+        $blob->student = $student;
+        $blob->content_type = $contentType;
+        $blob->size = $size;
+        $blob->created = time();
+        $blob->key = ObjectStore::assessmentBlobKey(
+            $this->school_id,
+            $this->user_id,
+            (string) $this->id,
+            $blob->id
+        );
+        $store = ObjectStore::getInstance();
+        if ($localPath !== null) {
+            $blob->etag = $store->put($blob->key, $localPath, $blob->content_type, null, $blob->userMetadata());
+        } else {
+            $blob->etag = $store->putContents(
+                $blob->key,
+                (string) $bytes,
+                $blob->content_type,
+                null,
+                $blob->userMetadata()
+            );
+        }
+        $store->setIdPointer($blob->id, $blob->key, false);
+        return $blob;
+    }
+
+    private function promoteBlob(S3File $blob, string $type, ?string $student): InputFile
+    {
+        $store = ObjectStore::getInstance();
+        $bytes = $store->getContents($blob->key);
+        $class = $this->classForInputType($type);
+        $file = new $class();
+        $file->id = $blob->id;
+        $file->school_id = $blob->school_id;
+        $file->user_id = $blob->user_id;
+        $file->assessment_id = $blob->assessment_id;
+        $file->name = $blob->name;
+        $file->type = $type;
+        $file->student = $student;
+        $file->status = 'stored';
+        $file->content_type = $blob->content_type;
+        $file->size = strlen($bytes);
+        $file->created = $blob->created > 0 ? $blob->created : time();
+        $store->putContents($file->contentKey(), $bytes, $file->content_type);
+        $file->saveAttributes(false);
+        $file->appendEvent('Stored');
+        if ($blob->key !== '' && $store->exists($blob->key)) {
+            $store->delete($blob->key);
+        }
+        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
+        return $file;
+    }
+
+    private function demoteInput(InputFile $file, string $type, ?string $student): S3File
+    {
+        $store = ObjectStore::getInstance();
+        $bytes = $store->getContents($file->contentKey());
+        $blob = new S3File();
+        $blob->id = $file->id;
+        $blob->school_id = $file->school_id;
+        $blob->user_id = $file->user_id;
+        $blob->assessment_id = $file->assessment_id;
+        $blob->name = $file->name;
+        $blob->type = $type;
+        $blob->student = $student;
+        $blob->content_type = $file->content_type;
+        $blob->size = strlen($bytes);
+        $blob->created = $file->created > 0 ? $file->created : time();
+        $blob->key = ObjectStore::assessmentBlobKey(
+            $file->school_id,
+            $file->user_id,
+            $file->assessment_id,
+            (string) $file->id
+        );
+        $store->putContents($blob->key, $bytes, $blob->content_type, null, $blob->userMetadata());
+        $store->setIdPointer((string) $blob->id, $blob->key, false);
+        $store->deletePrefix($file->prefix());
+        return $blob;
     }
 }

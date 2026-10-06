@@ -3,8 +3,8 @@
 namespace Corrai\Subject\DictationFranceOCRGoogle;
 
 use Corrai\Model\Task\PathQueueItemTask;
-use Corrai\Utils\ObjectStore;
-use Corrai\Utils\WSException;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\WSException;
 use Throwable;
 
 /**

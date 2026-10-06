@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Utils\ObjectStore;
+use Corrai\Utils\Store\ObjectStore;
 use PHPUnit\Framework\TestCase;
 
 class AssessmentFilePathTest extends TestCase
@@ -38,8 +38,8 @@ class AssessmentFilePathTest extends TestCase
     public function testUnclassifiedFilesStayApartFromSubjectAndStudents(): void
     {
         $this->assertSame(
-            'schools/s1/teachers/t1/assessments/a1/unclassified/f1/content',
-            ObjectStore::assessmentFileContentKey('s1', 't1', 'a1', 'f1', '')
+            'schools/s1/teachers/t1/assessments/a1/blobs/f1',
+            ObjectStore::assessmentBlobKey('s1', 't1', 'a1', 'f1')
         );
         $this->assertSame(
             'schools/s1/teachers/t1/assessments/a1/unclassified/f1/content',
@@ -66,6 +66,11 @@ class AssessmentFilePathTest extends TestCase
         $pending = ObjectStore::parseNodePrefix('schools/s1/teachers/t1/assessments/a1/unclassified/f1/');
         $this->assertSame('file', $pending['kind']);
         $this->assertSame('unclassified', $pending['area']);
+
+        $blob = ObjectStore::parseNodePrefix('schools/s1/teachers/t1/assessments/a1/blobs/f1');
+        $this->assertSame('blob', $blob['kind']);
+        $this->assertSame('f1', $blob['file_id']);
+        $this->assertSame('blobs', $blob['area']);
     }
 
     public function testParseNodePrefixStillReadsLegacyFiles(): void
