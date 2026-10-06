@@ -194,7 +194,9 @@ const loadDirectory = async () => {
       }
     )
     if (!directoryOpen.value) return
-    storedFiles.value = (data.objects ?? []).filter((name) => name !== 'content')
+    storedFiles.value = (data.objects ?? []).filter(
+      (name) => name !== 'content' && !name.includes('/')
+    )
   } catch (err) {
     console.error('Error loading file directory:', err)
     if (directoryOpen.value) {

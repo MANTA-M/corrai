@@ -464,7 +464,7 @@ abstract class InputFile
     }
 
     /**
-     * Relative keys of every object stored in this file directory, except the content blob.
+     * Names of files stored directly in this file directory, except the content blob.
      *
      * @return string[]
      */
@@ -472,11 +472,7 @@ abstract class InputFile
     {
         $prefix = $this->prefix();
         $names = [];
-        foreach (ObjectStore::getInstance()->listKeys($prefix) as $key) {
-            if (!is_string($key) || !str_starts_with($key, $prefix)) {
-                continue;
-            }
-            $relative = substr($key, strlen($prefix));
+        foreach (ObjectStore::getInstance()->listImmediateFiles($prefix) as $relative) {
             if ($relative === '' || $relative === ObjectStore::CONTENT_FILE) {
                 continue;
             }

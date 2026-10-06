@@ -127,6 +127,55 @@ class ThumbnailTaskTest extends TestCase
 
         $stored = \Corrai\Model\InputFile::from_hash((string) $file->id);
         $this->assertTrue($stored->thumbnail);
+
+        $dirObjects = $stored->listDirectoryObjects();
+        $this->assertContains('attributes.json', $dirObjects);
+        $this->assertContains('thumbnail', $dirObjects);
+        $this->assertNotContains('content', $dirObjects);
+    }
+
+    public function testListDirectoryObjectsOnlyIncludesImmediateFiles(): void
+    {
+        $school = School::ensureIndependent();
+        $user = $school->addUser(
+            "teacher_" . bin2hex(random_bytes(4)) . "@ind.test",
+            "Teacher",
+            "pass",
+            User::ROLE_TEACHER
+        );
+        $assessment = new Assessment();
+        $assessment->school_id = $user->school_id;
+        $assessment->user_id = $user->id;
+        $assessment->name = 'Test Directory Objects';
+        $assessment->subject = 'Dictation';
+        $assessment->date = '2026-06-15';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $path = $this->writeTemp($this->pngBytes(100, 100));
+        $file = $assessment->createFileFromPath('copy.png', $path, 'image/png', 'submission', null);
+
+        $store = ObjectStore::getInstance();
+        $eventKey = ObjectStore::assessmentFileEventKey(
+            $file->school_id,
+            $file->user_id,
+            $file->assessment_id,
+            (string) $file->id,
+            'test-event',
+            $file->type,
+            $file->student
+        );
+        $store->putContents($eventKey, '{}', 'application/json');
+
+        $stored = \Corrai\Model\InputFile::from_hash((string) $file->id);
+        $objects = $stored->listDirectoryObjects();
+
+        $this->assertContains('attributes.json', $objects);
+        $this->assertNotContains('content', $objects);
+        $this->assertNotContains('events/test-event.json', $objects);
+        foreach ($objects as $obj) {
+            $this->assertStringNotContainsString('/', $obj);
+        }
     }
 
     public function testJpegBytesMaxWidthScalesWidthAndKeepsRatio(): void
