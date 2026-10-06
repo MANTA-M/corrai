@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Model\File;
+use Corrai\Model\InputFile;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\Request;
@@ -13,7 +13,7 @@ use Corrai\Utils\Http\Request;
 function queues_file_fields(string $fileId): array
 {
     try {
-        $file = File::from_hash($fileId);
+        $file = InputFile::from_hash($fileId);
         return [
             'file_id' => (string) $file->id,
             'name' => $file->name,

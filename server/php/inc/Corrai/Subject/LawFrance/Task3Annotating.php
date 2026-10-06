@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject\Math;
+namespace Corrai\Subject\LawFrance;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Llm\Openrouter\LlmClientFactory;
@@ -69,7 +69,7 @@ class Task3Annotating extends PathQueueItemTask
         $imageModel = $_ENV['OPENROUTER_IMAGE_MODEL'] ?? 'google/gemini-2.5-flash-image';
         $request = LlmClientFactory::create($imageModel);
         $request->set_system_content(
-            'You annotate student assessment papers. '
+            'You annotate student law papers. '
             . 'Using the correction text provided, annotate the source image accordingly. '
             . 'Return an annotated image.'
         );

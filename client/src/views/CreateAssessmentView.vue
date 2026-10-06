@@ -18,18 +18,83 @@
         </div>
         <div class="content">
           <p class="subtitle">{{ t('createAssessment.subjectSubtitle') }}</p>
-          <div class="file-picker">
-            <label class="file-button" :class="{ disabled: isAnalyzing }">
-              {{ t('createAssessment.chooseSubject') }}
-              <input
-                type="file"
-                accept="application/pdf,image/*,text/plain,.txt,.text,.md,.odt,.docx,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                data-testid="assessment-subject-file"
-                :disabled="isAnalyzing"
-                @change="onSubjectFile"
+          <div
+            class="dropzone"
+            :class="{ 'dropzone-active': isDragging, 'dropzone-disabled': isAnalyzing }"
+            data-testid="assessment-subject-dropzone"
+            @click="openSubjectPicker"
+            @dragenter.prevent="onDragEnter"
+            @dragover.prevent="onDragOver"
+            @dragleave.prevent="onDragLeave"
+            @drop.prevent="onSubjectDrop"
+          >
+            <p class="dropzone-hint">{{ t('assessment.dropzoneHint') }}</p>
+            <p v-if="isAnalyzing" class="dropzone-status">{{ dropzoneStatus }}</p>
+          </div>
+          <input
+            ref="subjectInput"
+            type="file"
+            multiple
+            accept="application/pdf,image/*,text/plain,.txt,.text,.md,.odt,.docx,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            class="file-input"
+            data-testid="assessment-subject-file"
+            :disabled="isAnalyzing"
+            @change="onSubjectFiles"
+          />
+          <ul
+            v-if="uploadItems.length > 0"
+            class="upload-list"
+            data-testid="assessment-subject-status-list"
+          >
+            <li
+              v-for="item in uploadItems"
+              :key="item.id"
+              class="upload-item"
+              :class="item.status"
+            >
+              <span class="upload-name">{{ item.name }}</span>
+              <span class="upload-status">{{ statusLabel(item) }}</span>
+            </li>
+          </ul>
+          <div
+            v-if="showUploadProgress"
+            class="upload-progress"
+            data-testid="assessment-subject-progress"
+            role="progressbar"
+            :aria-valuemin="0"
+            :aria-valuemax="uploadItems.length"
+            :aria-valuenow="uploadProgressCurrent"
+            :aria-label="t('assessment.uploadProgress', {
+              current: uploadProgressCurrent,
+              total: uploadItems.length
+            })"
+          >
+            <div class="upload-progress-track">
+              <div
+                class="upload-progress-fill"
+                :style="{ width: `${uploadProgressPercent}%` }"
               />
-            </label>
+            </div>
+            <span class="upload-progress-label">
+              {{ t('assessment.uploadProgress', {
+                current: uploadProgressCurrent,
+                total: uploadItems.length
+              }) }}
+            </span>
+          </div>
+          <div class="file-picker">
             <button
+              v-if="draftId"
+              type="button"
+              class="back-button"
+              data-testid="assessment-subject-continue"
+              :disabled="isAnalyzing"
+              @click="step = 'details'"
+            >
+              {{ t('createAssessment.continue') }}
+            </button>
+            <button
+              v-else
               type="button"
               class="back-button"
               data-testid="assessment-no-subject"
@@ -39,7 +104,6 @@
               {{ t('createAssessment.noSubject') }}
             </button>
           </div>
-          <p v-if="isAnalyzing" class="analyzing">{{ t('createAssessment.analyzing') }}</p>
           <p v-if="error" class="error-message">{{ error }}</p>
         </div>
       </template>
@@ -159,14 +223,38 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 
+interface UploadItem {
+  id: string
+  name: string
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  kind: 'intake' | 'extra'
+}
+
 const error = ref('')
 const isSubmitting = ref(false)
 const isLoading = ref(false)
 const isAnalyzing = ref(false)
+const isDragging = ref(false)
 const formLoaded = ref(false)
 const step = ref<'subject' | 'details'>('subject')
 const draftId = ref('')
 const analyzedCountry = ref<string | null>(null)
+const subjectInput = ref<HTMLInputElement | null>(null)
+const uploadItems = ref<UploadItem[]>([])
+let dragCounter = 0
+
+const dropzoneStatus = computed(() => {
+  const current = uploadItems.value.find((item) => item.status === 'uploading')
+  return current?.kind === 'extra' ? t('assessment.uploading') : t('createAssessment.analyzing')
+})
+const showUploadProgress = computed(() => uploadItems.value.length > 5)
+const uploadProgressCurrent = computed(
+  () => uploadItems.value.filter((item) => item.status === 'done' || item.status === 'error').length
+)
+const uploadProgressPercent = computed(() => {
+  if (uploadItems.value.length === 0) return 0
+  return Math.round((uploadProgressCurrent.value / uploadItems.value.length) * 100)
+})
 
 const { subjects, load: loadSubjects, levelsFor } = useSubjectCatalog()
 
@@ -301,11 +389,60 @@ const skipSubject = () => {
   step.value = 'details'
 }
 
-const onSubjectFile = async (event: Event) => {
+const statusLabel = (item: UploadItem) => {
+  if (item.status === 'uploading') {
+    return item.kind === 'intake' ? t('createAssessment.analyzing') : t('assessment.uploading')
+  }
+  if (item.status === 'done') return t('assessment.uploadDone')
+  if (item.status === 'error') {
+    return item.kind === 'intake' ? t('createAssessment.analyzeError') : t('assessment.uploadError')
+  }
+  return ''
+}
+
+const openSubjectPicker = () => {
+  if (isAnalyzing.value) return
+  subjectInput.value?.click()
+}
+
+const onDragEnter = () => {
+  dragCounter += 1
+  isDragging.value = true
+}
+
+const onDragOver = () => {
+  isDragging.value = true
+}
+
+const onDragLeave = () => {
+  dragCounter -= 1
+  if (dragCounter <= 0) {
+    dragCounter = 0
+    isDragging.value = false
+  }
+}
+
+const onSubjectDrop = (event: DragEvent) => {
+  dragCounter = 0
+  isDragging.value = false
+  if (isAnalyzing.value) return
+  const files = event.dataTransfer?.files
+  if (files && files.length > 0) {
+    void uploadSubjectFiles(Array.from(files))
+  }
+}
+
+const onSubjectFiles = (event: Event) => {
   const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+  const files = input.files
+  if (files && files.length > 0) {
+    void uploadSubjectFiles(Array.from(files))
+  }
   input.value = ''
-  if (!file) return
+}
+
+const uploadSubjectFiles = async (files: File[]) => {
+  if (files.length === 0 || isAnalyzing.value) return
 
   const userId = sessionStore.hasValidUserId ? sessionStore.user_id : null
   if (!userId) {
@@ -315,44 +452,80 @@ const onSubjectFile = async (event: Event) => {
 
   error.value = ''
   isAnalyzing.value = true
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    const response = await sessionStore.getWsClient().queryWs<{
-      hash?: string
-      name?: string
-      subject?: string
-      level?: string | null
-      country?: string | null
-      date?: string
-    }>('POST', '/assessment_subject', { locale: String(locale.value) }, formData, 'form')
+  uploadItems.value = files.map((file, index) => ({
+    id: `${file.name}-${index}-${Date.now()}`,
+    name: file.name,
+    status: 'pending' as const,
+    kind: 'extra' as const
+  }))
 
-    const id = response?.hash
-    if (!id) {
-      error.value = t('createAssessment.analyzeError')
-      return
+  const wsClient = sessionStore.getWsClient()
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const item = uploadItems.value[i]
+      item.kind = draftId.value ? 'extra' : 'intake'
+      item.status = 'uploading'
+      try {
+        if (item.kind === 'intake') {
+          const formData = new FormData()
+          formData.append('file', file)
+          const response = await wsClient.queryWs<{
+            hash?: string
+            name?: string
+            subject?: string
+            level?: string | null
+            country?: string | null
+            date?: string
+          }>('POST', '/assessment_subject', { locale: String(locale.value) }, formData, 'form')
+
+          const id = response?.hash
+          if (!id) {
+            item.status = 'error'
+            error.value = t('createAssessment.analyzeError')
+            continue
+          }
+
+          draftId.value = id
+          analyzedCountry.value = response.country ?? null
+          form.name = response.name || ''
+          form.subject = response.subject || ''
+          form.level = response.level || ''
+          form.date = response.date || ''
+          sessionStore.own_assessments.push({
+            id,
+            author: userId,
+            name: form.name,
+            subject: form.subject,
+            country: analyzedCountry.value,
+            level: form.level || null,
+            date: form.date,
+            files: []
+          })
+          item.status = 'done'
+        } else {
+          const formData = new FormData()
+          formData.append('file', file)
+          await wsClient.queryWs(
+            'POST',
+            '/file',
+            { assessment: draftId.value, locale: String(locale.value), type: 'subject' },
+            formData,
+            'form'
+          )
+          item.status = 'done'
+        }
+      } catch (err) {
+        console.error('Error uploading subject file:', err)
+        item.status = 'error'
+        error.value = item.kind === 'intake' ? t('createAssessment.analyzeError') : t('assessment.uploadError')
+      }
     }
 
-    draftId.value = id
-    analyzedCountry.value = response.country ?? null
-    form.name = response.name || ''
-    form.subject = response.subject || ''
-    form.level = response.level || ''
-    form.date = response.date || ''
-    sessionStore.own_assessments.push({
-      id,
-      author: userId,
-      name: form.name,
-      subject: form.subject,
-      country: analyzedCountry.value,
-      level: form.level || null,
-      date: form.date,
-      files: []
-    })
-    step.value = 'details'
-  } catch (err) {
-    console.error('Error analyzing subject:', err)
-    error.value = t('createAssessment.analyzeError')
+    const allSucceeded = uploadItems.value.every((item) => item.status === 'done')
+    if (allSucceeded && draftId.value) {
+      step.value = 'details'
+    }
   } finally {
     isAnalyzing.value = false
   }
@@ -484,6 +657,9 @@ const resetCreateForm = () => {
   step.value = 'subject'
   draftId.value = ''
   analyzedCountry.value = null
+  uploadItems.value = []
+  isDragging.value = false
+  dragCounter = 0
 }
 
 watch(locale, () => {
@@ -604,30 +780,115 @@ watch(
   flex-direction: column;
   align-items: flex-start;
   gap: 0.75rem;
+  margin-top: 1rem;
 }
 
-.file-button {
-  display: inline-block;
-  padding: 12px 18px;
-  background-color: var(--accent);
-  color: white;
-  border-radius: var(--radius-md);
+.dropzone {
+  border: 2px dashed #c5d4f4;
+  border-radius: 15px;
+  padding: 2rem 1.5rem;
+  text-align: center;
   cursor: pointer;
-  font-size: var(--type-label);
+  background: var(--surface-2);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.file-button input {
-  display: none;
+.dropzone:hover:not(.dropzone-disabled) {
+  border-color: var(--accent);
 }
 
-.file-button.disabled {
-  opacity: 0.6;
+.dropzone-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+}
+
+.dropzone-disabled {
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
-.analyzing {
+.dropzone-hint {
+  margin: 0;
+  color: var(--text);
+}
+
+.dropzone-status {
+  margin: 0.75rem 0 0;
   color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.upload-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.upload-item:last-child {
+  border-bottom: none;
+}
+
+.upload-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-item.done .upload-status {
+  color: var(--success);
+}
+
+.upload-item.error .upload-status {
+  color: var(--danger);
+}
+
+.upload-item.uploading .upload-status,
+.upload-item.pending .upload-status {
+  color: var(--text-muted);
+}
+
+.upload-progress {
   margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.upload-progress-track {
+  flex: 1;
+  min-width: 0;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.upload-progress-label {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .error-message {

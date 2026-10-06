@@ -2,14 +2,14 @@
 
 namespace Corrai\Subject\Other;
 
-use Corrai\Model\File as BaseFile;
+use Corrai\Model\SubmissionFile;
 
 /**
  * Submission state machine.
  *
  * Statuses: correction_asked → transcribed → correction_ready → corrected
  */
-class File extends BaseFile
+class File extends SubmissionFile
 {
     public function on_stored(): void
     {

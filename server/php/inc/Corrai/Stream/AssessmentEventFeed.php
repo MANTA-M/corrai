@@ -3,7 +3,7 @@
 namespace Corrai\Stream;
 
 use Corrai\Model\BaseAssessment;
-use Corrai\Model\BaseFile;
+use Corrai\Model\InputFile;
 
 /**
  * Snapshots pushed over SSE while an assessment or student page stays open.
@@ -57,7 +57,7 @@ class AssessmentEventFeed
      *
      * @return array<string, mixed>
      */
-    public static function changedFile(BaseFile $file, ?string $studentName, ?bool $loading = null): array
+    public static function changedFile(InputFile $file, ?string $studentName, ?bool $loading = null): array
     {
         $payload = [
             'id' => $file->id,
@@ -80,7 +80,7 @@ class AssessmentEventFeed
      *
      * @return array{file: array<string, mixed>, student: array<string, mixed>|null, stats: array<string, mixed>}
      */
-    public static function state(BaseAssessment $assessment, BaseFile $file, ?bool $loading = null): array
+    public static function state(BaseAssessment $assessment, InputFile $file, ?bool $loading = null): array
     {
         $student = self::changedStudent($assessment, $file, true, $loading);
         return [
@@ -139,7 +139,7 @@ class AssessmentEventFeed
     /**
      * @return array<string, mixed>|null
      */
-    private static function changedStudent(BaseAssessment $assessment, BaseFile $file, bool $withAppreciation, ?bool $loading = null): ?array
+    private static function changedStudent(BaseAssessment $assessment, InputFile $file, bool $withAppreciation, ?bool $loading = null): ?array
     {
         $studentId = trim((string) ($file->student ?? ''));
         if ($studentId === '') {

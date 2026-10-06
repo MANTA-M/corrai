@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Model\File;
+use Corrai\Model\SubmissionFile;
 use Corrai\Model\Student;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
 use Corrai\Subject\DictationFranceCM2\File as DictationFranceCM2File;
@@ -79,7 +79,7 @@ class MenuTest extends TestCase
         $submission->status = 'annotations';
         $this->assertSame('Anmerkungen', $submission->get_status_label('de'));
 
-        $generic = new File();
+        $generic = new SubmissionFile();
         $generic->status = 'stored';
         $this->assertSame('Gespeichert', $generic->get_status_label('de'));
         $generic->status = 'ocr_done';
@@ -91,7 +91,7 @@ class MenuTest extends TestCase
         $this->assertSame('Erreur', $generic->get_status_label('fr'));
         $this->assertSame('Fehler', $generic->get_status_label('de'));
 
-        $subject = new File();
+        $subject = new SubmissionFile();
         $subject->type = 'subject';
         $subject->name = 'sujet.pdf';
         $subject->content_type = 'application/pdf';
@@ -102,7 +102,7 @@ class MenuTest extends TestCase
         $this->assertSame(['view', 'events', 'rename', 'delete'], $keys);
         $this->assertSame('Löschen', $subjectOutput['menu'][array_key_last($subjectOutput['menu'])]['label']);
 
-        $instructions = new File();
+        $instructions = new SubmissionFile();
         $instructions->type = 'instructions';
         $instructions->name = 'instructions.md';
         $instructions->content_type = 'text/markdown';
@@ -140,7 +140,7 @@ class MenuTest extends TestCase
         $this->assertSame('Korrektur bereit', $math['file_states']['correction_ready']);
         $this->assertArrayNotHasKey('ocr_done', $math['file_states']);
 
-        $generic = new File();
+        $generic = new SubmissionFile();
         $generic->status = 'correction_asked';
         $this->assertSame('Correction demandée', $generic->get_status_label('fr'));
         $this->assertArrayNotHasKey('ocr_done', $generic::statusLabels('fr'));

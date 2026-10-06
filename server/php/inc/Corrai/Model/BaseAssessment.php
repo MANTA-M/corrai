@@ -134,7 +134,7 @@ abstract class BaseAssessment
      * Generic Assessment instances resolve via AssessmentFactory so uploads still get the
      * subject File even when the API loaded Corrai\Model\Assessment.
      *
-     * @return class-string<File>
+     * @return class-string<SubmissionFile>
      */
     public function fileClass(): string
     {
@@ -153,7 +153,7 @@ abstract class BaseAssessment
             }
         }
 
-        return File::class;
+        return SubmissionFile::class;
     }
 
     /**
@@ -161,7 +161,7 @@ abstract class BaseAssessment
      *
      * Generic Assessment instances resolve via AssessmentFactory, same as fileClass().
      *
-     * @return class-string<File>
+     * @return class-string<SubmissionFile>
      */
     public function submissionClass(): string
     {
@@ -180,7 +180,7 @@ abstract class BaseAssessment
             }
         }
 
-        return File::class;
+        return SubmissionFile::class;
     }
 
     /**
@@ -605,7 +605,7 @@ abstract class BaseAssessment
     private function syncFileClasses(): void
     {
         $expected = $this->fileClass();
-        if (!BaseFile::isFileClass($expected)) {
+        if (!InputFile::isFileClass($expected)) {
             return;
         }
         foreach ($this->listFileModels() as $file) {
@@ -1095,7 +1095,7 @@ abstract class BaseAssessment
             $class = S3File::storesAsBlob($type) ? $this->fileClass() : $this->classForInputType($type);
         }
         if (!InputFile::isFileClass($class)) {
-            $class = File::class;
+            $class = SubmissionFile::class;
         }
         $file = $class::from_array($data);
         $file->id = $fileId;
@@ -1248,7 +1248,7 @@ abstract class BaseAssessment
         }
 
         $method = new \ReflectionMethod($file, 'on_correction_asked');
-        if ($method->getDeclaringClass()->getName() !== BaseFile::class) {
+        if ($method->getDeclaringClass()->getName() !== InputFile::class) {
             $file->appendEvent('Correction started');
             $file->status = 'correction_asked';
             $file->saveAttributes();
@@ -1352,8 +1352,8 @@ abstract class BaseAssessment
         }
 
         $fallback = $this->submissionClass();
-        if (!BaseFile::isFileClass($fallback)) {
-            $fallback = File::class;
+        if (!InputFile::isFileClass($fallback)) {
+            $fallback = SubmissionFile::class;
         }
 
         $store = ObjectStore::getInstance();
@@ -1370,7 +1370,7 @@ abstract class BaseAssessment
 
             $loaded = $store->getJson($attrKey);
             $data = $loaded['data'];
-            $storedClass = BaseFile::classFromPayload($data);
+            $storedClass = InputFile::classFromPayload($data);
             $class = $storedClass ?? $fallback;
             $file = $class::from_array($data);
             $file->id = $fileId;
@@ -1511,7 +1511,7 @@ abstract class BaseAssessment
         }
         $class = $this->submissionClass();
         if (!InputFile::isFileClass($class)) {
-            return File::class;
+            return SubmissionFile::class;
         }
         return $class;
     }

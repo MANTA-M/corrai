@@ -6,13 +6,13 @@ namespace Corrai\Tests;
 
 use Corrai\Model\Assessment;
 use Corrai\Model\BaseAssessment;
-use Corrai\Model\BaseFile;
+use Corrai\Model\InputFile;
+use Corrai\Subject\Dictation\File as DictationFile;
 use Corrai\Model\School;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Model\User;
 use Corrai\Queue\RedisConsumer;
 use Corrai\Queue\RedisQueue;
-use Corrai\Utils\CsvTreeMigrator;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Http\SSEvent;
 use PHPUnit\Framework\TestCase;
@@ -22,7 +22,7 @@ use RuntimeException;
 class ConcreteTaskForTest extends PathQueueItemTask
 {
     public bool $processed = false;
-    public ?BaseFile $fileDuringProcess = null;
+    public ?InputFile $fileDuringProcess = null;
 
     protected function process(object $queue_item_data, string $s3_path): void
     {
@@ -51,7 +51,6 @@ class TaskLifecycleEventTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        (new CsvTreeMigrator())->run();
         self::$school = School::ensureIndependent();
     }
 
@@ -117,6 +116,9 @@ class TaskLifecycleEventTest extends TestCase
         ]);
 
         $this->assertTrue($task->processed);
+        $this->assertInstanceOf(DictationFile::class, $task->fileDuringProcess);
+        $this->assertInstanceOf(DictationFile::class, InputFile::from_path($file->attrKey()));
+        $this->assertInstanceOf(DictationFile::class, InputFile::from_path($file->prefix()));
         $this->assertCount(2, $events);
 
         // First event: start of task, loading: true

@@ -67,6 +67,7 @@ export interface I18nSchema {
         noSubject: string
         analyzing: string
         analyzeError: string
+        continue: string
         reviewSubtitle: string
         finish: string
     }

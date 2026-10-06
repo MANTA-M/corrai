@@ -3,7 +3,7 @@
 namespace Corrai\Model\Task;
 
 use Corrai\Model\BaseAssessment;
-use Corrai\Model\BaseFile;
+use Corrai\Model\InputFile;
 use Corrai\Stream\AssessmentEventFeed;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\SSEvent;
@@ -61,7 +61,7 @@ abstract class PathQueueItemTask
     public function reportStart(string $fileId): ?array
     {
         try {
-            $file = BaseFile::from_hash($fileId);
+            $file = InputFile::from_hash($fileId);
             $assessment = BaseAssessment::from_hash($file->assessment_id);
             $before = AssessmentEventFeed::state($assessment, $file, false);
             $start = AssessmentEventFeed::state($assessment, $file, true);
@@ -81,7 +81,7 @@ abstract class PathQueueItemTask
     public function reportEnd(string $fileId, ?array $startState): void
     {
         try {
-            $file = BaseFile::from_hash($fileId);
+            $file = InputFile::from_hash($fileId);
             $assessment = BaseAssessment::from_hash($file->assessment_id);
             $end = AssessmentEventFeed::state($assessment, $file, false);
             $previousStudentId = is_array($startState) && is_array($startState['student'] ?? null)
@@ -101,7 +101,7 @@ abstract class PathQueueItemTask
      */
     public function publishDelta(
         BaseAssessment $assessment,
-        BaseFile $file,
+        InputFile $file,
         ?array $before,
         array $after,
         ?string $previousStudentId = null
@@ -129,23 +129,17 @@ abstract class PathQueueItemTask
         }
     }
 
-    protected function loadFile(string $s3_path): BaseFile
+    protected function loadFile(string $s3_path): InputFile
     {
-        $path = rtrim($s3_path, '/');
-        $contentName = '/' . ObjectStore::CONTENT_FILE;
-        if (str_ends_with($path, $contentName)) {
-            $path = substr($path, 0, -strlen($contentName));
-        }
-
-        return BaseFile::from_hash(basename($path));
+        return InputFile::from_path($s3_path);
     }
 
-    protected function loadAssessment(BaseFile $file): BaseAssessment
+    protected function loadAssessment(InputFile $file): BaseAssessment
     {
         return BaseAssessment::from_hash($file->assessment_id);
     }
 
-    protected function failCorrection(BaseFile $file, Throwable $error): void
+    protected function failCorrection(InputFile $file, Throwable $error): void
     {
         error_log($error->getMessage());
         try {
@@ -156,7 +150,7 @@ abstract class PathQueueItemTask
         }
     }
 
-    protected function languageName(BaseFile $file): string
+    protected function languageName(InputFile $file): string
     {
         return $this->loadAssessment($file)->correctionLanguageName();
     }

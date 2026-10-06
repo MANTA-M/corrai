@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\DictationFranceOCRGoogle;
 
-use Corrai\Model\File as BaseFile;
+use Corrai\Model\SubmissionFile;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\Dictation\StatusLabels;
 
@@ -11,7 +11,7 @@ use Corrai\Subject\Dictation\StatusLabels;
  *
  * Statuses: stored|correction_asked → ocr_done → errors_found → annotations → corrected
  */
-class File extends BaseFile
+class File extends SubmissionFile
 {
     protected static function statusLabelTable(): array
     {

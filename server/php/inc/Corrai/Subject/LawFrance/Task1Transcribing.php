@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject\Math;
+namespace Corrai\Subject\LawFrance;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Llm\Openrouter\LlmClientFactory;
@@ -54,12 +54,12 @@ class Task1Transcribing extends PathQueueItemTask
     {
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a careful transcription assistant. '
-            . 'Transcribe the submitted assessment paper into LaTeX. '
-            . 'Return only the LaTeX transcription with no extra commentary.'
+            'You are a careful transcription assistant for a law assessment. '
+            . 'Follow the user instruction exactly. '
+            . 'Return only the transcription, the unreadable marks, and the calligraphy score.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text('Transcribe this submission into LaTeX.');
+        $request->add_text(\Corrai\Subject\Dictation\File::TRANSCRIPTION_INSTRUCTION);
         return $request->call_text();
     }
 }

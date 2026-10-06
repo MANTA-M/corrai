@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Model\File;
+use Corrai\Model\SubmissionFile;
 use Corrai\Stream\AssessmentEventFeed;
 use PHPUnit\Framework\TestCase;
 
@@ -12,7 +12,7 @@ class AssessmentEventFeedTest extends TestCase
 {
     public function testChangedFileSendsOnlyThePipelineFields(): void
     {
-        $file = new File();
+        $file = new SubmissionFile();
         $file->id = 'f1';
         $file->name = 'copie.png';
         $file->size = 1375109;
@@ -112,7 +112,7 @@ class AssessmentEventFeedTest extends TestCase
 
     public function testChangedFileIncludesLoadingWhenProvided(): void
     {
-        $file = new File();
+        $file = new SubmissionFile();
         $file->id = 'f1';
         $file->status = 'stored';
         $file->type = 'submission';

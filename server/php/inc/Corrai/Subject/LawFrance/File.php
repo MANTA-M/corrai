@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject\Law;
+namespace Corrai\Subject\LawFrance;
 
 use Corrai\Model\SubmissionFile;
 

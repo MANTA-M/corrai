@@ -3,8 +3,7 @@
 namespace Corrai\Queue;
 
 use Corrai\Model\BaseAssessment;
-use Corrai\Model\BaseFile;
-use Corrai\Model\File;
+use Corrai\Model\InputFile;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Utils\Store\ObjectStore;
 use Exception;
@@ -42,7 +41,7 @@ class RedisConsumer
      */
     public static function treatFileTask(string $fileId, string $taskClass): void
     {
-        $file = BaseFile::from_hash($fileId);
+        $file = InputFile::from_hash($fileId);
         self::treatPathTask($file->contentKey(), $taskClass, $fileId);
     }
 
@@ -103,7 +102,7 @@ class RedisConsumer
     /**
      * Call file method on_{status}, then assessment method, or log when missing.
      */
-    public static function dispatch(BaseAssessment $assessment, File $file): void
+    public static function dispatch(BaseAssessment $assessment, InputFile $file): void
     {
         $status = $file->status;
         $method = 'on_' . $status;

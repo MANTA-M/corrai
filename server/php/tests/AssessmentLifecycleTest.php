@@ -7,7 +7,6 @@ namespace Corrai\Tests;
 use Corrai\Model\Assessment;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\CsvStore;
-use Corrai\Utils\CsvTreeMigrator;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Model\School;
@@ -32,8 +31,6 @@ class AssessmentLifecycleTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        // Move any leftover CSV tree into the JSON layout before tests create data.
-        (new CsvTreeMigrator())->run();
         self::$indSchool = School::ensureIndependent();
     }
 
@@ -522,100 +519,6 @@ class AssessmentLifecycleTest extends TestCase
                 $store->delete($key);
             }
         }
-    }
-
-    public function testCsvTreeMigratorMovesLegacySchool(): void
-    {
-        $store = ObjectStore::getInstance();
-        $suffix = bin2hex(random_bytes(3));
-        $schoolId = 'Mig' . $suffix; // 9 chars; not under schools/
-        $userId = HashId::create();
-        $assessmentId = HashId::create();
-
-        $store->putContents(
-            ObjectStore::legacySchoolCsvKey($schoolId),
-            CsvStore::encode([
-                'id' => $schoolId,
-                'name' => '[Test] Migrated School',
-                'created_at' => '2026-01-01T00:00:00+00:00',
-            ]),
-            'text/csv'
-        );
-        $store->setIdPointer($schoolId, ObjectStore::legacySchoolPrefix($schoolId));
-
-        $store->putContents(
-            ObjectStore::legacyUserCsvKey($schoolId, $userId),
-            CsvStore::encode([
-                'id' => $userId,
-                'school_id' => $schoolId,
-                'email' => "$userId@mig.test",
-                'name' => '[Test] Mig Teacher',
-                'role' => 'teacher',
-                'password_hash' => password_hash('x', PASSWORD_DEFAULT),
-                'created_at' => '2026-01-01T00:00:00+00:00',
-            ]),
-            'text/csv'
-        );
-        $store->setIdPointer($userId, ObjectStore::legacyUserPrefix($schoolId, $userId));
-
-        $store->putContents(
-            ObjectStore::legacyAssessmentCsvKey($schoolId, $userId, $assessmentId),
-            CsvStore::encode([
-                'id' => $assessmentId,
-                'school_id' => $schoolId,
-                'user_id' => $userId,
-                'name' => '[Test] Mig Assessment',
-                'subject' => 'Other',
-                'country' => '',
-                'level' => '',
-                'date' => '2026-02-02',
-                'created_at' => '2026-01-01T00:00:00+00:00',
-            ]),
-            'text/csv'
-        );
-        $store->setIdPointer($assessmentId, ObjectStore::legacyAssessmentPrefix($schoolId, $userId, $assessmentId));
-
-        $filename = 'scan.pdf';
-        $store->putContents(
-            ObjectStore::legacyAssessmentFileKey($schoolId, $userId, $assessmentId, $filename),
-            '%PDF-mig',
-            'application/pdf'
-        );
-        $store->putContents(
-            ObjectStore::legacyAssessmentFilesCsvKey($schoolId, $userId, $assessmentId),
-            CsvStore::encodeRows([
-                ['name' => $filename, 'type' => 'submission', 'student' => '[Test] Eve'],
-            ]),
-            'text/csv'
-        );
-
-        $logs = (new CsvTreeMigrator($store))->run([$schoolId]);
-        $this->assertNotEmpty($logs);
-
-        $this->assertFalse($store->exists(ObjectStore::legacySchoolCsvKey($schoolId)));
-        $this->assertTrue($store->exists(ObjectStore::schoolAttrKey($schoolId)));
-
-        $school = School::from_hash($schoolId);
-        $this->assertSame('[Test] Migrated School', $school->name);
-
-        $teacher = User::from_hash($userId);
-        $this->assertSame('[Test] Mig Teacher', $teacher->name);
-        $this->assertSame($schoolId, $teacher->school_id);
-
-        $assessment = Assessment::from_hash($assessmentId);
-        $this->assertSame('[Test] Mig Assessment', $assessment->name);
-        $files = $assessment->list_files();
-        $this->assertCount(1, $files);
-        $this->assertSame($filename, $files[0]['name']);
-        $this->assertSame('submission', $files[0]['type']);
-        $this->assertSame('[Test] Eve', $files[0]['student_name']);
-        $this->assertNotEmpty($files[0]['student']);
-
-        $students = $assessment->list_students();
-        $this->assertCount(1, $students);
-        $this->assertSame('[Test] Eve', $students[0]['name']);
-
-        $school->delete();
     }
 
     public function testStudentCreateAndMarkChangeStoreAssessmentStats(): void

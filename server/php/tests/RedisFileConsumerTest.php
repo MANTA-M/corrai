@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Model\Assessment as GenericAssessment;
-use Corrai\Model\File;
+use Corrai\Model\SubmissionFile;
 use Corrai\Queue\RedisConsumer;
 use Corrai\Subject\Dictation\Assessment as DictationAssessment;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
@@ -84,7 +84,7 @@ class RedisFileConsumerTest extends TestCase
             '"etag-1"'
         );
 
-        $this->assertInstanceOf(File::class, $file);
+        $this->assertInstanceOf(SubmissionFile::class, $file);
         $this->assertSame('file1', $file->id);
         $this->assertSame('school1', $file->school_id);
         $this->assertSame('teacher1', $file->user_id);
@@ -203,7 +203,7 @@ class RedisFileConsumerTest extends TestCase
         $assessment = new class extends GenericAssessment {
             public bool $assessmentCalled = false;
 
-            public function on_stored(File $file): void
+            public function on_stored(SubmissionFile $file): void
             {
                 $this->assessmentCalled = true;
             }
@@ -212,7 +212,7 @@ class RedisFileConsumerTest extends TestCase
         $assessment->school_id = 'school1';
         $assessment->user_id = 'teacher1';
 
-        $file = new class extends File {
+        $file = new class extends SubmissionFile {
             public bool $called = false;
 
             public function on_stored(): void
@@ -233,7 +233,7 @@ class RedisFileConsumerTest extends TestCase
         $assessment = new class extends GenericAssessment {
             public bool $assessmentCalled = false;
 
-            public function on_ocr_done(File $file): void
+            public function on_ocr_done(SubmissionFile $file): void
             {
                 $this->assessmentCalled = true;
             }
@@ -242,7 +242,7 @@ class RedisFileConsumerTest extends TestCase
         $assessment->school_id = 'school1';
         $assessment->user_id = 'teacher1';
 
-        $file = new class extends File {
+        $file = new class extends SubmissionFile {
             public bool $fileCalled = false;
 
             public function on_ocr_done(): void
@@ -373,7 +373,7 @@ class RedisFileConsumerTest extends TestCase
         );
         $this->assertInstanceOf(DictationFranceCM2File::class, $fromAttributes);
 
-        $promoted = (new File())->asClass(DictationFranceCM2File::class);
+        $promoted = (new SubmissionFile())->asClass(DictationFranceCM2File::class);
         $this->assertInstanceOf(DictationFranceCM2File::class, $promoted);
         $this->assertSame(DictationFranceCM2File::class, $promoted->storedClass());
     }

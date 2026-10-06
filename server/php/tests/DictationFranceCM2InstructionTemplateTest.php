@@ -8,7 +8,6 @@ use Corrai\Model\School;
 use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\DictationFranceCM2\Assessment;
-use Corrai\Utils\CsvTreeMigrator;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Store\ObjectStore;
 use PHPUnit\Framework\TestCase;
@@ -21,7 +20,6 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        (new CsvTreeMigrator())->run();
         self::$school = School::ensureIndependent();
     }
 

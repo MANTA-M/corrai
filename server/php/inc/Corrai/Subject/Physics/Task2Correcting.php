@@ -5,7 +5,7 @@ namespace Corrai\Subject\Physics;
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Llm\Openrouter\LlmClientFactory;
 use Corrai\Model\BaseAssessment;
-use Corrai\Model\File as ModelFile;
+use Corrai\Model\SubmissionFile;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\ObjectStore;
@@ -17,12 +17,12 @@ class Task2Correcting extends PathQueueItemTask
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $file = $this->loadFile($s3_path);
-        if ($file instanceof ModelFile) {
+        if ($file instanceof SubmissionFile) {
             $this->correctSubmission($file);
         }
     }
 
-    public function correctSubmission(ModelFile $file): void
+    public function correctSubmission(SubmissionFile $file): void
     {
         if ($file->type !== 'submission') {
             return;

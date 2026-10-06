@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Subject\Math;
+namespace Corrai\Subject\LawFrance;
 
 use Corrai\Llm\Openrouter\ClaudeSonnetClient;
 use Corrai\Llm\Openrouter\LlmClientFactory;
@@ -55,14 +55,15 @@ class Task2Correcting extends PathQueueItemTask
         $instructionText = $assessment->instructionFilesText();
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            'You are a professor in mathematics'
-            . ' and you have to correct the following submission. '
+            'You are a law professor correcting the following submission. '
+            . 'The transcription is literal: do not assume wording was already fixed. '
+            . 'Grade legal reasoning, citations, unreadable passages, and the calligraphy score already given. '
             . 'Respond with a textual correction including the mark and the appreciation. '
             . 'Use the language ' . $languageName
             . ' with the following instructions bellow. '
             . $instructionText
         );
-        $request->add_text("Submission transcription (LaTeX):\n" . $transcription);
+        $request->add_text("Law transcription:\n" . $transcription);
         return $request->call_text();
     }
 }
