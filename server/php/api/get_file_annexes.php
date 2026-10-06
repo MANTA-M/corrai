@@ -34,6 +34,7 @@ try {
 
     $file = $assessment->getFile($fileId);
     Request::add_output("annexes", $file->listAnnexes());
+    Request::add_output("objects", $file->listDirectoryObjects());
     Request::add_output("events", $file->listEvents());
 } catch (\Throwable $th) {
     Request::handle_throwable($th);

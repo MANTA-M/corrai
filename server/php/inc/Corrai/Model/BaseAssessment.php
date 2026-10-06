@@ -682,6 +682,25 @@ abstract class BaseAssessment
                 continue;
             }
         }
+        $store = ObjectStore::getInstance();
+        $students = ObjectStore::assessmentStudentsPrefix($this->school_id, $this->user_id, $this->id);
+        foreach ($store->listChildPrefixes($students) as $studentId) {
+            $studentPrefix = $students . $studentId . '/';
+            foreach ($store->listImmediateFiles($studentPrefix) as $name) {
+                if ($name === ObjectStore::ATTR_FILE) {
+                    continue;
+                }
+                try {
+                    $directFile = S3File::from_key($studentPrefix . $name);
+                    if ($directFile->id !== null && !isset($seen[$directFile->id])) {
+                        $files[] = $directFile;
+                        $seen[$directFile->id] = true;
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        }
         return $files;
     }
 
@@ -1200,6 +1219,26 @@ abstract class BaseAssessment
             }
             $file->delete();
         }
+        if ($type === 'correction' && $student !== '') {
+            $correctionKey = ObjectStore::assessmentStudentCorrectionKey(
+                $this->school_id,
+                $this->user_id,
+                $this->id,
+                $student
+            );
+            $store = ObjectStore::getInstance();
+            if ($store->exists($correctionKey)) {
+                try {
+                    $head = $store->head($correctionKey);
+                    $meta = S3File::normalizeMetadata($head['Metadata'] ?? []);
+                    if (isset($meta['id']) && $meta['id'] !== '') {
+                        $store->deleteIdPointer($meta['id']);
+                    }
+                } catch (\Throwable $e) {
+                }
+                $store->delete($correctionKey);
+            }
+        }
     }
 
     /**
@@ -1482,18 +1521,20 @@ abstract class BaseAssessment
      */
     private function prepareNewFile(string $filename, ?string $type, ?string $student): array
     {
-        $filename = $this->uniqueDisplayName($filename);
+        $studentHash = null;
+        if ($student !== null && trim($student) !== '') {
+            $this->getStudent(trim($student));
+            $studentHash = trim($student);
+        }
+        if ($filename !== 'correction.png' || $studentHash === null) {
+            $filename = $this->uniqueDisplayName($filename);
+        }
         if ($type === 'unknown') {
             $type = '';
         }
         $type = $type ?? '';
         if ($type !== '' && !in_array($type, static::FILE_TYPES, true)) {
             throw new WSException('Invalid file type', 400);
-        }
-        $studentHash = null;
-        if ($student !== null && trim($student) !== '') {
-            $this->getStudent(trim($student));
-            $studentHash = trim($student);
         }
         return [$filename, $type, $studentHash];
     }
@@ -1572,13 +1613,32 @@ abstract class BaseAssessment
         $blob->content_type = $contentType;
         $blob->size = $size;
         $blob->created = time();
-        $blob->key = ObjectStore::assessmentBlobKey(
-            $this->school_id,
-            $this->user_id,
-            (string) $this->id,
-            $blob->id
-        );
+        if ($student !== null && trim($student) !== '' && $filename === 'correction.png') {
+            $blob->key = ObjectStore::assessmentStudentCorrectionKey(
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id,
+                trim($student)
+            );
+        } else {
+            $blob->key = ObjectStore::assessmentBlobKey(
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id,
+                $blob->id
+            );
+        }
         $store = ObjectStore::getInstance();
+        if ($store->exists($blob->key)) {
+            try {
+                $oldHead = $store->head($blob->key);
+                $oldMeta = S3File::normalizeMetadata($oldHead['Metadata'] ?? []);
+                if (isset($oldMeta['id']) && $oldMeta['id'] !== '') {
+                    $store->deleteIdPointer($oldMeta['id']);
+                }
+            } catch (\Throwable $e) {
+            }
+        }
         if ($localPath !== null) {
             $blob->etag = $store->put($blob->key, $localPath, $blob->content_type, null, $blob->userMetadata());
         } else {
@@ -1636,12 +1696,21 @@ abstract class BaseAssessment
         $blob->content_type = $file->content_type;
         $blob->size = strlen($bytes);
         $blob->created = $file->created > 0 ? $file->created : time();
-        $blob->key = ObjectStore::assessmentBlobKey(
-            $file->school_id,
-            $file->user_id,
-            $file->assessment_id,
-            (string) $file->id
-        );
+        if ($student !== null && trim($student) !== '' && $blob->name === 'correction.png') {
+            $blob->key = ObjectStore::assessmentStudentCorrectionKey(
+                $file->school_id,
+                $file->user_id,
+                $file->assessment_id,
+                trim($student)
+            );
+        } else {
+            $blob->key = ObjectStore::assessmentBlobKey(
+                $file->school_id,
+                $file->user_id,
+                $file->assessment_id,
+                (string) $file->id
+            );
+        }
         $store->putContents($blob->key, $bytes, $blob->content_type, null, $blob->userMetadata());
         $store->setIdPointer((string) $blob->id, $blob->key, false);
         $store->deletePrefix($file->prefix());

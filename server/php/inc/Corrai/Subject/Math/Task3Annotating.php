@@ -41,12 +41,11 @@ class Task3Annotating extends PathQueueItemTask
             $image = $this->annotate($copyPath, $file->name, $correction);
             $student = $file->student ?? '';
             $assessment->deleteFilesOfType('correction', $student);
-            $base = pathinfo($file->name, PATHINFO_FILENAME);
-            $imageExt = self::extensionForMime($image['mime']);
+            $png = $this->ensurePng($image);
             $assessment->createFile(
-                $base . ' annotated.' . $imageExt,
-                $image['body'],
-                $image['mime'],
+                'correction.png',
+                $png,
+                'image/png',
                 'correction',
                 $student !== '' ? $student : null
             );
@@ -85,16 +84,26 @@ class Task3Annotating extends PathQueueItemTask
         return $result['images'][0];
     }
 
-    private static function extensionForMime(string $mime): string
+    /**
+     * @param array{mime: string, body: string} $image
+     */
+    private function ensurePng(array $image): string
     {
-        $map = [
-            'image/png' => 'png',
-            'image/jpeg' => 'jpg',
-            'image/jpg' => 'jpg',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif',
-        ];
-        $baseMime = strtolower(trim(explode(';', $mime)[0]));
-        return $map[$baseMime] ?? 'png';
+        if ($image['mime'] === 'image/png') {
+            return $image['body'];
+        }
+        if (function_exists('imagecreatefromstring')) {
+            $img = @imagecreatefromstring($image['body']);
+            if ($img !== false) {
+                ob_start();
+                imagepng($img);
+                $png = ob_get_clean();
+                imagedestroy($img);
+                if (is_string($png) && $png !== '') {
+                    return $png;
+                }
+            }
+        }
+        return $image['body'];
     }
 }

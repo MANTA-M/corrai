@@ -28,6 +28,9 @@
     <template v-else-if="name === 'plus'">
       <path d="M12 5v14M5 12h14" />
     </template>
+    <template v-else-if="name === 'caret'">
+      <path d="M6 9l6 6 6-6" />
+    </template>
     <template v-else>
       <path d="M5 7h14" />
       <path d="M9 7V5h6v2" />

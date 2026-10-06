@@ -57,8 +57,12 @@ export interface AssessmentFile {
   /** Localized status, returned by the server and shown as-is */
   status_label?: string
   content_type?: string
+  /** True when a JPEG thumbnail annex is stored next to the file */
+  thumbnail?: boolean
   /** Localized type name */
   label?: string
+  /** True when the object is stored directly in the student directory. */
+  direct?: boolean
   menu?: MenuItem[]
   /** True when a queue task is actively processing this file */
   loading?: boolean

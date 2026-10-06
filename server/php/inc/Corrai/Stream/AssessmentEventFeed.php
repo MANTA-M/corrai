@@ -66,6 +66,7 @@ class AssessmentEventFeed
             'type' => $file->type,
             'student' => $file->student,
             'student_name' => $studentName,
+            'thumbnail' => $file->thumbnail,
         ];
         if ($loading !== null) {
             $payload['loading'] = $loading;
@@ -106,7 +107,7 @@ class AssessmentEventFeed
     {
         $payload = ['scope' => $scope];
         $beforeFile = is_array($before) && is_array($before['file'] ?? null) ? $before['file'] : null;
-        $fileDiff = self::diffMap($beforeFile, $after['file'], ['status', 'status_label', 'type', 'student', 'student_name', 'loading']);
+        $fileDiff = self::diffMap($beforeFile, $after['file'], ['status', 'status_label', 'type', 'student', 'student_name', 'thumbnail', 'loading']);
         if ($fileDiff !== []) {
             $fileDiff = ['id' => $after['file']['id']] + $fileDiff;
             $payload['file'] = $fileDiff;

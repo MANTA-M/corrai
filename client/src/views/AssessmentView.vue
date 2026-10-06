@@ -130,6 +130,7 @@
             :files="unassignedFiles"
             :students="students"
             :empty-text="t('assessment.unassignedEmpty')"
+            cards
             @updated="onFilesUpdated"
           />
         </section>

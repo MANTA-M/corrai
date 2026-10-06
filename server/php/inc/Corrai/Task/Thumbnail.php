@@ -2,6 +2,7 @@
 
 namespace Corrai\Task;
 
+use Corrai\Model\S3File;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
@@ -20,6 +21,7 @@ use InvalidArgumentException;
 class Thumbnail extends PathQueueItemTask
 {
     public const MAX_SIDE = 256;
+    public const MAX_WIDTH = 250;
     public const JPEG_QUALITY = 82;
 
     protected function process(object $queue_item_data, string $s3_path): void
@@ -32,21 +34,33 @@ class Thumbnail extends PathQueueItemTask
         }
 
         try {
-            $jpeg = self::jpegBytes($bytes);
+            $jpeg = self::jpegBytesMaxWidth($bytes);
         } catch (InvalidArgumentException $e) {
             error_log('Skipping thumbnail for ' . $s3_path . ': ' . $e->getMessage());
             return;
         }
 
         $file = $this->loadFile($s3_path);
-        $store->putContents($file->thumbnailKey(), $jpeg, 'image/jpeg');
+        S3File::at($file->thumbnailKey())->putContents($jpeg, 'image/jpeg');
+        $file->thumbnail = true;
+        $file->saveAttributes();
         $file->appendEvent('Thumbnail created');
     }
 
     /**
-     * JPEG bytes whose longest side is at most $maxSide.
+     * JPEG bytes whose width is at most $maxWidth. Height keeps the same ratio.
      */
-    public static function jpegBytes(string $bytes, int $maxSide = self::MAX_SIDE): string
+    public static function jpegBytesMaxWidth(string $bytes, int $maxWidth = self::MAX_WIDTH): string
+    {
+        return self::jpegBytes($bytes, $maxWidth, true);
+    }
+
+    /**
+     * JPEG bytes whose longest side is at most $maxSide.
+     *
+     * When $limitWidth is true, $maxSide is a maximum width and the height is scaled with it.
+     */
+    public static function jpegBytes(string $bytes, int $maxSide = self::MAX_SIDE, bool $limitWidth = false): string
     {
         if ($maxSide <= 0) {
             throw new InvalidArgumentException("Max side must be greater than 0, got {$maxSide}");
@@ -66,16 +80,26 @@ class Thumbnail extends PathQueueItemTask
                 throw new InvalidArgumentException('Image dimensions must be greater than 0');
             }
 
-            $longSide = max($width, $height);
-            if ($longSide <= $maxSide) {
-                $newWidth = $width;
-                $newHeight = $height;
-            } elseif ($width >= $height) {
-                $newWidth = $maxSide;
-                $newHeight = max(1, (int) round($height * ($maxSide / $longSide)));
+            if ($limitWidth) {
+                if ($width <= $maxSide) {
+                    $newWidth = $width;
+                    $newHeight = $height;
+                } else {
+                    $newWidth = $maxSide;
+                    $newHeight = max(1, (int) round($height * ($maxSide / $width)));
+                }
             } else {
-                $newHeight = $maxSide;
-                $newWidth = max(1, (int) round($width * ($maxSide / $longSide)));
+                $longSide = max($width, $height);
+                if ($longSide <= $maxSide) {
+                    $newWidth = $width;
+                    $newHeight = $height;
+                } elseif ($width >= $height) {
+                    $newWidth = $maxSide;
+                    $newHeight = max(1, (int) round($height * ($maxSide / $longSide)));
+                } else {
+                    $newHeight = $maxSide;
+                    $newWidth = max(1, (int) round($width * ($maxSide / $longSide)));
+                }
             }
 
             $target = self::resampleToJpegCanvas($source, $width, $height, $newWidth, $newHeight);

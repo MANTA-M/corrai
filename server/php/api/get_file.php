@@ -35,14 +35,31 @@ try {
     $store = ObjectStore::getInstance();
     $annex = Request::getStringParam('annex');
     $event = Request::getStringParam('event');
+    $object = Request::getStringParam('object');
     $downloadName = $file->name;
 
-    if (($annex !== null && $annex !== '') && ($event !== null && $event !== '')) {
+    $selectors = array_filter([
+        ($annex !== null && $annex !== '') ? 'annex' : null,
+        ($event !== null && $event !== '') ? 'event' : null,
+        ($object !== null && $object !== '') ? 'object' : null,
+    ]);
+    if (count($selectors) > 1) {
         http_response_code(400);
-        exit('Provide either annex or event, not both.');
+        exit('Provide only one of annex, event or object.');
     }
 
-    if ($annex !== null && $annex !== '') {
+    if ($object !== null && $object !== '') {
+        if (!is_safe_file_object_path($object)) {
+            http_response_code(400);
+            exit('Invalid object path.');
+        }
+        $key = $file->prefix() . $object;
+        if (!str_starts_with($key, $file->prefix())) {
+            http_response_code(400);
+            exit('Invalid object path.');
+        }
+        $downloadName = basename($object);
+    } elseif ($annex !== null && $annex !== '') {
         if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/', $annex)
             || $annex === ObjectStore::ATTR_FILE
             || $annex === ObjectStore::CONTENT_FILE
@@ -99,4 +116,23 @@ try {
         http_response_code(500);
     }
     exit('Internal server error.');
+}
+
+/**
+ * Relative key under a file directory: no traversal, one or more safe segments.
+ */
+function is_safe_file_object_path(string $object): bool
+{
+    if ($object === '' || str_contains($object, '\\') || str_contains($object, "\0")) {
+        return false;
+    }
+    if (str_starts_with($object, '/')) {
+        return false;
+    }
+    foreach (explode('/', $object) as $segment) {
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/', $segment)) {
+            return false;
+        }
+    }
+    return true;
 }

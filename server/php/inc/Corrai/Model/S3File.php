@@ -3,6 +3,7 @@
 namespace Corrai\Model;
 
 use Exception;
+use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
 use Corrai\Utils\Store\ObjectStore;
 
@@ -119,6 +120,9 @@ class S3File
         if ($this->student !== null && $this->student !== '') {
             $meta['student'] = $this->student;
         }
+        if ($this->id !== null && $this->id !== '') {
+            $meta['id'] = $this->id;
+        }
         return $meta;
     }
 
@@ -126,27 +130,40 @@ class S3File
     {
         $store = ObjectStore::getInstance();
         $pointer = $store->resolveIdPointer($hash);
-        $parsed = ObjectStore::parseNodePrefix($pointer);
+        return self::from_key($pointer, $hash);
+    }
+
+    public static function from_key(string $key, ?string $hash = null): self
+    {
+        $store = ObjectStore::getInstance();
+        $cleanKey = rtrim($key, '/');
+        $parsed = ObjectStore::parseNodePrefix($cleanKey);
         if (($parsed['kind'] ?? '') !== 'blob') {
-            throw new Exception("Hash $hash does not point to a blob");
+            throw new Exception("Key or pointer $cleanKey does not point to a blob");
         }
 
-        $key = rtrim($pointer, '/');
-        $head = $store->head($key);
+        $head = $store->head($cleanKey);
         $meta = self::normalizeMetadata($head['Metadata'] ?? []);
 
         $file = new self();
-        $file->key = $key;
-        $file->id = $parsed['file_id'] ?? null;
+        $file->key = $cleanKey;
+        $id = $hash ?? ($meta['id'] ?? null);
+        if ($id === null || $id === '') {
+            $id = ($parsed['file_id'] !== null && $parsed['file_id'] !== 'correction.png' && !str_contains($parsed['file_id'], '.'))
+                ? $parsed['file_id']
+                : HashId::create();
+            $store->setIdPointer($id, $cleanKey, false);
+        }
+        $file->id = $id;
         $file->school_id = (string) ($parsed['school_id'] ?? '');
         $file->user_id = (string) ($parsed['teacher_id'] ?? '');
         $file->assessment_id = (string) ($parsed['assessment_id'] ?? '');
         $file->etag = $head['ETag'] ?? null;
         $file->size = (int) ($head['ContentLength'] ?? 0);
         $file->content_type = (string) ($head['ContentType'] ?? 'application/octet-stream');
-        $file->name = rawurldecode((string) ($meta['name'] ?? ''));
-        $file->type = (string) ($meta['type'] ?? '');
-        $student = $meta['student'] ?? null;
+        $file->name = rawurldecode((string) ($meta['name'] ?? basename($cleanKey)));
+        $file->type = (string) ($meta['type'] ?? (str_ends_with($cleanKey, '/correction.png') ? 'correction' : ''));
+        $student = $meta['student'] ?? ($parsed['student_id'] ?? null);
         $file->student = is_string($student) && $student !== '' ? $student : null;
         $file->created = (int) ($meta['created'] ?? 0);
         $file->status = '';
@@ -169,6 +186,16 @@ class S3File
      * @return string[]
      */
     public function listAnnexes(): array
+    {
+        return [];
+    }
+
+    /**
+     * A bare object has no sibling directory.
+     *
+     * @return string[]
+     */
+    public function listDirectoryObjects(): array
     {
         return [];
     }
@@ -197,6 +224,22 @@ class S3File
     {
         $type = $this->type === '' ? 'unknown' : $this->type;
         return MenuLabels::text('file_type_' . $type, $locale);
+    }
+
+    /**
+     * True when the object sits directly in the student directory, not under blobs/ or a file folder.
+     */
+    public function isDirectStudentFile(): bool
+    {
+        if ($this->key === '') {
+            return false;
+        }
+        try {
+            $parsed = ObjectStore::parseNodePrefix($this->key);
+        } catch (Exception $e) {
+            return false;
+        }
+        return ($parsed['kind'] ?? '') === 'blob' && ($parsed['area'] ?? '') === 'student';
     }
 
     public function canReassign(): bool
@@ -249,6 +292,7 @@ class S3File
             'status_label' => '',
             'content_type' => $this->content_type,
             'label' => $this->localizedLabel($locale),
+            'direct' => $this->isDirectStudentFile(),
             'menu' => $this->get_menu($locale),
         ];
     }

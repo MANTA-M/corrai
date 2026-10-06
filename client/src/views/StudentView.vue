@@ -45,15 +45,30 @@
           </div>
         </section>
 
-        <section class="section">
-          <h2>{{ t('assessment.files') }}</h2>
+        <section class="section" data-testid="student-copies">
+          <h2>{{ t('assessment.copies') }}</h2>
           <AssessmentFileList
+            cards
             :assessment-id="assessment.id || ''"
-            :files="studentFiles"
+            :files="copyFiles"
             :students="students"
-            :empty-text="t('assessment.studentFilesEmpty')"
+            :empty-text="t('assessment.copiesEmpty')"
             @updated="onFilesUpdated"
           />
+        </section>
+
+        <section class="section" data-testid="student-results">
+          <h2>{{ t('assessment.results') }}</h2>
+          <p v-if="!resultFiles.length" class="zone-empty">{{ t('assessment.resultsEmpty') }}</p>
+          <ul v-else class="result-files" data-testid="student-result-files">
+            <li v-for="file in resultFiles" :key="file.id">
+              <S3File
+                :label="file.name"
+                :href="resultFileUrl(file)"
+                :test-id="`student-result-${file.id}`"
+              />
+            </li>
+          </ul>
         </section>
       </div>
 
@@ -71,11 +86,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
+import S3File from '@/components/S3File.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useAssessmentStream } from '@/composables/useAssessmentStream'
 import { applyStudentStream } from '@/utils/assessmentStream'
 import type { AssessmentFile, AssessmentStudent } from '@/types/types'
-import { isDebugFile } from '@/utils/assessmentFiles'
+import { isDebugFile, isDirectStudentFile } from '@/utils/assessmentFiles'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,6 +139,16 @@ const studentFiles = computed(() =>
     return true
   })
 )
+
+const copyFiles = computed(() => studentFiles.value.filter((file) => !isDirectStudentFile(file)))
+
+const resultFiles = computed(() => studentFiles.value.filter((file) => isDirectStudentFile(file)))
+
+const resultFileUrl = (file: AssessmentFile) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    assessment: assessment.value?.id || '',
+    file: file.id,
+  })
 
 const goBack = () => {
   router.push({ name: 'assessment', params: { id: assessmentId.value } })
@@ -212,6 +238,17 @@ const markdownToHtml = (source: string): string => {
 .section h2 {
   margin: 0 0 0.75rem;
   font-size: 1.05rem;
+}
+
+.zone-empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.result-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .student-result {

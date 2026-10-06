@@ -17,6 +17,7 @@ class Task1Transcribing extends PathQueueItemTask
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $file = $this->loadFile($s3_path);
+        File::queueThumbnail($file);
         if ($file instanceof SubmissionFile) {
             $this->transcribeSubmission($file);
         }

@@ -23,7 +23,7 @@ class AssessmentEventFeedTest extends TestCase
         $payload = AssessmentEventFeed::changedFile($file, null);
 
         $this->assertSame(
-            ['id', 'status', 'status_label', 'type', 'student', 'student_name'],
+            ['id', 'status', 'status_label', 'type', 'student', 'student_name', 'thumbnail'],
             array_keys($payload)
         );
         $this->assertSame('f1', $payload['id']);

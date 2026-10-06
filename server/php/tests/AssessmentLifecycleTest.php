@@ -424,6 +424,95 @@ class AssessmentLifecycleTest extends TestCase
         $assessment->delete();
     }
 
+    public function testStudentCorrectionPngStoredInStudentDirectory(): void
+    {
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] Student Correction Test';
+        $assessment->subject = 'Physics';
+        $assessment->date = '2026-04-10';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $alice = $assessment->createStudent('[Test] Alice');
+        $bob = $assessment->createStudent('[Test] Bob');
+
+        $files = $assessment->createFile(
+            'correction.png',
+            'png_bytes_alice',
+            'image/png',
+            'correction',
+            $alice->id
+        );
+
+        $aliceCorrection = array_values(array_filter($files, fn($f) => $f['student'] === $alice->id && $f['type'] === 'correction'))[0];
+        $this->assertSame('correction.png', $aliceCorrection['name']);
+        $this->assertSame('image/png', $aliceCorrection['content_type']);
+        $this->assertTrue($aliceCorrection['direct']);
+
+        $store = ObjectStore::getInstance();
+        $aliceKey = ObjectStore::assessmentStudentCorrectionKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            $assessment->id,
+            $alice->id
+        );
+        $this->assertTrue($store->exists($aliceKey));
+        $this->assertFalse($store->exists(ObjectStore::assessmentBlobKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            $assessment->id,
+            $aliceCorrection['id']
+        )));
+
+        $retrievedAlice = $assessment->getFile($aliceCorrection['id']);
+        $this->assertInstanceOf(\Corrai\Model\S3File::class, $retrievedAlice);
+        $this->assertSame($aliceKey, $retrievedAlice->key);
+        $this->assertSame('correction.png', $retrievedAlice->name);
+        $this->assertSame('correction', $retrievedAlice->type);
+        $this->assertSame($alice->id, $retrievedAlice->student);
+        $this->assertSame('png_bytes_alice', $retrievedAlice->getContents());
+
+        // Second student also has correction.png without suffix index
+        $files2 = $assessment->createFile(
+            'correction.png',
+            'png_bytes_bob',
+            'image/png',
+            'correction',
+            $bob->id
+        );
+        $bobCorrection = array_values(array_filter($files2, fn($f) => $f['student'] === $bob->id && $f['type'] === 'correction'))[0];
+        $this->assertSame('correction.png', $bobCorrection['name']);
+        $bobKey = ObjectStore::assessmentStudentCorrectionKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            $assessment->id,
+            $bob->id
+        );
+        $this->assertTrue($store->exists($bobKey));
+
+        $reportKey = ObjectStore::assessmentStudentPrefix(
+            $assessment->school_id,
+            $assessment->user_id,
+            $assessment->id,
+            $alice->id
+        ) . 'report.pdf';
+        $store->putContents($reportKey, 'pdf-bytes', 'application/pdf');
+        $withReport = $assessment->list_files();
+        $report = array_values(array_filter($withReport, fn($f) => $f['name'] === 'report.pdf'));
+        $this->assertCount(1, $report);
+        $this->assertTrue($report[0]['direct']);
+        $this->assertSame($alice->id, $report[0]['student']);
+
+        // Delete alice correction
+        $assessment->deleteFilesOfType('correction', $alice->id);
+        $this->assertFalse($store->exists($aliceKey));
+        $this->assertTrue($store->exists($bobKey));
+
+        $assessment->delete();
+    }
+
     public function testAddIndependentUserCreatesS3DirectoryAndCanOwnAssessment(): void
     {
         $user = School::addIndependentUser('[Test] Profile Teacher');

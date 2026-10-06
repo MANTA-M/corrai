@@ -214,6 +214,11 @@ export interface I18nSchema {
         addSolutionFile: string
         addSolutionFileTitle: string
         studentFilesEmpty: string
+        copies: string
+        copiesEmpty: string
+        results: string
+        resultsEmpty: string
+        fileAssignStudent: string
         fileReassign: string
         fileReassignTitle: string
         fileReassignNotFound: string

@@ -40,9 +40,8 @@ class Task3Rendering extends PathQueueItemTask
 
             $student = $file->student ?? '';
             $assessment->deleteFilesOfType('correction', $student);
-            $base = pathinfo($file->name, PATHINFO_FILENAME);
             $assessment->createFile(
-                $base . ' correction.png',
+                'correction.png',
                 $png,
                 'image/png',
                 'correction',

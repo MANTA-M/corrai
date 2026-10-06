@@ -14,6 +14,11 @@ export function isDebugFile(file: AssessmentFile): boolean {
   return fileTypeOf(file) === 'debug'
 }
 
+/** S3 object stored directly under the student directory, such as correction.png. */
+export function isDirectStudentFile(file: AssessmentFile): boolean {
+  return file.direct === true
+}
+
 /** Copies and other files that are not part of the subject and have no student. */
 export function isUnassignedFile(file: AssessmentFile, debugMode: boolean): boolean {
   if (isDebugFile(file) && !debugMode) return false

@@ -42,7 +42,7 @@ class ObjectStore
     public const OCR_RESULT_FILE = 'ocr_result.json';
     public const FOUND_ERRORS_FILE = 'found_errors.json';
     public const MARKUP_ANNOTATIONS_FILE = 'markup_annotations.php';
-    public const THUMBNAIL_FILE = 'thumbnail.jpg';
+    public const THUMBNAIL_FILE = 'thumbnail';
     public const SCHEMA = 1;
 
     public const DEFAULT_CONNECT_TIMEOUT = 2.0;
@@ -481,6 +481,15 @@ class ObjectStore
         return self::assessmentStudentPrefix($schoolId, $teacherId, $assessmentId, $studentId) . self::ATTR_FILE;
     }
 
+    public static function assessmentStudentCorrectionKey(
+        string $schoolId,
+        string $teacherId,
+        string $assessmentId,
+        string $studentId
+    ): string {
+        return self::assessmentStudentPrefix($schoolId, $teacherId, $assessmentId, $studentId) . 'correction.png';
+    }
+
     /**
      * Parse a schools/... node prefix into path segments.
      *
@@ -553,6 +562,17 @@ class ObjectStore
                 ];
             }
             if (!isset($parts[9])) {
+                if ($parts[8] === 'correction.png' || str_contains($parts[8], '.')) {
+                    return [
+                        'kind' => 'blob',
+                        'school_id' => $schoolId,
+                        'teacher_id' => $teacherId,
+                        'assessment_id' => $assessmentId,
+                        'student_id' => $parts[7],
+                        'file_id' => $parts[8],
+                        'area' => 'student',
+                    ];
+                }
                 return [
                     'kind' => 'file',
                     'school_id' => $schoolId,

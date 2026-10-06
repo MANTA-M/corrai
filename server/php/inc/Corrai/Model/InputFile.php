@@ -48,6 +48,11 @@ abstract class InputFile
     public string $content_type = 'application/octet-stream';
 
     /**
+     * True once a JPEG thumbnail annex named "thumbnail" has been stored.
+     */
+    public bool $thumbnail = false;
+
+    /**
      * Transient flag indicating active background task processing.
      */
     public ?bool $loading = null;
@@ -80,6 +85,7 @@ abstract class InputFile
         $status = (string) ($data['status'] ?? '');
         $file->status = $status === 'loaded' ? 'stored' : $status;
         $file->content_type = (string) ($data['content_type'] ?? 'application/octet-stream');
+        $file->thumbnail = filter_var($data['thumbnail'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $storedClass = $data['class'] ?? null;
         $file->hasStoredClass = is_string($storedClass) && $storedClass === static::class;
         return $file;
@@ -143,6 +149,7 @@ abstract class InputFile
             'content_type' => $this->content_type,
             'size' => $this->size,
             'created' => $this->created,
+            'thumbnail' => $this->thumbnail,
             'class' => $this->storedClass(),
         ];
     }
@@ -178,6 +185,7 @@ abstract class InputFile
             'content_type' => $this->content_type,
             'size' => $this->size,
             'created' => $this->created,
+            'thumbnail' => $this->thumbnail,
         ];
     }
 
@@ -456,6 +464,29 @@ abstract class InputFile
     }
 
     /**
+     * Relative keys of every object stored in this file directory, except the content blob.
+     *
+     * @return string[]
+     */
+    public function listDirectoryObjects(): array
+    {
+        $prefix = $this->prefix();
+        $names = [];
+        foreach (ObjectStore::getInstance()->listKeys($prefix) as $key) {
+            if (!is_string($key) || !str_starts_with($key, $prefix)) {
+                continue;
+            }
+            $relative = substr($key, strlen($prefix));
+            if ($relative === '' || $relative === ObjectStore::CONTENT_FILE) {
+                continue;
+            }
+            $names[] = $relative;
+        }
+        sort($names, SORT_STRING);
+        return $names;
+    }
+
+    /**
      * Immutable events recorded for this file, oldest first.
      *
      * @return array<int, array{id: string, timestamp: int, name: string}>
@@ -688,7 +719,9 @@ abstract class InputFile
             'status' => $this->status,
             'status_label' => $this->get_status_label($locale),
             'content_type' => $this->content_type,
+            'thumbnail' => $this->thumbnail,
             'label' => $this->localizedLabel($locale),
+            'direct' => false,
             'menu' => $this->get_menu($locale),
         ];
     }

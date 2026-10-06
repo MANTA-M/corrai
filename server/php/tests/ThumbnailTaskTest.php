@@ -121,8 +121,27 @@ class ThumbnailTaskTest extends TestCase
         $size = @getimagesizefromstring($store->getContents($file->thumbnailKey()));
         $this->assertNotFalse($size);
         $this->assertSame(IMAGETYPE_JPEG, $size[2]);
-        $this->assertSame(256, $size[0]);
-        $this->assertSame(128, $size[1]);
+        $this->assertSame(250, $size[0]);
+        $this->assertSame(125, $size[1]);
+        $this->assertStringEndsWith('/thumbnail', $file->thumbnailKey());
+
+        $stored = \Corrai\Model\InputFile::from_hash((string) $file->id);
+        $this->assertTrue($stored->thumbnail);
+    }
+
+    public function testJpegBytesMaxWidthScalesWidthAndKeepsRatio(): void
+    {
+        $wide = Thumbnail::jpegBytesMaxWidth($this->pngBytes(500, 200));
+        $wideSize = @getimagesizefromstring($wide);
+        $this->assertNotFalse($wideSize);
+        $this->assertSame(250, $wideSize[0]);
+        $this->assertSame(100, $wideSize[1]);
+
+        $tall = Thumbnail::jpegBytesMaxWidth($this->pngBytes(100, 400));
+        $tallSize = @getimagesizefromstring($tall);
+        $this->assertNotFalse($tallSize);
+        $this->assertSame(100, $tallSize[0]);
+        $this->assertSame(400, $tallSize[1]);
     }
 
     private function pngBytes(int $width, int $height): string

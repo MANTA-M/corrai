@@ -79,4 +79,19 @@ class AssessmentFilePathTest extends TestCase
         $this->assertSame('file', $legacy['kind']);
         $this->assertSame('f1', $legacy['file_id']);
     }
+
+    public function testStudentCorrectionKeyAndNodePrefix(): void
+    {
+        $key = ObjectStore::assessmentStudentCorrectionKey('s1', 't1', 'a1', 'st1');
+        $this->assertSame('schools/s1/teachers/t1/assessments/a1/students/st1/correction.png', $key);
+
+        $parsed = ObjectStore::parseNodePrefix($key);
+        $this->assertSame('blob', $parsed['kind']);
+        $this->assertSame('s1', $parsed['school_id']);
+        $this->assertSame('t1', $parsed['teacher_id']);
+        $this->assertSame('a1', $parsed['assessment_id']);
+        $this->assertSame('st1', $parsed['student_id']);
+        $this->assertSame('correction.png', $parsed['file_id']);
+        $this->assertSame('student', $parsed['area']);
+    }
 }

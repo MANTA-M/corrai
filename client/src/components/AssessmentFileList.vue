@@ -1,6 +1,15 @@
 <template>
   <p v-if="error" class="error-message">{{ error }}</p>
   <p v-if="!sortedFiles.length" class="zone-empty">{{ emptyText || t('assessment.fileZoneEmpty') }}</p>
+  <ul v-else-if="cards" class="file-cards" data-testid="assessment-file-list">
+    <InputFile
+      v-for="file in sortedFiles"
+      :key="file.id"
+      :assessment-id="assessmentId"
+      :file="file"
+      @action="(key) => onFileAction(file, key)"
+    />
+  </ul>
   <ul v-else class="entity-list" data-testid="assessment-file-list">
     <li
       v-for="file in sortedFiles"
@@ -172,25 +181,6 @@
             </a>
           </li>
         </ul>
-        <template v-if="sessionStore.debugMode">
-          <p class="events-section" data-testid="file-menu-annexes">{{ t('assessment.fileAnnexes') }}</p>
-          <p v-if="eventsLoading" class="zone-empty">…</p>
-          <p v-else-if="annexes.length === 0" class="zone-empty" data-testid="file-menu-annexes-empty">
-            {{ t('assessment.fileAnnexesEmpty') }}
-          </p>
-          <ul v-else class="events-list">
-            <li v-for="name in annexes" :key="name">
-              <a
-                :href="annexUrl(name)"
-                target="_blank"
-                rel="noopener noreferrer"
-                :data-testid="`file-menu-annex-${name}`"
-              >
-                {{ name }}
-              </a>
-            </li>
-          </ul>
-        </template>
       </div>
     </div>
   </div>
@@ -304,6 +294,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import InputFile from '@/components/InputFile.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useSessionStore } from '@/stores/session'
 import { isEditableTextFile } from '@/utils/assessmentFiles'
@@ -317,6 +308,7 @@ const props = defineProps<{
   students?: AssessmentStudent[]
   emptyText?: string
   allowTextEdit?: boolean
+  cards?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -339,7 +331,6 @@ const reassignNameInput = ref<HTMLInputElement | null>(null)
 const eventsTarget = ref<AssessmentFile | null>(null)
 const eventsLoading = ref(false)
 const events = ref<FileEvent[]>([])
-const annexes = ref<string[]>([])
 
 const renameTarget = ref<AssessmentFile | null>(null)
 const renameDraft = ref('')
@@ -353,7 +344,6 @@ interface FileEvent {
 }
 
 interface FileDebugInfo {
-  annexes: string[]
   events: FileEvent[]
 }
 
@@ -390,13 +380,6 @@ const eventUrl = (eventId: string) =>
     assessment: props.assessmentId,
     file: eventsTarget.value?.id ?? '',
     event: eventId,
-  })
-
-const annexUrl = (name: string) =>
-  sessionStore.getWsClient().getWsUrl('/file', {
-    assessment: props.assessmentId,
-    file: eventsTarget.value?.id ?? '',
-    annex: name,
   })
 
 const statusLabel = (file: AssessmentFile) =>
@@ -455,7 +438,6 @@ const closeReassign = () => {
 const openEvents = (file: AssessmentFile) => {
   eventsTarget.value = file
   events.value = []
-  annexes.value = []
   void loadEvents(file)
 }
 
@@ -473,12 +455,10 @@ const loadEvents = async (file: AssessmentFile) => {
     })
     if (eventsTarget.value?.id !== file.id) return
     events.value = data.events ?? []
-    annexes.value = data.annexes ?? []
   } catch (err) {
     console.error('Error loading file events:', err)
     if (eventsTarget.value?.id === file.id) {
       events.value = []
-      annexes.value = []
     }
   } finally {
     if (eventsTarget.value?.id === file.id) {
@@ -637,6 +617,15 @@ watch(selectedStudentId, (value) => {
   font-size: 0.9rem;
 }
 
+.file-cards {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+}
+
 .entity-list {
   list-style: none;
   margin: 0;
@@ -761,12 +750,5 @@ watch(selectedStudentId, (value) => {
 .events-list a {
   display: block;
   padding: 0.4rem 0;
-}
-
-.events-section {
-  margin: 0.85rem 0 0.25rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-muted);
 }
 </style>
