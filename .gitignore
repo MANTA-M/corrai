@@ -71,3 +71,5 @@ client/vite.config.ts
 server/php/.phpunit.cache/test-results
 admin_client/vite.config.ts
 admin_client/playwright-report/
+server/google-keys.json
+server/php/.phpunit.cache/test-results
