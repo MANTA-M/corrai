@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\Dictation;
 
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;

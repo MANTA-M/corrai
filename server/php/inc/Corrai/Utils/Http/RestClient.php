@@ -16,6 +16,7 @@ class RestClient
     public bool $send_length = false;
     public bool $verbose = true;
     public int $timeout = 0;
+    public int $lastResponseCode = 0;
 
     public function __construct(protected string $baseUrl, protected string $token = '') {}
 
@@ -124,6 +125,7 @@ class RestClient
         self::$timer += $duration;
 
         $responseCode = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+        $this->lastResponseCode = $responseCode;
         $contentType = $responseHeaders['content-type'][0] ?? '';
         $isJson = str_contains($contentType, 'json') || ($response !== false && $response !== '' && $response[0] === '{');
 

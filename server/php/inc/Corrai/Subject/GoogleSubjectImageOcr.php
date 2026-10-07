@@ -2,17 +2,24 @@
 
 namespace Corrai\Subject;
 
-use Corrai\Llm\Eden\GoogleOCRClient;
+use Corrai\Clients\Google\Vision;
 use Corrai\Model\InputFile;
 
 /**
- * Google OCR through Eden AI, one file per call.
+ * Google OCR through direct Google Vision, one file per call.
  */
 class GoogleSubjectImageOcr implements SubjectImageOcr
 {
+    private ?Vision $client;
+
+    public function __construct(?Vision $client = null)
+    {
+        $this->client = $client;
+    }
+
     public function recognize(string $path, string $filename, ?InputFile $file = null): array
     {
-        $client = new GoogleOCRClient();
+        $client = $this->client ?? new Vision();
         $client->set_file($path, $filename, $file);
         return $client->process();
     }

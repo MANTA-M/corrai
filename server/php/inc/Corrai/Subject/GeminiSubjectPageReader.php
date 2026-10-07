@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject;
 
-use Corrai\Llm\Openrouter\GeminiFlashLiteClient;
+use Corrai\Clients\Openrouter\GeminiFlashLiteClient;
 use Corrai\Utils\Http\WSException;
 
 /**

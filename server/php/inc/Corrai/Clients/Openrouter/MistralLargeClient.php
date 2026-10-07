@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Llm\Openrouter;
+namespace Corrai\Clients\Openrouter;
 
 class MistralLargeClient extends OpenrouterClient
 {

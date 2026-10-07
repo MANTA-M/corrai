@@ -8,7 +8,7 @@ namespace Corrai\Subject;
 interface SubjectImageOcr
 {
     /**
-     * @return array<string, mixed> Output of GoogleOCRClient::process().
+     * @return array<string, mixed> Output of Vision::process().
      */
     public function recognize(string $path, string $filename): array;
 }

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\Mistral\MistralClient;
-use Corrai\Llm\Mistral\MistralDirectClient;
+use Corrai\Clients\Mistral\MistralClient;
+use Corrai\Clients\Mistral\MistralDirectClient;
 use PHPUnit\Framework\TestCase;
 
 class MistralDirectClientTest extends TestCase

@@ -12,7 +12,7 @@ use RuntimeException;
  * The file is written to the Python process standard input. pycorrai runs
  * with the interpreter from server/python/.venv.
  */
-class OCR
+class PythonOCRHelper
 {
     /**
      * @var list<array{text: string, page: int, box: array{0: int, 1: int, 2: int, 3: int}}>

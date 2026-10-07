@@ -1,8 +1,8 @@
 <?php
 
-namespace Corrai\Llm\Eden;
+namespace Corrai\Clients\Eden;
 
-use Corrai\Llm\LlmClient;
+use Corrai\Clients\LlmClient;
 use Corrai\Model\InputFile;
 use Corrai\Utils\Http\JsonUtils;
 use Corrai\Utils\Store\ObjectStore;

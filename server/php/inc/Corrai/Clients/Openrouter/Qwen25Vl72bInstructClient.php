@@ -1,20 +1,19 @@
 <?php
 
-namespace Corrai\Llm\Openrouter;
+namespace Corrai\Clients\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Gemini3Client extends OpenrouterClient
+class Qwen25Vl72bInstructClient extends OpenrouterClient
 {
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: 'google/gemini-2.5-flash-image');
+        parent::__construct($model ?: 'qwen/qwen2.5-vl-72b-instruct');
     }
 
     /**
-     * Add a submission file to the user message.
-     * Images are sent as images. PDFs are sent as files and parsed into page
-     * images first: the image model rejects a raw PDF with "The document has no pages."
+     * Images are sent as image_url data URLs. PDFs are parsed into page images
+     * (vision model, no native PDF path).
      */
     public function add_file(string $file_path, string $file_name): void
     {
@@ -47,10 +46,6 @@ class Gemini3Client extends OpenrouterClient
         $user_content[] = ['type' => 'text', 'text' => $file_name . ":\n" . $bytes];
     }
 
-    /**
-     * Force a parser that turns PDF pages into images.
-     * The default native path forwards the PDF to Google AI Studio, which rejects it.
-     */
     private function enablePdfParser(): void
     {
         foreach ($this->payload['plugins'] ?? [] as $plugin) {

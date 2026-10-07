@@ -45,7 +45,7 @@ The PHP backend will be available at `http://localhost:80`
 - **php**: Nginx + PHP 8.3, serving the API endpoints
   - Port: 80
   - PHP Redis extension, and a Python virtualenv at `/var/corrai/python/.venv` with PaddleOCR and the Redis client
-  - `Corrai\Utils\Image\OCR` runs that interpreter against the mounted `pycorrai` package
+  - `Corrai\Utils\Image\PythonOCRHelper` runs that interpreter against the mounted `pycorrai` package
   - Volumes:
     - `./server/log` → `/var/log/corrai`
     - `./server/php` → `/var/corrai/php`

@@ -2,15 +2,16 @@
 
 namespace Corrai\Subject\DictationFranceOCRGoogle;
 
-use Corrai\Llm\Eden\GoogleOCRClient;
+use Corrai\Clients\Google\Vision;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
+use Corrai\Task\TaskRotateAndCrop;
 use Corrai\Utils\Store\ObjectStore;
 use Throwable;
 
 /**
- * Google OCR through Eden AI. Writes ocr_result.json.
+ * Google OCR through direct Google Vision. Writes ocr_result.json.
  *
  * A pre-OCR leaves the file at ocr_done. Task1Correcting is enqueued only when
  * this run was asked for correction (file status correction_asked). The
@@ -46,7 +47,7 @@ class GoogleOcr extends PathQueueItemTask
             return;
         }
 
-        if ($file->size > GoogleOCRClient::MAX_FILE_SIZE) {
+        if ($file->size > Vision::MAX_FILE_SIZE) {
             try {
                 $file->appendEvent('Image file too heavy');
             } catch (\Throwable $e) {
@@ -61,7 +62,7 @@ class GoogleOcr extends PathQueueItemTask
             $store = ObjectStore::getInstance();
             $copyPath = $store->downloadToTemp($file->contentKey());
 
-            $client = $this->createGoogleOCRClient();
+            $client = $this->createVisionClient();
             $client->set_file($copyPath, $file->name, $file);
             $client->set_language(self::OCR_LANG);
             $result = OCRResult::from_google($client->process());
@@ -76,8 +77,20 @@ class GoogleOcr extends PathQueueItemTask
             $file->saveAttributes();
             $file->appendEvent('OCR ended');
 
+            try {
+                RedisQueue::getInstance()->enqueueFile($file->id, TaskRotateAndCrop::class);
+            } catch (Throwable $e) {
+                error_log(sprintf('[GoogleOcr] Failed to enqueue TaskRotateAndCrop for file %s: %s', (string) $file->id, $e->getMessage()));
+                throw $e;
+            }
+
             if ($enqueueCorrecting) {
-                RedisQueue::getInstance()->enqueueFile($file->id, Task1Correcting::class);
+                try {
+                    RedisQueue::getInstance()->enqueueFile($file->id, Task1Correcting::class);
+                } catch (Throwable $e) {
+                    error_log(sprintf('[GoogleOcr] Failed to enqueue Task1Correcting for file %s: %s', (string) $file->id, $e->getMessage()));
+                    throw $e;
+                }
             }
         } finally {
             if ($copyPath !== null) {
@@ -86,8 +99,13 @@ class GoogleOcr extends PathQueueItemTask
         }
     }
 
-    protected function createGoogleOCRClient(): GoogleOCRClient
+    protected function createVisionClient(): Vision
     {
-        return new GoogleOCRClient();
+        return new Vision();
+    }
+
+    protected function createGoogleOCRClient(): Vision
+    {
+        return $this->createVisionClient();
     }
 }

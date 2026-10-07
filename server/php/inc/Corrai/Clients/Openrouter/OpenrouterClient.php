@@ -1,8 +1,8 @@
 <?php
 
-namespace Corrai\Llm\Openrouter;
+namespace Corrai\Clients\Openrouter;
 
-use Corrai\Llm\LlmClient;
+use Corrai\Clients\LlmClient;
 use Corrai\Utils\Http\JsonUtils;
 use Corrai\Utils\Http\WSException;
 

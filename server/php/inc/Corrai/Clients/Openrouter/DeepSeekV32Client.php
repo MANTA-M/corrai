@@ -1,18 +1,19 @@
 <?php
 
-namespace Corrai\Llm\Openrouter;
+namespace Corrai\Clients\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Gpt4oMiniClient extends OpenrouterClient
+class DeepSeekV32Client extends OpenrouterClient
 {
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: 'openai/gpt-4o-mini');
+        parent::__construct($model ?: 'deepseek/deepseek-v3.2');
     }
 
     /**
-     * Images are sent as image_url data URLs. PDFs are parsed via file-parser.
+     * PDFs go through OpenRouter file-parser (text extraction).
+     * Images are sent as image_url; other files as UTF-8 text.
      */
     public function add_file(string $file_path, string $file_name): void
     {
@@ -54,7 +55,7 @@ class Gpt4oMiniClient extends OpenrouterClient
         }
         $this->payload['plugins'][] = [
             'id' => 'file-parser',
-            'pdf' => ['engine' => 'mistral-ocr'],
+            'pdf' => ['engine' => 'pdf-text'],
         ];
     }
 }

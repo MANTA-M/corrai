@@ -14,6 +14,7 @@ use Corrai\Subject\Catalog;
 use Corrai\Subject\SubjectImageOcr;
 use Corrai\Subject\SubjectIntake;
 use Corrai\Subject\SubjectPageReader;
+use Corrai\Task\TaskRotateAndCrop;
 use Corrai\Utils\Http\WSException;
 use Corrai\Utils\Store\ObjectStore;
 use PHPUnit\Framework\TestCase;
@@ -114,7 +115,10 @@ class SubjectIntakeTest extends TestCase
         $this->assertCount(1, $files);
         $this->assertSame('fractions.png', $files[0]['name']);
         $this->assertSame('subject', $files[0]['type']);
-        $this->assertSame([], $this->fileIds($this->queued));
+        $this->assertSame(
+            TaskRotateAndCrop::class,
+            $this->taskFor((string) $this->filesByName($loaded)['fractions.png']->id)
+        );
     }
 
     public function testTextFileIsAnalyzedFromItsContents(): void
@@ -274,12 +278,14 @@ class SubjectIntakeTest extends TestCase
         $byName = $this->filesByName($loaded);
         $this->assertArrayHasKey('reste.png', $byName);
         $queuedIds = $this->fileIds($this->queued);
+        $this->assertContains($byName['intro.png']->id, $queuedIds);
+        $this->assertContains($byName['suite.png']->id, $queuedIds);
         $this->assertContains($byName['reste.png']->id, $queuedIds);
-        $this->assertNotContains($byName['intro.png']->id, $queuedIds);
-        $this->assertNotContains($byName['suite.png']->id, $queuedIds);
+        $this->assertSame(TaskRotateAndCrop::class, $this->taskFor((string) $byName['intro.png']->id));
+        $this->assertSame(TaskRotateAndCrop::class, $this->taskFor((string) $byName['suite.png']->id));
         $this->assertSame(
             Catalog::pipelineClass('Dictation', 'fr', 'CM2'),
-            $this->taskFor($byName['reste.png']->id)
+            $this->taskFor((string) $byName['reste.png']->id)
         );
     }
 
@@ -325,6 +331,57 @@ class SubjectIntakeTest extends TestCase
         $this->assertSame(IMAGETYPE_WEBP, $info[2]);
         $this->assertSame(['capture.webp'], $ocr->names);
         $this->assertSame('Page une', $this->ocrText($loaded, 'capture.webp'));
+        $this->assertSame(TaskRotateAndCrop::class, $this->taskFor((string) $file->id));
+    }
+
+    public function testPdfSubjectIsNotQueuedForRotateAndCrop(): void
+    {
+        if (!extension_loaded('imagick')) {
+            $this->markTestSkipped('Imagick extension required');
+        }
+        $formats = array_map('strtoupper', (new \Imagick())->queryFormats('PDF'));
+        if (!in_array('PDF', $formats, true)) {
+            $this->markTestSkipped('Imagick has no PDF support');
+        }
+
+        $imagick = new \Imagick();
+        $imagick->newImage(80, 80, new \ImagickPixel('white'));
+        $imagick->setImageFormat('pdf');
+        $path = tempnam(sys_get_temp_dir(), 'intake_pdf_');
+        $this->assertNotFalse($path);
+        file_put_contents($path, $imagick->getImageBlob());
+        $imagick->clear();
+
+        $ocr = $this->ocr('Page pdf');
+        $reader = new class implements SubjectPageReader {
+            public function read(string $pagePath, string $pageName, array $tree): array
+            {
+                return [
+                    'name' => '[Test] PDF',
+                    'subject' => 'Math',
+                    'level' => 'cm2',
+                    'date' => '2026-04-02',
+                ];
+            }
+        };
+
+        try {
+            $assessment = SubjectIntake::create(
+                $this->user,
+                [['path' => $path, 'name' => 'sujet.pdf', 'contentType' => 'application/pdf']],
+                'fr',
+                $reader,
+                $ocr
+            );
+        } finally {
+            @unlink($path);
+        }
+
+        $loaded = Assessment::from_hash((string) $assessment->id);
+        $file = $this->filesByName($loaded)['sujet.pdf'] ?? null;
+        $this->assertInstanceOf(InputFile::class, $file);
+        $this->assertSame(['page.jpg'], $ocr->names);
+        $this->assertSame('Page pdf', $this->ocrText($loaded, 'sujet.pdf'));
         $this->assertSame([], $this->fileIds($this->queued));
     }
 

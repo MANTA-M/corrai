@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\DictationFranceOCRGoogle;
 
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
@@ -34,10 +34,13 @@ class Task1Correcting extends PathQueueItemTask
             $store = ObjectStore::getInstance();
             $ocrKey = $file->ocrResultKey();
             if (!$store->exists($ocrKey)) {
-                $this->createGoogleOcr()->recognize($file);
-            }
-            if (!$store->exists($ocrKey)) {
-                throw new WSException('OCR result is missing for this file', 400);
+                try {
+                    $this->createGoogleOcr()->recognize($file, true);
+                } catch (Throwable $e) {
+                    error_log(sprintf('[Task1Correcting] Failed to execute Google OCR for file %s: %s', (string) $file->id, $e->getMessage()));
+                    throw $e;
+                }
+                return;
             }
 
             $unclassified = ObjectStore::assessmentFileArea($file->type, $file->student) === 'unclassified';

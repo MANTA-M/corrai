@@ -6,6 +6,8 @@ use Corrai\Model\Assessment;
 use Corrai\Model\InputFile;
 use Corrai\Model\OCRResult;
 use Corrai\Model\User;
+use Corrai\Queue\RedisQueue;
+use Corrai\Task\TaskRotateAndCrop;
 use Corrai\Utils\Image\FirstPageImage;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Store\ObjectStore;
@@ -84,6 +86,7 @@ class SubjectIntake
                 try {
                     $text = self::textFor($stored, $upload['path'], $upload['name'], $ocr);
                 } catch (\Throwable $exception) {
+                    error_log('[SubjectIntake] Subject text extraction failed for ' . $upload['name'] . ': ' . $exception->getMessage());
                     $lastError = $exception;
                     continue;
                 }
@@ -106,6 +109,7 @@ class SubjectIntake
                     $raw = $reader->read($pagePath, 'page.txt', Catalog::tree($locale));
                     $attributes = SubjectDraft::normalize($raw, $user->country, $upload['name']);
                 } catch (\Throwable $exception) {
+                    error_log('[SubjectIntake] Subject page analysis failed for ' . $upload['name'] . ': ' . $exception->getMessage());
                     $lastError = $exception;
                     continue;
                 } finally {
@@ -121,10 +125,14 @@ class SubjectIntake
             }
 
             if ($attributes === null) {
+                if ($lastError !== null) {
+                    error_log('[SubjectIntake] Subject analysis failed: ' . $lastError->getMessage());
+                }
                 if ($lastError instanceof WSException) {
                     throw $lastError;
                 }
-                throw new WSException('Subject analysis failed', 502, $lastError);
+                $message = $lastError !== null ? 'Subject analysis failed: ' . $lastError->getMessage() : 'Subject analysis failed';
+                throw new WSException($message, 502, $lastError);
             }
 
             $assessment->name = $attributes['name'];
@@ -238,7 +246,15 @@ class SubjectIntake
             if (!is_string($bytes) || $bytes === '' || !self::isImage($file->name, $bytes)) {
                 return null;
             }
-            return self::recognize($file, $copy, $file->name, $ocr);
+            $text = self::recognize($file, $copy, $file->name, $ocr);
+            if ($file->id !== null && $file->id !== '') {
+                try {
+                    RedisQueue::getInstance()->enqueueFile($file->id, TaskRotateAndCrop::class);
+                } catch (\Throwable $e) {
+                    error_log(sprintf('[SubjectIntake] Failed to enqueue TaskRotateAndCrop for subject file %s: %s', (string) $file->id, $e->getMessage()));
+                }
+            }
+            return $text;
         } finally {
             if (is_file($copy)) {
                 @unlink($copy);

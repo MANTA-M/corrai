@@ -1,6 +1,6 @@
 <?php
 
-use Corrai\Llm\Openrouter\GeminiFlashLiteClient;
+use Corrai\Clients\Openrouter\GeminiFlashLiteClient;
 use Corrai\Model\User;
 use Corrai\Subject\GeminiSubjectPageReader;
 use Corrai\Subject\GoogleSubjectImageOcr;

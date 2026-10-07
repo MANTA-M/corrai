@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Llm\Mistral;
+namespace Corrai\Clients\Mistral;
 
 /**
  * Direct Mistral chat client (subclass of MistralClient).

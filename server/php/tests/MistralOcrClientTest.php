@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\Mistral\MistralOcrClient;
-use Corrai\Llm\Mistral\OcrClient;
+use Corrai\Clients\Mistral\MistralOcrClient;
+use Corrai\Clients\Mistral\OcrClient;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 

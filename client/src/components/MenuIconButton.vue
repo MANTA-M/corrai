@@ -8,6 +8,7 @@
     rel="noopener noreferrer"
     :data-testid="testId"
     :aria-label="item.label"
+    :aria-expanded="ariaExpanded"
     :title="item.label"
   >
     <ActionIcon :name="item.icon" />
@@ -20,6 +21,7 @@
     :class="{ danger: isDanger }"
     :data-testid="testId"
     :aria-label="item.label"
+    :aria-expanded="ariaExpanded"
     :title="item.label"
     @click="emit('click')"
   >
@@ -37,6 +39,7 @@ const props = defineProps<{
   item: MenuItem
   testId: string
   href?: string
+  ariaExpanded?: boolean
 }>()
 
 const emit = defineEmits<{

@@ -1,0 +1,39 @@
+---
+description: Directives générales et conventions du projet pour les agents Cursor
+alwaysApply: true
+---
+
+# Directives pour les Agents Cursor
+
+Ce fichier définit les règles et directives globales suivies par les agents Cursor sur ce projet.
+Il est configuré avec `alwaysApply: true`, ce qui signifie qu'il est chargé automatiquement à chaque interaction.
+
+## 1. Contexte du projet
+- **Description** : [Ajoutez une brève description du rôle du projet]
+- **Architecture principale** :
+  - `server/php/` : API et logique métier backend PHP
+  - `server/python/` : Traitements Python (pycorrai)
+  - `client/` : Application frontend (Vue 3 / TypeScript)
+  - `admin_client/` : Interface d'administration (Vue 3 / TypeScript)
+
+## 2. Standards de code
+- **PHP** :
+  - Respecter les conventions PSR et la structure existante sous `server/php/inc/Corrai/`.
+  - Gérer rigoureusement les erreurs et les exceptions.
+- **TypeScript / Vue** :
+  - Utiliser la Composition API et TypeScript avec typage strict.
+  - Respecter le style défini par Prettier / ESLint.
+- **Python** :
+  - Suivre les conventions PEP 8 et la structure du package `pycorrai`.
+
+## 3. Comportement des agents
+- Conserver le style et les patterns déjà présents dans la base de code.
+- Ne pas modifier de fichiers sans raison valable liée à la demande.
+- Valider les modifications et vérifier l'impact sur les tests existants.
+- Privilégier des réponses claires, concises et en français.
+
+## 4. Directives personnalisées
+
+Quand tu est sur un serveur linux, si tu change des fichiers php dans inc/Corrai ou python lance ./bin/restart-consumers et dit le.
+
+Si tu change les fichiers d'une app Vue, rebuild.

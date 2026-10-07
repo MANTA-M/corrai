@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\Eden\GoogleOCRClient;
-use Corrai\Llm\LlmClient;
-use Corrai\Llm\Mistral\MistralClient;
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
-use Corrai\Llm\Openrouter\OpenrouterClient;
+use Corrai\Clients\Eden\GoogleOCRClient;
+use Corrai\Clients\LlmClient;
+use Corrai\Clients\Mistral\MistralClient;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\OpenrouterClient;
 use Corrai\Utils\Http\RestClient;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;

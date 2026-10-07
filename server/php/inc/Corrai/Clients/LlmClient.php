@@ -1,6 +1,6 @@
 <?php
 
-namespace Corrai\Llm;
+namespace Corrai\Clients;
 
 use Corrai\Utils\Http\RestClient;
 

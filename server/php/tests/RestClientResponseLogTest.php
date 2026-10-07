@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\LlmClient;
+use Corrai\Clients\LlmClient;
 use Corrai\Utils\Http\RestClient;
 use PHPUnit\Framework\TestCase;
 

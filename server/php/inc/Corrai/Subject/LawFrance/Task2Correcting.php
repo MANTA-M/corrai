@@ -2,8 +2,8 @@
 
 namespace Corrai\Subject\LawFrance;
 
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
-use Corrai\Llm\Openrouter\LlmClientFactory;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\LlmClientFactory;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Task\PathQueueItemTask;

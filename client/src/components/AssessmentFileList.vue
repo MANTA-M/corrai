@@ -15,8 +15,13 @@
       v-for="file in sortedFiles"
       :key="file.id"
       class="entity-row"
-      :class="{ 'is-loading': file.loading }"
+      :class="{ 'is-loading': file.loading, 'is-openable': isSubjectFile(file) }"
       data-testid="assessment-file-item"
+      :role="isSubjectFile(file) ? 'link' : undefined"
+      :tabindex="isSubjectFile(file) ? 0 : undefined"
+      @click="onRowClick(file)"
+      @keydown.enter="onRowKey(file)"
+      @keydown.space.prevent="onRowKey(file)"
     >
       <button
         v-if="allowTextEdit && isEditableTextFile(file)"
@@ -40,9 +45,38 @@
         {{ statusLabel(file) }}
       </span>
       <span class="file-size">{{ formatFileSize(file.size) }}</span>
-      <div class="row-actions">
+      <div class="row-actions" @click.stop @keydown.stop>
+        <div v-if="isSubjectFile(file)" class="file-objects" data-testid="file-objects">
+          <MenuIconButton
+            :item="filesMenuItem"
+            test-id="file-objects-button"
+            :aria-expanded="directoryFileId === file.id"
+            @click="toggleDirectory(file)"
+          />
+          <ul
+            v-if="directoryFileId === file.id"
+            class="file-objects-menu"
+            data-testid="file-objects-list"
+          >
+            <li v-if="directoryLoading" class="file-objects-status">…</li>
+            <li
+              v-else-if="storedFiles.length === 0"
+              class="file-objects-status"
+              data-testid="file-objects-empty"
+            >
+              {{ t('assessment.fileAnnexesEmpty') }}
+            </li>
+            <li v-for="name in storedFiles" :key="name">
+              <S3File
+                :label="name"
+                :href="objectUrl(file, name)"
+                :test-id="s3TestId(name)"
+              />
+            </li>
+          </ul>
+        </div>
         <MenuIconButton
-          v-for="item in file.menu ?? []"
+          v-for="item in rowMenu(file)"
           :key="item.key"
           :item="item"
           :test-id="`file-${item.key}`"
@@ -292,13 +326,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import InputFile from '@/components/InputFile.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
+import S3File from '@/components/S3File.vue'
 import { useSessionStore } from '@/stores/session'
 import { isEditableTextFile } from '@/utils/assessmentFiles'
-import type { AssessmentFile, AssessmentStats, AssessmentStudent, StateLocales } from '@/types/types'
+import type { AssessmentFile, AssessmentStats, AssessmentStudent, MenuItem, StateLocales } from '@/types/types'
 
 const NOT_FOUND = '__not_found__'
 
@@ -337,6 +372,10 @@ const renameDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const deleteTarget = ref<AssessmentFile | null>(null)
 
+const directoryFileId = ref<string | null>(null)
+const directoryLoading = ref(false)
+const storedFiles = ref<string[]>([])
+
 interface FileEvent {
   id: string
   timestamp: number
@@ -357,6 +396,21 @@ const sortedStudents = computed(() =>
   )
 )
 
+const filesMenuItem = computed<MenuItem>(() => ({
+  key: 'files',
+  label: t('assessment.files'),
+  icon: 'file',
+  color: '#1a55e8',
+}))
+
+const isSubjectFile = (file: AssessmentFile) => file.type === 'subject'
+
+const rowMenu = (file: AssessmentFile) => {
+  const menu = file.menu ?? []
+  if (!isSubjectFile(file)) return menu
+  return menu.filter((item) => item.key !== 'view')
+}
+
 const canConfirmReassign = computed(() => {
   if (isUpdating.value || !selectedStudentId.value) return false
   if (selectedStudentId.value === NOT_FOUND) return newStudentName.value.trim() !== ''
@@ -374,6 +428,80 @@ const fileViewUrl = (file: AssessmentFile) =>
     assessment: props.assessmentId,
     file: file.id,
   })
+
+const objectUrl = (file: AssessmentFile, name: string) =>
+  sessionStore.getWsClient().getWsUrl('/file', {
+    assessment: props.assessmentId,
+    file: file.id,
+    object: name,
+  })
+
+const s3TestId = (name: string) => `file-s3-${name.split('/').join('--')}`
+
+const openContent = (file: AssessmentFile) => {
+  window.open(fileViewUrl(file), '_blank', 'noopener,noreferrer')
+}
+
+const closeDirectory = () => {
+  directoryFileId.value = null
+  directoryLoading.value = false
+  storedFiles.value = []
+}
+
+const onRowClick = (file: AssessmentFile) => {
+  if (!isSubjectFile(file)) return
+  closeDirectory()
+  openContent(file)
+}
+
+const onRowKey = (file: AssessmentFile) => {
+  if (!isSubjectFile(file)) return
+  onRowClick(file)
+}
+
+const toggleDirectory = (file: AssessmentFile) => {
+  if (directoryFileId.value === file.id) {
+    closeDirectory()
+    return
+  }
+  directoryFileId.value = file.id
+  storedFiles.value = []
+  void loadDirectory(file)
+}
+
+const loadDirectory = async (file: AssessmentFile) => {
+  directoryLoading.value = true
+  try {
+    const data = await sessionStore.getWsClient().queryWs<{ objects?: string[] }>(
+      'GET',
+      '/file_annexes',
+      {
+        assessment: props.assessmentId,
+        file: file.id,
+        locale: String(locale.value),
+      }
+    )
+    if (directoryFileId.value !== file.id) return
+    storedFiles.value = (data.objects ?? []).filter((name) => name !== 'content' && name !== '')
+  } catch (err) {
+    console.error('Error loading file directory:', err)
+    if (directoryFileId.value === file.id) {
+      storedFiles.value = []
+    }
+  } finally {
+    if (directoryFileId.value === file.id) {
+      directoryLoading.value = false
+    }
+  }
+}
+
+const closeDirectoryOnOutside = (event: MouseEvent) => {
+  if (!directoryFileId.value) return
+  const target = event.target
+  if (!(target instanceof Element) || !target.closest('[data-testid="file-objects"]')) {
+    closeDirectory()
+  }
+}
 
 const eventUrl = (eventId: string) =>
   sessionStore.getWsClient().getWsUrl('/file', {
@@ -603,6 +731,14 @@ watch(selectedStudentId, (value) => {
     reassignNameInput.value?.focus()
   })
 })
+
+onMounted(() => {
+  document.addEventListener('click', closeDirectoryOnOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDirectoryOnOutside)
+})
 </script>
 
 <style scoped>
@@ -683,11 +819,45 @@ watch(selectedStudentId, (value) => {
   color: var(--info);
 }
 
+.entity-row.is-openable {
+  cursor: pointer;
+}
+
+.entity-row.is-openable:hover,
+.entity-row.is-openable:focus-visible {
+  background: var(--hover-bg);
+}
+
 .row-actions {
   display: flex;
   align-items: center;
   gap: 0.1rem;
   flex-shrink: 0;
+}
+
+.file-objects {
+  position: relative;
+}
+
+.file-objects-menu {
+  position: absolute;
+  top: calc(100% + 0.15rem);
+  right: 0;
+  z-index: 6;
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem;
+  min-width: 11.5rem;
+  background: var(--surface, var(--bg, #fff));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgb(20 24 40 / 12%);
+}
+
+.file-objects-status {
+  padding: 0.35rem 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .file-action-popup {

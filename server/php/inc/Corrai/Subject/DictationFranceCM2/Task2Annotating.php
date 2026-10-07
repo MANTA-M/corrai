@@ -2,7 +2,7 @@
 
 namespace Corrai\Subject\DictationFranceCM2;
 
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\ObjectStore;

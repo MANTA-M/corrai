@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Utils\Http\WSException;
 use PHPUnit\Framework\TestCase;
 

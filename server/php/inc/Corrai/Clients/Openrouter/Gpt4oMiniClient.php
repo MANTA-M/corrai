@@ -1,19 +1,18 @@
 <?php
 
-namespace Corrai\Llm\Openrouter;
+namespace Corrai\Clients\Openrouter;
 
 use Corrai\Utils\Utils;
 
-class Qwen25Vl72bInstructClient extends OpenrouterClient
+class Gpt4oMiniClient extends OpenrouterClient
 {
     public function __construct(?string $model = null)
     {
-        parent::__construct($model ?: 'qwen/qwen2.5-vl-72b-instruct');
+        parent::__construct($model ?: 'openai/gpt-4o-mini');
     }
 
     /**
-     * Images are sent as image_url data URLs. PDFs are parsed into page images
-     * (vision model, no native PDF path).
+     * Images are sent as image_url data URLs. PDFs are parsed via file-parser.
      */
     public function add_file(string $file_path, string $file_name): void
     {

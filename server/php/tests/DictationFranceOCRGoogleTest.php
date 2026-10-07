@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
-use Corrai\Llm\Eden\GoogleOCRClient;
-use Corrai\Llm\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Google\Vision;
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Student;
 use Corrai\Subject\Catalog;
@@ -180,13 +180,11 @@ class DictationFranceOCRGoogleTest extends TestCase
         $this->assertSame('st-unknown', $file->student);
     }
 
-    public function testGoogleOcrClientIsEdenGoogle(): void
+    public function testGoogleOcrClientIsVision(): void
     {
         $task = new GoogleOcr();
-        $method = new \ReflectionMethod(GoogleOcr::class, 'createGoogleOCRClient');
-        $method->setAccessible(true);
-        $this->assertInstanceOf(GoogleOCRClient::class, $method->invoke($task));
-        $this->assertSame('ocr/ocr/google', GoogleOCRClient::MODEL);
+        $method = new \ReflectionMethod(GoogleOcr::class, 'createVisionClient');
+        $this->assertInstanceOf(Vision::class, $method->invoke($task));
     }
 
     public function testSetFileThrowsWhenFileExceeds10Mb(): void
@@ -199,7 +197,7 @@ class DictationFranceOCRGoogleTest extends TestCase
         fclose($fp);
 
         try {
-            $client = new GoogleOCRClient();
+            $client = new Vision();
             $this->expectException(\Exception::class);
             $this->expectExceptionMessage('Image file too heavy');
             $client->set_file($largeFilePath, 'scan.png');
@@ -224,7 +222,7 @@ class DictationFranceOCRGoogleTest extends TestCase
             ->with('Image file too heavy');
 
         try {
-            $client = new GoogleOCRClient();
+            $client = new Vision();
             $this->expectException(\Exception::class);
             $this->expectExceptionMessage('Image file too heavy');
             $client->set_file($largeFilePath, 'scan.png', $file);
@@ -242,7 +240,7 @@ class DictationFranceOCRGoogleTest extends TestCase
             ->method('appendEvent')
             ->with('Image file too heavy');
 
-        $client = new GoogleOCRClient();
+        $client = new Vision();
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Image file too heavy');
         $client->set_file($file);

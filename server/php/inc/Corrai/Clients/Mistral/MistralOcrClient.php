@@ -1,8 +1,8 @@
 <?php
 
-namespace Corrai\Llm\Mistral;
+namespace Corrai\Clients\Mistral;
 
-use Corrai\Llm\LlmClient;
+use Corrai\Clients\LlmClient;
 use Corrai\Utils\Image\ImageRedimentioner;
 use Corrai\Utils\Utils;
 use Corrai\Utils\Http\WSException;

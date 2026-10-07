@@ -3,7 +3,7 @@
 namespace Corrai\Model;
 
 use Exception;
-use Corrai\Llm\Openrouter\LlmClientFactory;
+use Corrai\Clients\Openrouter\LlmClientFactory;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;

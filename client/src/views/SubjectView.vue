@@ -326,6 +326,7 @@
     :assessment-id="assessment.id"
     :fixed-type="uploadType"
     :title="uploadType === 'subject' ? t('assessment.addSubjectFileTitle') : t('assessment.addSolutionFileTitle')"
+    auto-close
     @close="uploadType = null"
     @uploaded="onUploaded"
   />
