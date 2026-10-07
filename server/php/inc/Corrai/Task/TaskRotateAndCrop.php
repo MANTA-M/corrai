@@ -3,6 +3,7 @@
 namespace Corrai\Task;
 
 use Corrai\Model\InputFile;
+use Corrai\Model\SubjectFile;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Subject\SubjectPages;
@@ -40,7 +41,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
 
         $store = ObjectStore::getInstance();
         $ocrKey = $file->ocrResultKey();
-        $subjectRefine = $file->type === 'subject' && $file->status === SubjectPages::STATUS_REFINE;
+        $subjectRefine = $file instanceof SubjectFile && $file->status === SubjectPages::STATUS_REFINE;
         if (!$store->exists($ocrKey)) {
             error_log(sprintf('[TaskRotateAndCrop] OCR result is missing at %s for file %s (%s)', $ocrKey, (string) $file->id, $s3_path));
             if ($subjectRefine) {

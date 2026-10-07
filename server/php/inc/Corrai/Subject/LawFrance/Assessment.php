@@ -3,6 +3,7 @@
 namespace Corrai\Subject\LawFrance;
 
 use Corrai\Model\BaseAssessment;
+use Corrai\Model\SubjectFile;
 
 class Assessment extends BaseAssessment
 {
@@ -20,9 +21,9 @@ class Assessment extends BaseAssessment
         'de' => 'Recht Deutschland',
     ];
 
-    public function fileClass(): string
+    public function subjectFileClass(): string
     {
-        return Submission::class;
+        return SubjectFile::class;
     }
 
     public function submissionClass(): string

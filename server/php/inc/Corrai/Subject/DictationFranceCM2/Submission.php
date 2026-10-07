@@ -30,10 +30,6 @@ class Submission extends SubmissionFile
 
     public function on_correction_asked(): void
     {
-        if ($this->type !== 'submission') {
-            return;
-        }
-
         $this->appendEvent('OCR queued');
         RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'ocr', Task1Correcting::class, self::OCR_LANG);
     }

@@ -131,14 +131,14 @@ abstract class BaseAssessment
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'];
 
     /**
-     * Concrete File class for this assessment's subject.
+     * Concrete class for subject material on this assessment.
      *
-     * Generic Assessment instances resolve via AssessmentFactory so uploads still get the
-     * subject File even when the API loaded Corrai\Model\Assessment.
+     * Generic Assessment instances resolve via AssessmentFactory so subject uploads
+     * still get the subject file class when the API loaded Corrai\Model\Assessment.
      *
-     * @return class-string<SubmissionFile>
+     * @return class-string<SubjectFile>
      */
-    public function fileClass(): string
+    public function subjectFileClass(): string
     {
         $assessmentClass = AssessmentFactory::assessmentClass(
             $this->subject,
@@ -146,22 +146,22 @@ abstract class BaseAssessment
             $this->level ?? ''
         );
         if ($assessmentClass !== static::class) {
-            $method = new \ReflectionMethod($assessmentClass, 'fileClass');
+            $method = new \ReflectionMethod($assessmentClass, 'subjectFileClass');
             if ($method->getDeclaringClass()->getName() !== self::class) {
                 /** @var BaseAssessment $subjectAssessment */
                 $subjectAssessment = new $assessmentClass();
 
-                return $subjectAssessment->fileClass();
+                return $subjectAssessment->subjectFileClass();
             }
         }
 
-        return SubmissionFile::class;
+        return SubjectFile::class;
     }
 
     /**
      * File class used for submissions that have no stored class.
      *
-     * Generic Assessment instances resolve via AssessmentFactory, same as fileClass().
+     * Generic Assessment instances resolve via AssessmentFactory, same as subjectFileClass().
      *
      * @return class-string<SubmissionFile>
      */
@@ -446,7 +446,7 @@ abstract class BaseAssessment
     private function hasSubmission(): bool
     {
         foreach ($this->listFileModels() as $file) {
-            if ($file->type === 'submission') {
+            if ($file instanceof SubmissionFile) {
                 return true;
             }
         }
@@ -513,7 +513,7 @@ abstract class BaseAssessment
      */
     public function fileStatusLabels(?string $locale = null): array
     {
-        $class = $this->fileClass();
+        $class = $this->submissionClass();
         return $class::statusLabels($locale);
     }
 
@@ -606,14 +606,11 @@ abstract class BaseAssessment
      */
     private function syncFileClasses(): void
     {
-        $expected = $this->fileClass();
-        if (!InputFile::isFileClass($expected)) {
-            return;
-        }
         foreach ($this->listFileModels() as $file) {
-            if ($file->type === 'subject') {
+            if (!$file instanceof InputFile) {
                 continue;
             }
+            $expected = $this->classForInputType($file->role());
             if ($file->hasStoredClass && $file::class === $expected) {
                 continue;
             }
@@ -1074,7 +1071,7 @@ abstract class BaseAssessment
     {
         $file = $this->getFile($fileId);
 
-        $nextType = $file->type;
+        $nextType = $file instanceof InputFile ? $file->role() : $file->type;
         if ($type !== null) {
             if ($type === 'unknown') {
                 $type = '';
@@ -1103,13 +1100,14 @@ abstract class BaseAssessment
         } elseif (!$blobNow && $blobNext && $file instanceof InputFile) {
             $this->demoteInput($file, $nextType, $nextStudent);
         } else {
-            $file->type = $nextType;
             $file->student = $nextStudent;
             if ($file instanceof InputFile) {
                 $expected = $this->classForInputType($nextType);
                 if ($file::class !== $expected) {
                     $file = $file->asClass($expected);
                 }
+            } else {
+                $file->type = $nextType;
             }
             $file->saveAttributes();
         }
@@ -1215,7 +1213,7 @@ abstract class BaseAssessment
         $type = (string) ($data['type'] ?? '');
         $class = InputFile::classFromPayload($data);
         if ($class === null) {
-            $class = S3File::storesAsBlob($type) ? $this->fileClass() : $this->classForInputType($type);
+            $class = $this->classForInputType($type);
         }
         if (!InputFile::isFileClass($class)) {
             $class = SubmissionFile::class;
@@ -1317,12 +1315,20 @@ abstract class BaseAssessment
     }
 
     /**
+     * Client role of an assessment file. Input files derive it from their class.
+     */
+    private function fileRole(InputFile|S3File $file): string
+    {
+        return $file instanceof InputFile ? $file->role() : $file->type;
+    }
+
+    /**
      * Delete files of one type for one student hash.
      */
     public function deleteFilesOfType(string $type, string $student): void
     {
         foreach ($this->listFileModels() as $file) {
-            if ($file->type !== $type) {
+            if ($this->fileRole($file) !== $type) {
                 continue;
             }
             $fileStudent = $file->student ?? '';
@@ -1383,7 +1389,7 @@ abstract class BaseAssessment
     public function correctSubmission(string $fileId): array
     {
         $file = $this->getFile($fileId);
-        if (!$file instanceof InputFile || $file->type !== 'submission') {
+        if (!$file instanceof SubmissionFile) {
             throw new WSException('File is not a submission', 400);
         }
 
@@ -1392,9 +1398,9 @@ abstract class BaseAssessment
             throw new WSException("File '$fileId' does not exist for assessment {$this->id}", 404);
         }
 
-        $subjectFileClass = $this->fileClass();
-        if ($subjectFileClass !== $file::class) {
-            $file = $file->asClass($subjectFileClass);
+        $submissionClass = $this->submissionClass();
+        if ($submissionClass !== $file::class) {
+            $file = $file->asClass($submissionClass);
             $file->saveAttributes();
         }
 
@@ -1468,7 +1474,7 @@ abstract class BaseAssessment
             return $this->correctUnclassifiedFiles([$unclassifiedIds[0]]);
         }
         foreach ($this->listFileModels() as $file) {
-            if ($file->type === 'submission' && $file->id !== null && $file->id !== '') {
+            if ($file instanceof SubmissionFile && $file->id !== null && $file->id !== '') {
                 return $this->correctSubmission($file->id);
             }
         }
@@ -1545,7 +1551,7 @@ abstract class BaseAssessment
         $store = ObjectStore::getInstance();
         $parts = [];
         foreach ($this->listFileModels() as $file) {
-            if ($file->type !== 'instructions') {
+            if (!$file instanceof InstructionFile) {
                 continue;
             }
             $parts[] = $file->name . ":\n" . $store->getContents($file->contentKey());
@@ -1609,7 +1615,7 @@ abstract class BaseAssessment
         }
 
         foreach ($this->listFileModels() as $file) {
-            if ($file->type === 'instructions') {
+            if ($file instanceof InstructionFile) {
                 return $file;
             }
         }
@@ -1682,7 +1688,11 @@ abstract class BaseAssessment
     private function classForInputType(string $type): string
     {
         if ($type === 'subject') {
-            return SubjectFile::class;
+            $class = $this->subjectFileClass();
+            if (!InputFile::isFileClass($class)) {
+                return SubjectFile::class;
+            }
+            return $class;
         }
         if ($type === 'instructions') {
             return InstructionFile::class;
@@ -1708,7 +1718,6 @@ abstract class BaseAssessment
         $file->user_id = $this->user_id;
         $file->assessment_id = $this->id;
         $file->name = $filename;
-        $file->type = $type;
         $file->student = $student;
         $file->status = 'stored';
         $file->content_type = $contentType;
@@ -1727,13 +1736,29 @@ abstract class BaseAssessment
         }
         $file->saveAttributes(false);
         $file->appendEvent('Stored');
-        if ($enqueue && $file->type === 'subject' && SubjectPages::isPageImage($file)) {
+        $this->afterInputStored($file, $enqueue);
+    }
+
+    /**
+     * Start work for a file that was just stored.
+     *
+     * A student copy is the assessment's submission class, already written in
+     * the class attribute. Its on_stored method is the entry point.
+     */
+    private function afterInputStored(InputFile $file, bool $enqueue): void
+    {
+        if (!$enqueue) {
+            return;
+        }
+        if ($file instanceof SubjectFile && SubjectPages::isPageImage($file)) {
             SubjectPages::request($file);
             return;
         }
-        if ($enqueue) {
-            RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
+        if ($file instanceof SubmissionFile) {
+            $file->on_stored();
+            return;
         }
+        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
     }
 
     private function storeNewBlob(
@@ -1808,7 +1833,6 @@ abstract class BaseAssessment
         $file->user_id = $blob->user_id;
         $file->assessment_id = $blob->assessment_id;
         $file->name = $blob->name;
-        $file->type = $type;
         $file->student = $student;
         $file->status = 'stored';
         $file->content_type = $blob->content_type;
@@ -1820,7 +1844,7 @@ abstract class BaseAssessment
         if ($blob->key !== '' && $store->exists($blob->key)) {
             $store->delete($blob->key);
         }
-        RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
+        $this->afterInputStored($file, true);
         return $file;
     }
 

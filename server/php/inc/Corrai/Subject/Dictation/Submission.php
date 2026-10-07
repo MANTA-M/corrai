@@ -27,20 +27,12 @@ class Submission extends SubmissionFile
 
     public function on_stored(): void
     {
-        if ($this->type !== 'submission') {
-            return;
-        }
-
         $this->appendEvent('OCR queued');
         RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'pre-ocr', '', self::OCR_LANG);
     }
 
     public function on_correction_asked(): void
     {
-        if ($this->type !== 'submission') {
-            return;
-        }
-
         $this->appendEvent('OCR queued');
         RedisQueue::getInstance()->enqueueOcr($this->contentKey(), 'ocr', Task1Correcting::class, self::OCR_LANG);
     }

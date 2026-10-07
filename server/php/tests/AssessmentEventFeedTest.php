@@ -17,7 +17,6 @@ class AssessmentEventFeedTest extends TestCase
         $file->name = 'copie.png';
         $file->size = 1375109;
         $file->status = 'stored';
-        $file->type = 'submission';
         $file->student = null;
 
         $payload = AssessmentEventFeed::changedFile($file, null);
@@ -115,7 +114,6 @@ class AssessmentEventFeedTest extends TestCase
         $file = new SubmissionFile();
         $file->id = 'f1';
         $file->status = 'stored';
-        $file->type = 'submission';
 
         $payloadTrue = AssessmentEventFeed::changedFile($file, null, true);
         $this->assertTrue($payloadTrue['loading']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Model\Assessment as GenericAssessment;
+use Corrai\Model\SubjectFile;
 use Corrai\Model\SubmissionFile;
 use Corrai\Queue\RedisConsumer;
 use Corrai\Subject\Dictation\Assessment as DictationAssessment;
@@ -139,7 +140,8 @@ class RedisFileConsumerTest extends TestCase
         );
 
         $this->assertInstanceOf(DictationFranceCM2Assessment::class, $assessment);
-        $this->assertSame(DictationFranceCM2Submission::class, $assessment->fileClass());
+        $this->assertSame(DictationFranceCM2Submission::class, $assessment->submissionClass());
+        $this->assertSame(SubjectFile::class, $assessment->subjectFileClass());
 
         $file = $assessment->fileFromAttributes(
             [
@@ -162,7 +164,8 @@ class RedisFileConsumerTest extends TestCase
         $assessment->country = 'fr';
         $assessment->level = 'CM2';
 
-        $this->assertSame(DictationFranceCM2Submission::class, $assessment->fileClass());
+        $this->assertSame(DictationFranceCM2Submission::class, $assessment->submissionClass());
+        $this->assertSame(SubjectFile::class, $assessment->subjectFileClass());
 
         $file = $assessment->fileFromAttributes(
             [
@@ -355,7 +358,6 @@ class RedisFileConsumerTest extends TestCase
     {
         $file = new DictationFranceCM2Submission();
         $file->name = 'copy.png';
-        $file->type = 'submission';
         $file->status = 'stored';
         $file->size = 4;
         $file->created = 10;

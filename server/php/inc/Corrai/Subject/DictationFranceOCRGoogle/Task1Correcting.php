@@ -23,9 +23,6 @@ class Task1Correcting extends PathQueueItemTask
 
     public function correct(Submission $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         $copyPath = null;
         $subjectFiles = [];
@@ -43,7 +40,7 @@ class Task1Correcting extends PathQueueItemTask
                 return;
             }
 
-            $unclassified = ObjectStore::assessmentFileArea($file->type, $file->student) === 'unclassified';
+            $unclassified = ObjectStore::assessmentFileArea($file->role(), $file->student) === 'unclassified';
 
             $copyPath = $store->downloadToTemp($file->contentKey());
             $size = @getimagesize($copyPath);

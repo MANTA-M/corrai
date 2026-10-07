@@ -20,19 +20,12 @@ class Submission extends SubmissionFile
 
     public function on_stored(): void
     {
-        if ($this->type !== 'submission') {
-            return;
-        }
-
         $this->appendEvent('Pre-OCR queued');
         RedisQueue::getInstance()->enqueueFile($this->id, GoogleOcr::class);
     }
 
     public function on_correction_asked(): void
     {
-        if ($this->type !== 'submission') {
-            return;
-        }
 
         // OCR is already stored, or Task1Correcting runs it when the result is missing.
         $this->appendEvent('Correction queued');

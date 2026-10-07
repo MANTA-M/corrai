@@ -22,9 +22,6 @@ class Task1Correcting extends PathQueueItemTask
      */
     public function correct(Submission $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         $copyPath = null;
         $subjectFiles = [];

@@ -249,7 +249,6 @@ class DictationFranceOCRGoogleTest extends TestCase
     public function testGoogleOcrRecognizeThrowsAndAppendsEventWhenFileExceeds10Mb(): void
     {
         $file = $this->createMock(Submission::class);
-        $file->type = 'submission';
         $file->size = 11 * 1024 * 1024;
         $file->name = 'copy.png';
         $file->expects($this->once())

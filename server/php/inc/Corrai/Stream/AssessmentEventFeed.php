@@ -63,7 +63,7 @@ class AssessmentEventFeed
             'id' => $file->id,
             'status' => $file->status,
             'status_label' => $file->get_status_label(null),
-            'type' => $file->type,
+            'type' => $file->role(),
             'student' => $file->student,
             'student_name' => $studentName,
             'thumbnail' => $file->thumbnail,

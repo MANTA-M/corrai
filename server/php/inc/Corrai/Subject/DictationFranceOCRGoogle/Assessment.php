@@ -4,6 +4,7 @@ namespace Corrai\Subject\DictationFranceOCRGoogle;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\Student;
+use Corrai\Model\SubjectFile;
 
 class Assessment extends BaseAssessment
 {
@@ -32,9 +33,9 @@ class Assessment extends BaseAssessment
         return Student::class;
     }
 
-    public function fileClass(): string
+    public function subjectFileClass(): string
     {
-        return Submission::class;
+        return SubjectFile::class;
     }
 
     public function submissionClass(): string

@@ -21,9 +21,6 @@ class Task3Rendering extends PathQueueItemTask
 
     public function render(Submission $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         $copyPath = null;
         try {

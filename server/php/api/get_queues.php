@@ -17,7 +17,7 @@ function queues_file_fields(string $fileId): array
         return [
             'file_id' => (string) $file->id,
             'name' => $file->name,
-            'type' => $file->type,
+            'type' => $file->role(),
             'status' => $file->status,
             'content_key' => $file->contentKey(),
         ];

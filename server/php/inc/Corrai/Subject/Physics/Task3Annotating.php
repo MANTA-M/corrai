@@ -24,9 +24,6 @@ class Task3Annotating extends PathQueueItemTask
 
     public function annotateSubmission(SubmissionFile $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         $copyPath = null;
         try {

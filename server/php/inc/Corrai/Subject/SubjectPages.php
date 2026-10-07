@@ -4,6 +4,7 @@ namespace Corrai\Subject;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\InputFile;
+use Corrai\Model\SubjectFile;
 use Corrai\Model\OCRResult;
 use Corrai\Queue\RedisQueue;
 use Corrai\Task\TaskRotateAndCrop;
@@ -104,7 +105,7 @@ class SubjectPages
      */
     public static function finish(InputFile $file): void
     {
-        if ($file->type !== 'subject') {
+        if (!$file instanceof SubjectFile) {
             return;
         }
         if ($file->status !== self::STATUS_DONE) {
@@ -155,7 +156,7 @@ class SubjectPages
     {
         $files = [];
         foreach ($assessment->listFileModels() as $file) {
-            if ($file instanceof InputFile && $file->type === 'subject') {
+            if ($file instanceof SubjectFile) {
                 $files[] = $file;
             }
         }

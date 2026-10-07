@@ -22,9 +22,6 @@ class Task1Correcting extends PathQueueItemTask
 
     public function correct(Submission $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         $copyPath = null;
         $subjectFiles = [];
@@ -41,7 +38,7 @@ class Task1Correcting extends PathQueueItemTask
                 throw new WSException('Invalid OCR result JSON', 400);
             }
 
-            $unclassified = ObjectStore::assessmentFileArea($file->type, $file->student) === 'unclassified';
+            $unclassified = ObjectStore::assessmentFileArea($file->role(), $file->student) === 'unclassified';
 
             $copyPath = $store->downloadToTemp($file->contentKey());
             $subjectFiles = $this->downloadSubjectFiles($assessment, $store);

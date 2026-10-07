@@ -198,7 +198,7 @@ class ThumbnailTaskTest extends TestCase
             $file->assessment_id,
             (string) $file->id,
             'test-event',
-            $file->type,
+            $file->role(),
             $file->student
         );
         $store->putContents($eventKey, '{}', 'application/json');

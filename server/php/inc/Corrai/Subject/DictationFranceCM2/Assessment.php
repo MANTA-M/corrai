@@ -4,6 +4,8 @@ namespace Corrai\Subject\DictationFranceCM2;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\Student;
+use Corrai\Model\SubjectFile;
+use Corrai\Model\SubmissionFile;
 use Corrai\Utils\Http\WSException;
 
 class Assessment extends BaseAssessment
@@ -33,9 +35,9 @@ class Assessment extends BaseAssessment
         return Student::class;
     }
 
-    public function fileClass(): string
+    public function subjectFileClass(): string
     {
-        return Submission::class;
+        return SubjectFile::class;
     }
 
     public function submissionClass(): string
@@ -121,7 +123,7 @@ class Assessment extends BaseAssessment
     {
         $ids = [];
         foreach ($this->listFileModels() as $file) {
-            if ($file->type !== 'submission' || $file->id === null || $file->id === '') {
+            if (!$file instanceof SubmissionFile || $file->id === null || $file->id === '') {
                 continue;
             }
             if ($file->status === 'corrected') {

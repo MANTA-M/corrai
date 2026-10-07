@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Corrai\Tests;
 
 use Corrai\Model\School;
+use Corrai\Model\SubjectFile;
 use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\LawFrance\Assessment;
@@ -31,14 +32,12 @@ class LawFranceThumbnailQueueTest extends TestCase
 
         $copy = new Submission();
         $copy->id = 'copy-1';
-        $copy->type = 'submission';
         $copy->name = 'copie.png';
         $copy->content_type = 'image/png';
         $copy->on_stored();
 
-        $subject = new Submission();
+        $subject = new SubjectFile();
         $subject->id = 'subject-1';
-        $subject->type = 'subject';
         $subject->name = 'sujet.tiff';
         $subject->content_type = 'application/octet-stream';
         Submission::queueThumbnail($subject);
@@ -55,14 +54,12 @@ class LawFranceThumbnailQueueTest extends TestCase
 
         $pdf = new Submission();
         $pdf->id = 'pdf-1';
-        $pdf->type = 'submission';
         $pdf->name = 'notes.pdf';
         $pdf->content_type = 'application/pdf';
         $pdf->on_stored();
 
-        $done = new Submission();
+        $done = new SubjectFile();
         $done->id = 'done-1';
-        $done->type = 'subject';
         $done->name = 'page.jpg';
         $done->content_type = 'image/jpeg';
         $done->thumbnail = true;

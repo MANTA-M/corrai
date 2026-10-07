@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
+use Corrai\Model\InstructionFile;
+use Corrai\Model\StateLocales;
+use Corrai\Model\SubjectFile;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Student;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
 use Corrai\Subject\DictationFranceCM2\Submission as DictationFranceCM2Submission;
 use Corrai\Subject\Math\Assessment as MathAssessment;
-use Corrai\Model\StateLocales;
 use PHPUnit\Framework\TestCase;
 
 class MenuTest extends TestCase
@@ -56,7 +58,6 @@ class MenuTest extends TestCase
     public function testFileMenuDependsOnTheFileType(): void
     {
         $submission = new DictationFranceCM2Submission();
-        $submission->type = 'submission';
         $submission->name = 'copy.png';
         $submission->content_type = 'image/png';
         $output = $submission->to_output(null, 'fr');
@@ -91,8 +92,7 @@ class MenuTest extends TestCase
         $this->assertSame('Erreur', $generic->get_status_label('fr'));
         $this->assertSame('Fehler', $generic->get_status_label('de'));
 
-        $subject = new SubmissionFile();
-        $subject->type = 'subject';
+        $subject = new SubjectFile();
         $subject->name = 'sujet.pdf';
         $subject->content_type = 'application/pdf';
         $subjectOutput = $subject->to_output('Ada', 'de');
@@ -102,8 +102,7 @@ class MenuTest extends TestCase
         $this->assertSame(['view', 'events', 'rename', 'delete'], $keys);
         $this->assertSame('Löschen', $subjectOutput['menu'][array_key_last($subjectOutput['menu'])]['label']);
 
-        $instructions = new SubmissionFile();
-        $instructions->type = 'instructions';
+        $instructions = new InstructionFile();
         $instructions->name = 'instructions.md';
         $instructions->content_type = 'text/markdown';
         $instructionKeys = array_column($instructions->get_menu('en'), 'key');

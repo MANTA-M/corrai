@@ -34,11 +34,6 @@ abstract class InputFile
     public int $created = 0;
 
     /**
-     * One of BaseAssessment::FILE_TYPES, or an empty string when unset.
-     */
-    public string $type = '';
-
-    /**
      * Student hash this file belongs to. Null / empty when unassigned.
      */
     public ?string $student = null;
@@ -75,7 +70,6 @@ abstract class InputFile
         $file->name = (string) ($data['name'] ?? '');
         $file->size = (int) ($data['size'] ?? 0);
         $file->created = (int) ($data['created'] ?? 0);
-        $file->type = (string) ($data['type'] ?? '');
         $student = $data['student'] ?? null;
         if (is_string($student) && trim($student) !== '') {
             $file->student = trim($student);
@@ -143,7 +137,6 @@ abstract class InputFile
     {
         return [
             'name' => $this->name,
-            'type' => $this->type,
             'student' => $this->student,
             'status' => $this->status,
             'content_type' => $this->content_type,
@@ -179,7 +172,6 @@ abstract class InputFile
             'user_id' => $this->user_id,
             'assessment_id' => $this->assessment_id,
             'name' => $this->name,
-            'type' => $this->type,
             'student' => $this->student,
             'status' => $this->status,
             'content_type' => $this->content_type,
@@ -197,9 +189,20 @@ abstract class InputFile
         if (trim($this->name) === '' || preg_match('/[\/\\\\]/', $this->name)) {
             throw new WSException('Invalid file name', 400);
         }
-        if ($this->type !== '' && !in_array($this->type, BaseAssessment::FILE_TYPES, true)) {
-            throw new WSException('Invalid file type', 400);
+    }
+
+    /**
+     * Client role derived from the concrete class.
+     */
+    public function role(): string
+    {
+        if ($this instanceof SubjectFile) {
+            return 'subject';
         }
+        if ($this instanceof InstructionFile) {
+            return 'instructions';
+        }
+        return 'submission';
     }
 
     public static function from_hash(string $hash): InputFile
@@ -276,7 +279,7 @@ abstract class InputFile
     }
 
     /**
-     * Stored class, or the parent assessment's file class when the attribute is absent.
+     * Stored class, or the parent assessment's subject or submission class when the attribute is absent.
      *
      * @param array<string, mixed> $data
      * @param array<string, mixed> $parsed
@@ -291,7 +294,15 @@ abstract class InputFile
         $assessmentId = $parsed['assessment_id'] ?? '';
         if (is_string($assessmentId) && $assessmentId !== '') {
             try {
-                $class = BaseAssessment::from_hash($assessmentId)->fileClass();
+                $assessment = BaseAssessment::from_hash($assessmentId);
+                $type = (string) ($data['type'] ?? '');
+                if ($type === 'subject') {
+                    $class = $assessment->subjectFileClass();
+                } elseif ($type === 'instructions') {
+                    $class = InstructionFile::class;
+                } else {
+                    $class = $assessment->submissionClass();
+                }
                 if (self::isFileClass($class)) {
                     return $class;
                 }
@@ -309,7 +320,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -321,7 +332,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -333,7 +344,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -345,7 +356,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -357,7 +368,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -369,7 +380,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -381,7 +392,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
     }
@@ -495,7 +506,7 @@ abstract class InputFile
             $this->user_id,
             $this->assessment_id,
             (string) $this->id,
-            $this->type,
+            $this->role(),
             $this->student
         );
         $events = [];
@@ -548,7 +559,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $eventId,
-            $this->type,
+            $this->role(),
             $this->student
         );
         S3File::at($key)->putJson([
@@ -636,12 +647,11 @@ abstract class InputFile
     ];
 
     /**
-     * Localized name of this file's type.
+     * Localized name of this file's role.
      */
     public function localizedLabel(string $locale): string
     {
-        $type = $this->type === '' ? 'unknown' : $this->type;
-        return MenuLabels::text('file_type_' . $type, $locale);
+        return MenuLabels::text('file_type_' . $this->role(), $locale);
     }
 
     /**
@@ -709,7 +719,7 @@ abstract class InputFile
             'name' => $this->name,
             'size' => $this->size,
             'created' => $this->created,
-            'type' => $this->type,
+            'type' => $this->role(),
             'student' => $this->student,
             'student_name' => $studentName,
             'status' => $this->status,
@@ -727,13 +737,7 @@ abstract class InputFile
      */
     public function canReassign(): bool
     {
-        if (in_array($this->type, ['subject', 'solution', 'instructions'], true)) {
-            return false;
-        }
-        if ($this->type === 'submission' || $this->type === '') {
-            return true;
-        }
-        return trim((string) $this->student) === '';
+        return !$this instanceof SubjectFile && !$this instanceof InstructionFile;
     }
 
     /**

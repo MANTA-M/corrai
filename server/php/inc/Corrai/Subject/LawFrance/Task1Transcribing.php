@@ -25,9 +25,6 @@ class Task1Transcribing extends PathQueueItemTask
 
     public function transcribeSubmission(SubmissionFile $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         $copyPath = null;
         try {

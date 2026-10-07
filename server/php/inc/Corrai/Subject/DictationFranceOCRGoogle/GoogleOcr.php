@@ -43,9 +43,6 @@ class GoogleOcr extends PathQueueItemTask
 
     public function recognize(Submission $file, bool $enqueueCorrecting = false): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         if ($file->size > Vision::MAX_FILE_SIZE) {
             try {

@@ -121,13 +121,13 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
 
         try {
             $files = $assessment->listFileModels();
-            $instructionFiles = array_values(array_filter($files, fn($f) => $f->type === 'instructions'));
+            $instructionFiles = array_values(array_filter($files, fn($f) => $f->role() === 'instructions'));
 
             $this->assertCount(1, $instructionFiles);
             $instructionFile = $instructionFiles[0];
 
             $this->assertSame('instructions.md', $instructionFile->name);
-            $this->assertSame('instructions', $instructionFile->type);
+            $this->assertSame('instructions', $instructionFile->role());
 
             $store = ObjectStore::getInstance();
             $content = $store->getContents($instructionFile->contentKey());
@@ -140,7 +140,7 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
             $assessment->save();
 
             $filesAfter = $assessment->listFileModels();
-            $instructionFilesAfter = array_values(array_filter($filesAfter, fn($f) => $f->type === 'instructions'));
+            $instructionFilesAfter = array_values(array_filter($filesAfter, fn($f) => $f->role() === 'instructions'));
             $this->assertCount(1, $instructionFilesAfter);
             $this->assertSame($instructionFile->id, $instructionFilesAfter[0]->id);
         } finally {
@@ -160,7 +160,7 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
         $assessment->save();
 
         // Update instruction file content
-        $instructionFiles = array_values(array_filter($assessment->listFileModels(), fn($f) => $f->type === 'instructions'));
+        $instructionFiles = array_values(array_filter($assessment->listFileModels(), fn($f) => $f->role() === 'instructions'));
         $this->assertCount(1, $instructionFiles);
         $file = $instructionFiles[0];
 
@@ -202,10 +202,10 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
 
         try {
             $files = $assessment->listFileModels();
-            $instructionFiles = array_values(array_filter($files, fn($f) => $f->type === 'instructions'));
+            $instructionFiles = array_values(array_filter($files, fn($f) => $f->role() === 'instructions'));
             $this->assertCount(1, $instructionFiles);
             $this->assertSame('instructions.md', $instructionFiles[0]->name);
-            $this->assertSame('instructions', $instructionFiles[0]->type);
+            $this->assertSame('instructions', $instructionFiles[0]->role());
         } finally {
             $assessment->delete();
         }

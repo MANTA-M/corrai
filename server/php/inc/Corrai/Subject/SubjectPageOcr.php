@@ -2,6 +2,7 @@
 
 namespace Corrai\Subject;
 
+use Corrai\Model\SubjectFile;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Utils\Store\ObjectStore;
 use Throwable;
@@ -23,7 +24,7 @@ class SubjectPageOcr extends PathQueueItemTask
             error_log(sprintf('[SubjectPageOcr] Failed to load file from path %s: %s', $s3_path, $exception->getMessage()));
             return;
         }
-        if ($file->type !== 'subject') {
+        if (!$file instanceof SubjectFile) {
             return;
         }
         if (in_array($file->status, [SubjectPages::STATUS_REFINE, SubjectPages::STATUS_DONE], true)) {

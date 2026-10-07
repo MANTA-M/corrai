@@ -24,9 +24,6 @@ class Task2Correcting extends PathQueueItemTask
 
     public function correctSubmission(SubmissionFile $file): void
     {
-        if ($file->type !== 'submission') {
-            return;
-        }
 
         try {
             $assessment = $this->loadAssessment($file);
