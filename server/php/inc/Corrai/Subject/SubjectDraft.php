@@ -25,9 +25,12 @@ class SubjectDraft
 
         $levelRaw = trim((string) ($raw['level'] ?? ''));
         $level = null;
-        $country = self::countryOrNull($userCountry);
+        $detectedCountry = is_array($node)
+            ? self::matchCountry($node, (string) ($raw['country'] ?? ''))
+            : null;
+        $country = $detectedCountry ?? self::countryOrNull($userCountry);
         if (is_array($node) && $levelRaw !== '') {
-            $matched = self::matchLevel($node, $levelRaw, $userCountry);
+            $matched = self::matchLevel($node, $levelRaw, $detectedCountry ?? $userCountry);
             if ($matched !== null) {
                 $level = $matched['level'];
                 if ($matched['country'] !== null) {
@@ -87,6 +90,27 @@ class SubjectDraft
             }
         }
         return $matches[0];
+    }
+
+    /**
+     * Country code from the page when it names a country of this subject.
+     *
+     * @param array{countries: list<array{country: string, name?: string}>} $node
+     */
+    private static function matchCountry(array $node, string $raw): ?string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+        foreach ($node['countries'] as $countryNode) {
+            $code = (string) $countryNode['country'];
+            $name = (string) ($countryNode['name'] ?? '');
+            if (strcasecmp($code, $raw) === 0 || ($name !== '' && strcasecmp($name, $raw) === 0)) {
+                return $code;
+            }
+        }
+        return null;
     }
 
     private static function isLevelToken(string $level): bool

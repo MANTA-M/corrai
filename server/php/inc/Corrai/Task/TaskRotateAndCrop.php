@@ -5,6 +5,7 @@ namespace Corrai\Task;
 use Corrai\Model\InputFile;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
+use Corrai\Subject\SubjectPages;
 use Corrai\Utils\Image\HeicToWebp;
 use Corrai\Utils\Store\ObjectStore;
 use Exception;
@@ -39,8 +40,12 @@ class TaskRotateAndCrop extends PathQueueItemTask
 
         $store = ObjectStore::getInstance();
         $ocrKey = $file->ocrResultKey();
+        $subjectRefine = $file->type === 'subject' && $file->status === SubjectPages::STATUS_REFINE;
         if (!$store->exists($ocrKey)) {
             error_log(sprintf('[TaskRotateAndCrop] OCR result is missing at %s for file %s (%s)', $ocrKey, (string) $file->id, $s3_path));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
             return;
         }
 
@@ -49,10 +54,16 @@ class TaskRotateAndCrop extends PathQueueItemTask
             $result = OCRResult::from_json($ocrContents);
         } catch (Throwable $e) {
             error_log(sprintf('[TaskRotateAndCrop] Failed to decode OCR result JSON for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
             return;
         }
         if ($result->words === []) {
             error_log(sprintf('[TaskRotateAndCrop] OCR result has no words for file %s (%s), skipping rotate and crop', (string) $file->id, $s3_path));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
             return;
         }
 
@@ -60,10 +71,16 @@ class TaskRotateAndCrop extends PathQueueItemTask
             $bytes = $store->getContents($file->contentKey());
         } catch (Throwable $e) {
             error_log(sprintf('[TaskRotateAndCrop] Failed to read image content for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
             return;
         }
         if ($bytes === '') {
             error_log(sprintf('[TaskRotateAndCrop] Empty image content for file %s (%s)', (string) $file->id, $s3_path));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
             return;
         }
 
@@ -72,6 +89,9 @@ class TaskRotateAndCrop extends PathQueueItemTask
             [$image, $decodedByGd] = self::decode($bytes);
         } catch (Throwable $e) {
             error_log(sprintf('[TaskRotateAndCrop] Failed to decode image for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
             return;
         }
 
@@ -107,6 +127,9 @@ class TaskRotateAndCrop extends PathQueueItemTask
                 $box = $result->get_global_box(self::MARGIN);
             } catch (Throwable $e) {
                 error_log(sprintf('[TaskRotateAndCrop] Failed to compute global bounding box for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
+                if ($subjectRefine) {
+                    SubjectPages::finish($file);
+                }
                 return;
             }
 
@@ -132,8 +155,15 @@ class TaskRotateAndCrop extends PathQueueItemTask
             } catch (Throwable $e) {
                 error_log(sprintf('[TaskRotateAndCrop] Failed to append crop event for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
             }
+
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
         } catch (Throwable $e) {
             error_log(sprintf('[TaskRotateAndCrop] Unhandled error during rotate and crop processing for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
+            if ($subjectRefine) {
+                SubjectPages::finish($file);
+            }
         } finally {
             if ($image instanceof GdImage) {
                 imagedestroy($image);

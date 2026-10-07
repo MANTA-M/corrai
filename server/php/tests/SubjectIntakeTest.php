@@ -10,10 +10,11 @@ use Corrai\Model\InputFile;
 use Corrai\Model\School;
 use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
-use Corrai\Subject\Catalog;
 use Corrai\Subject\SubjectImageOcr;
 use Corrai\Subject\SubjectIntake;
+use Corrai\Subject\SubjectPageOcr;
 use Corrai\Subject\SubjectPageReader;
+use Corrai\Subject\SubjectPages;
 use Corrai\Task\TaskRotateAndCrop;
 use Corrai\Utils\Http\WSException;
 use Corrai\Utils\Store\ObjectStore;
@@ -115,10 +116,14 @@ class SubjectIntakeTest extends TestCase
         $this->assertCount(1, $files);
         $this->assertSame('fractions.png', $files[0]['name']);
         $this->assertSame('subject', $files[0]['type']);
+        $image = $this->filesByName($loaded)['fractions.png'];
+        $this->assertSame(SubjectPages::STATUS_REFINE, $image->status);
+        $this->assertSame('OCR refine', $image->get_status_label('fr'));
         $this->assertSame(
             TaskRotateAndCrop::class,
-            $this->taskFor((string) $this->filesByName($loaded)['fractions.png']->id)
+            $this->taskFor((string) $image->id)
         );
+        $this->assertNull($this->compiledPages($loaded));
     }
 
     public function testTextFileIsAnalyzedFromItsContents(): void
@@ -161,6 +166,7 @@ class SubjectIntakeTest extends TestCase
         $files = $loaded->list_files();
         $this->assertSame('dictee.txt', $files[0]['name']);
         $this->assertNull($this->ocrText($loaded, 'dictee.txt'));
+        $this->assertSame(["Dictée\nCM1\n12 mars 2026"], $this->compiledPages($loaded));
     }
 
     public function testFailedReadingDeletesTheAssessment(): void
@@ -281,12 +287,14 @@ class SubjectIntakeTest extends TestCase
         $this->assertContains($byName['intro.png']->id, $queuedIds);
         $this->assertContains($byName['suite.png']->id, $queuedIds);
         $this->assertContains($byName['reste.png']->id, $queuedIds);
+        $this->assertSame(SubjectPages::STATUS_REFINE, $byName['intro.png']->status);
+        $this->assertSame(SubjectPages::STATUS_REFINE, $byName['suite.png']->status);
+        $this->assertSame(SubjectPages::STATUS_ASKED, $byName['reste.png']->status);
+        $this->assertSame('OCR demandé', $byName['reste.png']->get_status_label('fr'));
         $this->assertSame(TaskRotateAndCrop::class, $this->taskFor((string) $byName['intro.png']->id));
         $this->assertSame(TaskRotateAndCrop::class, $this->taskFor((string) $byName['suite.png']->id));
-        $this->assertSame(
-            Catalog::pipelineClass('Dictation', 'fr', 'CM2'),
-            $this->taskFor((string) $byName['reste.png']->id)
-        );
+        $this->assertSame(SubjectPageOcr::class, $this->taskFor((string) $byName['reste.png']->id));
+        $this->assertNull($this->compiledPages($loaded));
     }
 
     public function testHeicSubjectIsStoredAsWebpBeforeOcr(): void
@@ -382,7 +390,218 @@ class SubjectIntakeTest extends TestCase
         $this->assertInstanceOf(InputFile::class, $file);
         $this->assertSame(['page.jpg'], $ocr->names);
         $this->assertSame('Page pdf', $this->ocrText($loaded, 'sujet.pdf'));
+        $this->assertSame(SubjectPages::STATUS_DONE, $file->status);
+        $this->assertSame('OCR terminé', $file->get_status_label('fr'));
         $this->assertSame([], $this->fileIds($this->queued));
+        $this->assertSame(['Page pdf'], $this->compiledPages($loaded));
+    }
+
+    public function testImageWithoutStraighteningIsOcrDoneAndCompiled(): void
+    {
+        if (!extension_loaded('gd')) {
+            $this->markTestSkipped('GD extension required');
+        }
+
+        $path = $this->pngFile();
+        $ocr = new class implements SubjectImageOcr {
+            public function recognize(string $path, string $filename): array
+            {
+                return [
+                    'text' => 'Énoncé droit',
+                    'bounding_boxes' => [],
+                ];
+            }
+        };
+        $reader = new class implements SubjectPageReader {
+            public function read(string $pagePath, string $pageName, array $tree): array
+            {
+                return [
+                    'name' => '[Test] Énoncé',
+                    'subject' => 'Math',
+                    'level' => 'cm2',
+                    'date' => '2026-04-02',
+                ];
+            }
+        };
+
+        $assessment = SubjectIntake::create(
+            $this->user,
+            [['path' => $path, 'name' => 'enonce.png', 'contentType' => 'image/png']],
+            'fr',
+            $reader,
+            $ocr
+        );
+        @unlink($path);
+
+        $loaded = Assessment::from_hash((string) $assessment->id);
+        $file = $this->filesByName($loaded)['enonce.png'];
+        $this->assertSame(SubjectPages::STATUS_DONE, $file->status);
+        $this->assertSame([], $this->fileIds($this->queued));
+        $this->assertSame(['Énoncé droit'], $this->compiledPages($loaded));
+    }
+
+    public function testCompileWaitsUntilRotateAndCropReachesOcrDone(): void
+    {
+        if (!extension_loaded('gd')) {
+            $this->markTestSkipped('GD extension required');
+        }
+
+        $path = $this->pngFile();
+        $reader = new class implements SubjectPageReader {
+            public function read(string $pagePath, string $pageName, array $tree): array
+            {
+                return [
+                    'name' => '[Test] Page',
+                    'subject' => 'Math',
+                    'level' => 'cm2',
+                    'date' => '2026-04-02',
+                ];
+            }
+        };
+
+        $assessment = SubjectIntake::create(
+            $this->user,
+            [['path' => $path, 'name' => 'page.png', 'contentType' => 'image/png']],
+            'fr',
+            $reader,
+            $this->ocr('Texte de la page')
+        );
+        @unlink($path);
+
+        $loaded = Assessment::from_hash((string) $assessment->id);
+        $file = $this->filesByName($loaded)['page.png'];
+        $this->assertSame(SubjectPages::STATUS_REFINE, $file->status);
+        $this->assertNull($this->compiledPages($loaded));
+
+        $task = new TaskRotateAndCrop();
+        $task->process_task((object) [
+            'path' => $file->contentKey(),
+            'task' => TaskRotateAndCrop::class,
+            'task_id' => TaskRotateAndCrop::class,
+            'file_id' => $file->id,
+        ]);
+
+        $done = InputFile::from_hash((string) $file->id);
+        $this->assertSame(SubjectPages::STATUS_DONE, $done->status);
+        $this->assertSame('OCR terminé', $done->get_status_label('fr'));
+        $this->assertSame(['Texte de la page'], $this->compiledPages($loaded));
+    }
+
+    public function testQueuedSubjectImageMovesFromOcrRequestedToOcrDone(): void
+    {
+        if (!extension_loaded('gd')) {
+            $this->markTestSkipped('GD extension required');
+        }
+
+        $intro = $this->pngFile();
+        $suite = $this->pngFile();
+        $reader = new class implements SubjectPageReader {
+            public function read(string $pagePath, string $pageName, array $tree): array
+            {
+                $text = (string) file_get_contents($pagePath);
+                if (str_contains($text, 'CM2')) {
+                    return [
+                        'name' => '[Test] Dictée CM2',
+                        'subject' => 'Dictation',
+                        'level' => 'CM2',
+                        'date' => '2026-05-01',
+                    ];
+                }
+                return [
+                    'name' => '[Test] Dictée',
+                    'subject' => 'Dictation',
+                    'level' => '',
+                    'date' => '',
+                ];
+            }
+        };
+        $ocr = new class implements SubjectImageOcr {
+            public function recognize(string $path, string $filename): array
+            {
+                $text = str_contains($filename, 'intro') ? "Dictée\nCM2" : 'Page suivante';
+                return [
+                    'text' => $text,
+                    'bounding_boxes' => [],
+                ];
+            }
+        };
+
+        $assessment = SubjectIntake::create(
+            $this->user,
+            [
+                ['path' => $intro, 'name' => 'intro.png', 'contentType' => 'image/png'],
+                ['path' => $suite, 'name' => 'suite.png', 'contentType' => 'image/png'],
+            ],
+            'fr',
+            $reader,
+            $ocr
+        );
+        @unlink($intro);
+        @unlink($suite);
+
+        $loaded = Assessment::from_hash((string) $assessment->id);
+        $waiting = $this->filesByName($loaded)['suite.png'];
+        $this->assertSame(SubjectPages::STATUS_ASKED, $waiting->status);
+        $this->assertSame(SubjectPageOcr::class, $this->taskFor((string) $waiting->id));
+        $this->assertNull($this->compiledPages($loaded));
+
+        $task = new SubjectPageOcr($ocr);
+        $task->process_task((object) [
+            'path' => $waiting->contentKey(),
+            'task' => SubjectPageOcr::class,
+            'task_id' => SubjectPageOcr::class,
+            'file_id' => $waiting->id,
+        ]);
+
+        $done = InputFile::from_hash((string) $waiting->id);
+        $this->assertSame(SubjectPages::STATUS_DONE, $done->status);
+        $this->assertSame('OCR terminé', $done->get_status_label('fr'));
+        $this->assertSame(["Dictée\nCM2", 'Page suivante'], $this->compiledPages($loaded));
+    }
+
+    public function testCompiledPagesFollowCreationDate(): void
+    {
+        $first = tempnam(sys_get_temp_dir(), 'intake_txt_');
+        $second = tempnam(sys_get_temp_dir(), 'intake_txt_');
+        $this->assertNotFalse($first);
+        $this->assertNotFalse($second);
+        file_put_contents($first, 'Page une');
+        file_put_contents($second, 'Page deux');
+
+        $reader = new class implements SubjectPageReader {
+            public function read(string $pagePath, string $pageName, array $tree): array
+            {
+                return [
+                    'name' => '[Test] Texte',
+                    'subject' => 'Math',
+                    'level' => 'cm2',
+                    'date' => '2026-04-02',
+                ];
+            }
+        };
+
+        $assessment = SubjectIntake::create(
+            $this->user,
+            [
+                ['path' => $first, 'name' => 'b-deuxieme.txt', 'contentType' => 'text/plain'],
+                ['path' => $second, 'name' => 'a-premiere.txt', 'contentType' => 'text/plain'],
+            ],
+            'fr',
+            $reader,
+            $this->ocr('unused')
+        );
+        @unlink($first);
+        @unlink($second);
+
+        $loaded = Assessment::from_hash((string) $assessment->id);
+        $byName = $this->filesByName($loaded);
+        $byName['b-deuxieme.txt']->created = 200;
+        $byName['b-deuxieme.txt']->saveAttributes();
+        $byName['a-premiere.txt']->created = 100;
+        $byName['a-premiere.txt']->saveAttributes();
+        SubjectPages::compileIfReady($loaded);
+
+        $this->assertSame(['Page deux', 'Page une'], $this->compiledPages($loaded));
     }
 
     private function pngFile(): string
@@ -469,6 +688,31 @@ class SubjectIntakeTest extends TestCase
             }
         }
         return $ids;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function compiledPages(BaseAssessment $assessment): ?array
+    {
+        $key = ObjectStore::assessmentSubjectCompileKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id
+        );
+        $store = ObjectStore::getInstance();
+        if (!$store->exists($key)) {
+            return null;
+        }
+        $decoded = json_decode($store->getContents($key), true);
+        if (!is_array($decoded) || !is_array($decoded['pages'] ?? null)) {
+            return null;
+        }
+        $pages = [];
+        foreach ($decoded['pages'] as $page) {
+            $pages[] = is_string($page) ? $page : '';
+        }
+        return $pages;
     }
 
     private function taskFor(string $fileId): ?string

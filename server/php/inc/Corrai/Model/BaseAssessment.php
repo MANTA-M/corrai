@@ -11,6 +11,7 @@ use Corrai\Utils\Image\HeicToWebp;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 use Corrai\Subject\Catalog;
+use Corrai\Subject\SubjectPages;
 use Corrai\Subject\Dictation\Task1Correcting as Dictation;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Subject\Law\Task1Transcribing as Law;
@@ -610,6 +611,9 @@ abstract class BaseAssessment
             return;
         }
         foreach ($this->listFileModels() as $file) {
+            if ($file->type === 'subject') {
+                continue;
+            }
             if ($file->hasStoredClass && $file::class === $expected) {
                 continue;
             }
@@ -821,6 +825,76 @@ abstract class BaseAssessment
             $out[] = $student->to_output($locale);
         }
         return $out;
+    }
+
+    /**
+     * S3 object names stored directly under the assessment prefix, plus files
+     * stored directly at the root of the subject directory (prefixed subject/).
+     *
+     * @return string[]
+     */
+    public function listRootObjects(): array
+    {
+        if (empty($this->id) || $this->school_id === '' || $this->user_id === '') {
+            return [];
+        }
+        $store = ObjectStore::getInstance();
+        $names = $store->listImmediateFiles(
+            ObjectStore::assessmentPrefix($this->school_id, $this->user_id, $this->id)
+        );
+        foreach ($store->listImmediateFiles(
+            ObjectStore::assessmentSubjectFilesPrefix($this->school_id, $this->user_id, $this->id)
+        ) as $name) {
+            $names[] = 'subject/' . $name;
+        }
+        sort($names, SORT_STRING);
+        return $names;
+    }
+
+    /**
+     * Immutable events recorded for this assessment, oldest first.
+     *
+     * @return array<int, array{id: string, timestamp: int, name: string}>
+     */
+    public function listEvents(): array
+    {
+        if (empty($this->id) || $this->school_id === '' || $this->user_id === '') {
+            return [];
+        }
+        $store = ObjectStore::getInstance();
+        $prefix = ObjectStore::assessmentEventsPrefix($this->school_id, $this->user_id, $this->id);
+        $events = [];
+        foreach ($store->listImmediateFiles($prefix) as $name) {
+            if (!str_ends_with($name, '.json')) {
+                continue;
+            }
+            $id = substr($name, 0, -5);
+            $timestamp = 0;
+            $label = $id;
+            try {
+                $loaded = $store->getJson($prefix . $name);
+                $timestamp = (int) ($loaded['data']['timestamp'] ?? 0);
+                $eventName = $loaded['data']['name'] ?? '';
+                if (is_string($eventName) && $eventName !== '') {
+                    $label = MenuLabels::fileEventLabel($eventName);
+                }
+            } catch (\Throwable $e) {
+                // Keep the object visible in debug history even if its JSON is unreadable.
+            }
+            $events[] = [
+                'id' => $id,
+                'timestamp' => $timestamp,
+                'name' => $label,
+            ];
+        }
+        usort($events, static function (array $a, array $b): int {
+            $byTime = $a['timestamp'] <=> $b['timestamp'];
+            if ($byTime !== 0) {
+                return $byTime;
+            }
+            return strcmp($a['name'], $b['name']);
+        });
+        return $events;
     }
 
     public function getFile(string $fileId): InputFile|S3File
@@ -1653,6 +1727,10 @@ abstract class BaseAssessment
         }
         $file->saveAttributes(false);
         $file->appendEvent('Stored');
+        if ($enqueue && $file->type === 'subject' && SubjectPages::isPageImage($file)) {
+            SubjectPages::request($file);
+            return;
+        }
         if ($enqueue) {
             RedisQueue::getInstance()->enqueueFile($file->id, $this->pipelineClass());
         }

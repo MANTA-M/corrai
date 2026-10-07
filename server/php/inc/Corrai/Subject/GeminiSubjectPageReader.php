@@ -34,9 +34,10 @@ class GeminiSubjectPageReader implements SubjectPageReader
                 'name' => ['type' => 'string'],
                 'subject' => ['type' => 'string'],
                 'level' => ['type' => 'string'],
+                'country' => ['type' => 'string'],
                 'date' => ['type' => 'string'],
             ],
-            'required' => ['name', 'subject', 'level', 'date'],
+            'required' => ['name', 'subject', 'level', 'country', 'date'],
             'additionalProperties' => false,
         ]);
         $instruction = "Possible subjects (use the subject and level codes exactly):\n"
@@ -45,6 +46,7 @@ class GeminiSubjectPageReader implements SubjectPageReader
             . "name: the title, or a short name you create when there is no title.\n"
             . "subject: the closest subject code from the tree.\n"
             . "level: the level code from that subject when it is shown, otherwise an empty string.\n"
+            . "country: the country code from that subject when the page shows it, otherwise an empty string.\n"
             . "date: the subject date as YYYY-MM-DD when it is readable, otherwise an empty string.\n";
         if ($isText) {
             $excerpt = file_get_contents($pagePath);

@@ -14,7 +14,61 @@
       <div v-else-if="assessment" class="assessment-view">
         <div class="header">
           <div>
-            <h1 data-testid="assessment-details-heading">{{ assessment.name || t('assessment.details') }}</h1>
+            <div class="title-line">
+              <h1 data-testid="assessment-details-heading">{{ assessment.name || t('assessment.details') }}</h1>
+              <div
+                v-if="sessionStore.debugMode"
+                ref="debugMenuRoot"
+                class="debug-menu"
+                data-testid="assessment-debug-menu"
+              >
+                <button
+                  type="button"
+                  class="debug-menu-button"
+                  data-testid="assessment-debug-menu-button"
+                  :aria-label="assessment.name || t('assessment.details')"
+                  :aria-expanded="debugMenuOpen"
+                  @click="toggleDebugMenu"
+                >
+                  <ActionIcon name="caret" />
+                </button>
+                <ul v-if="debugMenuOpen" class="debug-menu-list" data-testid="assessment-debug-menu-list">
+                  <li v-if="debugLoading" class="debug-menu-status">…</li>
+                  <template v-else>
+                    <li class="debug-menu-heading">{{ t('assessment.files') }}</li>
+                    <li
+                      v-if="rootObjects.length === 0"
+                      class="debug-menu-status"
+                      data-testid="assessment-debug-files-empty"
+                    >
+                      {{ t('assessment.fileAnnexesEmpty') }}
+                    </li>
+                    <li v-for="name in rootObjects" :key="name">
+                      <S3File
+                        :label="name"
+                        :href="rootObjectUrl(name)"
+                        :test-id="`assessment-s3-${name}`"
+                      />
+                    </li>
+                    <li class="debug-menu-heading">{{ t('assessment.fileEventsTitle') }}</li>
+                    <li
+                      v-if="assessmentEvents.length === 0"
+                      class="debug-menu-status"
+                      data-testid="assessment-debug-events-empty"
+                    >
+                      {{ t('assessment.fileHistoryEmpty') }}
+                    </li>
+                    <li v-for="event in assessmentEvents" :key="event.id">
+                      <S3File
+                        :label="eventLabel(event)"
+                        :href="eventUrl(event.id)"
+                        test-id="assessment-event"
+                      />
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </div>
             <p class="assessment-meta" data-testid="assessment-meta">
               <template v-if="assessment.date"
                 ><span data-testid="assessment-date-value">{{ assessment.date }}</span>, </template
@@ -309,14 +363,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import { toast } from 'vue3-toastify'
+import ActionIcon from '@/components/ActionIcon.vue'
 import AddFilePopup from '@/components/AddFilePopup.vue'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
+import S3File from '@/components/S3File.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useAssessmentStream } from '@/composables/useAssessmentStream'
 import { applyAssessmentStream } from '@/utils/assessmentStream'
@@ -360,6 +416,17 @@ const renameStudent = ref<AssessmentStudent | null>(null)
 const renameStudentDraft = ref('')
 const renameStudentInput = ref<HTMLInputElement | null>(null)
 const deleteStudentTarget = ref<AssessmentStudent | null>(null)
+const debugMenuRoot = ref<HTMLElement | null>(null)
+const debugMenuOpen = ref(false)
+const debugLoading = ref(false)
+const rootObjects = ref<string[]>([])
+const assessmentEvents = ref<AssessmentEvent[]>([])
+
+interface AssessmentEvent {
+  id: string
+  timestamp: number
+  name: string
+}
 
 const subjectLabel = (subject: string) => {
   const node = subjects.value.find(item => item.subject === subject)
@@ -772,6 +839,86 @@ const confirmDelete = async () => {
   }
 }
 
+const toggleDebugMenu = () => {
+  debugMenuOpen.value = !debugMenuOpen.value
+  if (debugMenuOpen.value) {
+    void loadDebugMenu()
+  }
+}
+
+const loadDebugMenu = async () => {
+  if (!assessment.value?.id) return
+  debugLoading.value = true
+  try {
+    const data = await sessionStore.getWsClient().queryWs<{
+      objects?: string[]
+      events?: AssessmentEvent[]
+    }>('GET', '/assessment_debug', {
+      hash: assessment.value.id,
+      locale: String(locale.value),
+    })
+    if (!debugMenuOpen.value) return
+    rootObjects.value = (data.objects ?? []).filter((name) => isDebugObjectName(name))
+    assessmentEvents.value = data.events ?? []
+  } catch (err) {
+    console.error('Error loading assessment debug menu:', err)
+    if (debugMenuOpen.value) {
+      rootObjects.value = []
+      assessmentEvents.value = []
+    }
+  } finally {
+    if (debugMenuOpen.value) {
+      debugLoading.value = false
+    }
+  }
+}
+
+const isDebugObjectName = (name: string) => {
+  const parts = name.split('/')
+  if (parts.some((part) => part === '' || part === '.' || part === '..')) return false
+  return parts.length === 1 || (parts.length === 2 && parts[0] === 'subject')
+}
+
+const rootObjectUrl = (name: string) =>
+  sessionStore.getWsClient().getWsUrl('/assessment_object', {
+    hash: assessment.value?.id ?? '',
+    object: name,
+  })
+
+const eventUrl = (eventId: string) =>
+  sessionStore.getWsClient().getWsUrl('/assessment_object', {
+    hash: assessment.value?.id ?? '',
+    event: eventId,
+  })
+
+const eventLabel = (event: AssessmentEvent) => {
+  const name = event.name === 'Stored' || event.name === 'Loaded'
+    ? t('assessment.fileStored')
+    : event.name
+  if (!event.timestamp) return name
+  const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(new Date(event.timestamp * 1000))
+  return `${name} — ${when}`
+}
+
+const closeDebugMenuOnOutside = (event: MouseEvent) => {
+  if (!debugMenuOpen.value) return
+  const target = event.target
+  if (!(target instanceof Node) || !debugMenuRoot.value?.contains(target)) {
+    debugMenuOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeDebugMenuOnOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDebugMenuOnOutside)
+})
+
 loadSubjects()
 </script>
 
@@ -786,6 +933,75 @@ loadSubjects()
 
 .header h1 {
   margin: 0;
+}
+
+.title-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.debug-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.debug-menu-button {
+  width: 1.7rem;
+  height: 1.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+}
+
+.debug-menu-button:hover,
+.debug-menu-button:focus-visible {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.debug-menu-button :deep(svg) {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.debug-menu-list {
+  position: absolute;
+  top: calc(100% + 0.15rem);
+  left: 0;
+  z-index: 6;
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem;
+  min-width: 16rem;
+  max-width: 24rem;
+  max-height: 24rem;
+  overflow: auto;
+  background: var(--surface, var(--bg, #fff));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgb(20 24 40 / 12%);
+}
+
+.debug-menu-heading {
+  padding: 0.35rem 0.55rem 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.debug-menu-status {
+  padding: 0.35rem 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .assessment-meta,

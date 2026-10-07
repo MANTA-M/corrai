@@ -49,6 +49,44 @@ class SubjectDraftTest extends TestCase
         $this->assertSame('', $attributes['date']);
     }
 
+    public function testLawPageCountryWinsOverTheTeacherCountry(): void
+    {
+        $attributes = SubjectDraft::normalize(
+            [
+                'name' => 'Droit des obligations',
+                'subject' => 'Law',
+                'level' => '',
+                'country' => 'France',
+                'date' => '2026-09-02',
+            ],
+            'de',
+            'IMG_3393.HEIC'
+        );
+
+        $this->assertSame('Law', $attributes['subject']);
+        $this->assertNull($attributes['level']);
+        $this->assertSame('fr', $attributes['country']);
+        $this->assertSame('2026-09-02', $attributes['date']);
+    }
+
+    public function testUnknownPageCountryKeepsTheTeacherCountry(): void
+    {
+        $attributes = SubjectDraft::normalize(
+            [
+                'name' => 'Contrôle',
+                'subject' => 'Math',
+                'level' => '',
+                'country' => 'zz',
+                'date' => '',
+            ],
+            'de',
+            'controle.png'
+        );
+
+        $this->assertSame('Math', $attributes['subject']);
+        $this->assertSame('de', $attributes['country']);
+    }
+
     public function testEducationLevelIsKeptWhenTheSubjectHasNoCatalogLevel(): void
     {
         $attributes = SubjectDraft::normalize(

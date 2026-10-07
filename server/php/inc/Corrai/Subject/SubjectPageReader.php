@@ -9,7 +9,7 @@ interface SubjectPageReader
 {
     /**
      * @param array $tree Subject catalog tree for the teacher's locale.
-     * @return array{name?: string, subject?: string, level?: string, date?: string}
+     * @return array{name?: string, subject?: string, level?: string, country?: string, date?: string}
      */
     public function read(string $pagePath, string $pageName, array $tree): array;
 }

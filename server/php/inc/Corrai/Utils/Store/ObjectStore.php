@@ -15,8 +15,10 @@ use Exception;
  *   schools/<schoolId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/attributes.json
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/events/<eventId>.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/content
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/compile_subject
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/content
@@ -277,6 +279,20 @@ class ObjectStore
         return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . self::ATTR_FILE;
     }
 
+    public static function assessmentEventsPrefix(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'events/';
+    }
+
+    public static function assessmentEventKey(
+        string $schoolId,
+        string $teacherId,
+        string $assessmentId,
+        string $eventId
+    ): string {
+        return self::assessmentEventsPrefix($schoolId, $teacherId, $assessmentId) . $eventId . '.json';
+    }
+
     /**
      * Legacy flat file area. New writes use subject/, students/, or unclassified/.
      */
@@ -288,6 +304,14 @@ class ObjectStore
     public static function assessmentSubjectFilesPrefix(string $schoolId, string $teacherId, string $assessmentId): string
     {
         return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'subject/';
+    }
+
+    /**
+     * Compiled OCR (or raw) text of every subject file, in creation order.
+     */
+    public static function assessmentSubjectCompileKey(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . 'compile_subject';
     }
 
     public static function assessmentUnclassifiedFilesPrefix(

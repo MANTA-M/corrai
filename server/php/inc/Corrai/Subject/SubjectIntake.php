@@ -4,10 +4,7 @@ namespace Corrai\Subject;
 
 use Corrai\Model\Assessment;
 use Corrai\Model\InputFile;
-use Corrai\Model\OCRResult;
 use Corrai\Model\User;
-use Corrai\Queue\RedisQueue;
-use Corrai\Task\TaskRotateAndCrop;
 use Corrai\Utils\Image\FirstPageImage;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Store\ObjectStore;
@@ -19,8 +16,9 @@ use Corrai\Utils\Http\WSException;
  *
  * Files are read one by one until subject, country, and level are known:
  * HEIC is stored as WebP, an image is read by Google OCR, then the text is
- * classified. The files still waiting are stored and queued the same way as
- * a subject file added after the assessment exists.
+ * classified. Images still waiting are stored as OCR requested and queued.
+ * A subject page image moves from OCR requested to OCR, then to OCR refine
+ * when it must be rotated and cropped, and ends at OCR done.
  */
 class SubjectIntake
 {
@@ -153,6 +151,7 @@ class SubjectIntake
                 );
             }
 
+            SubjectPages::compileIfReady($assessment);
             return $assessment;
         } catch (\Throwable $exception) {
             if ($assessment !== null && $assessment->id !== null && $assessment->id !== '') {
@@ -230,9 +229,11 @@ class SubjectIntake
         }
 
         if (self::isPdf($originalPath, $originalName)) {
+            $file->status = SubjectPages::STATUS_ASKED;
+            $file->saveAttributes();
             $page = FirstPageImage::jpegFile($originalPath, $originalName);
             try {
-                return self::recognize($file, $page, 'page.jpg', $ocr);
+                return SubjectPages::transcribe($file, $ocr, $page, 'page.jpg');
             } finally {
                 if (is_file($page)) {
                     @unlink($page);
@@ -246,35 +247,14 @@ class SubjectIntake
             if (!is_string($bytes) || $bytes === '' || !self::isImage($file->name, $bytes)) {
                 return null;
             }
-            $text = self::recognize($file, $copy, $file->name, $ocr);
-            if ($file->id !== null && $file->id !== '') {
-                try {
-                    RedisQueue::getInstance()->enqueueFile($file->id, TaskRotateAndCrop::class);
-                } catch (\Throwable $e) {
-                    error_log(sprintf('[SubjectIntake] Failed to enqueue TaskRotateAndCrop for subject file %s: %s', (string) $file->id, $e->getMessage()));
-                }
-            }
-            return $text;
+            $file->status = SubjectPages::STATUS_ASKED;
+            $file->saveAttributes();
+            return SubjectPages::transcribe($file, $ocr, $copy, $file->name);
         } finally {
             if (is_file($copy)) {
                 @unlink($copy);
             }
         }
-    }
-
-    private static function recognize(
-        InputFile $file,
-        string $path,
-        string $filename,
-        SubjectImageOcr $ocr
-    ): string {
-        $result = OCRResult::from_google($ocr->recognize($path, $filename, $file));
-        ObjectStore::getInstance()->putContents(
-            $file->ocrResultKey(),
-            $result->to_json(true),
-            'application/json'
-        );
-        return $result->text;
     }
 
     private static function isPdf(string $path, string $filename): bool
