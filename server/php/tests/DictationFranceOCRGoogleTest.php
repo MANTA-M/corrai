@@ -10,7 +10,7 @@ use Corrai\Model\OCRResult;
 use Corrai\Model\Student;
 use Corrai\Subject\Catalog;
 use Corrai\Subject\DictationFranceOCRGoogle\Assessment;
-use Corrai\Subject\DictationFranceOCRGoogle\File;
+use Corrai\Subject\DictationFranceOCRGoogle\Submission;
 use Corrai\Subject\DictationFranceOCRGoogle\GoogleOcr;
 use Corrai\Subject\DictationFranceOCRGoogle\Task1Correcting;
 use Corrai\Subject\DictationFranceOCRGoogle\Task2Annotating;
@@ -122,7 +122,7 @@ class DictationFranceOCRGoogleTest extends TestCase
             ->with('st1')
             ->willReturn($student);
 
-        $file = new File();
+        $file = new Submission();
         $file->student = 'st1';
 
         $task->storeStudentResult($file, $assessment, json_encode([
@@ -166,7 +166,7 @@ class DictationFranceOCRGoogleTest extends TestCase
             ->with('Inconnu 1')
             ->willReturn($student);
 
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->expects($this->once())->method('saveAttributes');
         $file->expects($this->once())
             ->method('appendEvent')
@@ -215,7 +215,7 @@ class DictationFranceOCRGoogleTest extends TestCase
         fwrite($fp, "\0");
         fclose($fp);
 
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->name = 'scan.png';
         $file->expects($this->once())
             ->method('appendEvent')
@@ -233,7 +233,7 @@ class DictationFranceOCRGoogleTest extends TestCase
 
     public function testSetFileInputFileWithSizeOver10MbThrowsAndAppendsEvent(): void
     {
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->size = 11 * 1024 * 1024;
         $file->name = 'scan.png';
         $file->expects($this->once())
@@ -248,7 +248,7 @@ class DictationFranceOCRGoogleTest extends TestCase
 
     public function testGoogleOcrRecognizeThrowsAndAppendsEventWhenFileExceeds10Mb(): void
     {
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->type = 'submission';
         $file->size = 11 * 1024 * 1024;
         $file->name = 'copy.png';

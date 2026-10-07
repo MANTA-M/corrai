@@ -9,7 +9,7 @@ use Corrai\Model\SubmissionFile;
 use Corrai\Queue\RedisConsumer;
 use Corrai\Subject\Dictation\Assessment as DictationAssessment;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
-use Corrai\Subject\DictationFranceCM2\File as DictationFranceCM2File;
+use Corrai\Subject\DictationFranceCM2\Submission as DictationFranceCM2Submission;
 use Corrai\Subject\DictationFranceOCRGoogle\Assessment as DictationFranceOCRGoogleAssessment;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Subject\Math\Assessment as MathAssessment;
@@ -139,7 +139,7 @@ class RedisFileConsumerTest extends TestCase
         );
 
         $this->assertInstanceOf(DictationFranceCM2Assessment::class, $assessment);
-        $this->assertSame(DictationFranceCM2File::class, $assessment->fileClass());
+        $this->assertSame(DictationFranceCM2Submission::class, $assessment->fileClass());
 
         $file = $assessment->fileFromAttributes(
             [
@@ -152,7 +152,7 @@ class RedisFileConsumerTest extends TestCase
             'file1'
         );
 
-        $this->assertInstanceOf(DictationFranceCM2File::class, $file);
+        $this->assertInstanceOf(DictationFranceCM2Submission::class, $file);
     }
 
     public function testGenericAssessmentResolvesDictationFranceCM2FileClass(): void
@@ -162,7 +162,7 @@ class RedisFileConsumerTest extends TestCase
         $assessment->country = 'fr';
         $assessment->level = 'CM2';
 
-        $this->assertSame(DictationFranceCM2File::class, $assessment->fileClass());
+        $this->assertSame(DictationFranceCM2Submission::class, $assessment->fileClass());
 
         $file = $assessment->fileFromAttributes(
             [
@@ -175,7 +175,7 @@ class RedisFileConsumerTest extends TestCase
             'file1'
         );
 
-        $this->assertInstanceOf(DictationFranceCM2File::class, $file);
+        $this->assertInstanceOf(DictationFranceCM2Submission::class, $file);
     }
 
     public function testHandleTicketLogsAndReturnsWhenTheTicketHasNoTarget(): void
@@ -353,17 +353,17 @@ class RedisFileConsumerTest extends TestCase
 
     public function testFileAttributePayloadAndReadUseTheConcreteFileClass(): void
     {
-        $file = new DictationFranceCM2File();
+        $file = new DictationFranceCM2Submission();
         $file->name = 'copy.png';
         $file->type = 'submission';
         $file->status = 'stored';
         $file->size = 4;
         $file->created = 10;
 
-        $this->assertSame(DictationFranceCM2File::class, $file->attributePayload()['class']);
+        $this->assertSame(DictationFranceCM2Submission::class, $file->attributePayload()['class']);
 
-        $loaded = DictationFranceCM2File::from_array($file->attributePayload());
-        $this->assertInstanceOf(DictationFranceCM2File::class, $loaded);
+        $loaded = DictationFranceCM2Submission::from_array($file->attributePayload());
+        $this->assertInstanceOf(DictationFranceCM2Submission::class, $loaded);
         $this->assertTrue($loaded->hasStoredClass);
 
         $assessment = new MathAssessment();
@@ -371,10 +371,10 @@ class RedisFileConsumerTest extends TestCase
             $file->attributePayload(),
             'file1'
         );
-        $this->assertInstanceOf(DictationFranceCM2File::class, $fromAttributes);
+        $this->assertInstanceOf(DictationFranceCM2Submission::class, $fromAttributes);
 
-        $promoted = (new SubmissionFile())->asClass(DictationFranceCM2File::class);
-        $this->assertInstanceOf(DictationFranceCM2File::class, $promoted);
-        $this->assertSame(DictationFranceCM2File::class, $promoted->storedClass());
+        $promoted = (new SubmissionFile())->asClass(DictationFranceCM2Submission::class);
+        $this->assertInstanceOf(DictationFranceCM2Submission::class, $promoted);
+        $this->assertSame(DictationFranceCM2Submission::class, $promoted->storedClass());
     }
 }

@@ -7,7 +7,7 @@ namespace Corrai\Tests;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Student;
 use Corrai\Subject\DictationFranceCM2\Assessment as DictationFranceCM2Assessment;
-use Corrai\Subject\DictationFranceCM2\File as DictationFranceCM2File;
+use Corrai\Subject\DictationFranceCM2\Submission as DictationFranceCM2Submission;
 use Corrai\Subject\Math\Assessment as MathAssessment;
 use Corrai\Model\StateLocales;
 use PHPUnit\Framework\TestCase;
@@ -55,7 +55,7 @@ class MenuTest extends TestCase
 
     public function testFileMenuDependsOnTheFileType(): void
     {
-        $submission = new DictationFranceCM2File();
+        $submission = new DictationFranceCM2Submission();
         $submission->type = 'submission';
         $submission->name = 'copy.png';
         $submission->content_type = 'image/png';

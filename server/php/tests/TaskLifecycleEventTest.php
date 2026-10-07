@@ -7,7 +7,7 @@ namespace Corrai\Tests;
 use Corrai\Model\Assessment;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\InputFile;
-use Corrai\Subject\Dictation\File as DictationFile;
+use Corrai\Subject\Dictation\Submission as DictationSubmission;
 use Corrai\Model\School;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Model\User;
@@ -116,9 +116,9 @@ class TaskLifecycleEventTest extends TestCase
         ]);
 
         $this->assertTrue($task->processed);
-        $this->assertInstanceOf(DictationFile::class, $task->fileDuringProcess);
-        $this->assertInstanceOf(DictationFile::class, InputFile::from_path($file->attrKey()));
-        $this->assertInstanceOf(DictationFile::class, InputFile::from_path($file->prefix()));
+        $this->assertInstanceOf(DictationSubmission::class, $task->fileDuringProcess);
+        $this->assertInstanceOf(DictationSubmission::class, InputFile::from_path($file->attrKey()));
+        $this->assertInstanceOf(DictationSubmission::class, InputFile::from_path($file->prefix()));
         $this->assertCount(2, $events);
 
         // First event: start of task, loading: true

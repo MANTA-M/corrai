@@ -8,7 +8,7 @@ use Corrai\Model\School;
 use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\LawFrance\Assessment;
-use Corrai\Subject\LawFrance\File;
+use Corrai\Subject\LawFrance\Submission;
 use Corrai\Subject\LawFrance\Task1Transcribing;
 use Corrai\Task\Thumbnail;
 use Corrai\Utils\Store\HashId;
@@ -29,19 +29,19 @@ class LawFranceThumbnailQueueTest extends TestCase
     {
         $this->installQueue();
 
-        $copy = new File();
+        $copy = new Submission();
         $copy->id = 'copy-1';
         $copy->type = 'submission';
         $copy->name = 'copie.png';
         $copy->content_type = 'image/png';
         $copy->on_stored();
 
-        $subject = new File();
+        $subject = new Submission();
         $subject->id = 'subject-1';
         $subject->type = 'subject';
         $subject->name = 'sujet.tiff';
         $subject->content_type = 'application/octet-stream';
-        File::queueThumbnail($subject);
+        Submission::queueThumbnail($subject);
 
         $this->assertSame([
             Thumbnail::class,
@@ -53,20 +53,20 @@ class LawFranceThumbnailQueueTest extends TestCase
     {
         $this->installQueue();
 
-        $pdf = new File();
+        $pdf = new Submission();
         $pdf->id = 'pdf-1';
         $pdf->type = 'submission';
         $pdf->name = 'notes.pdf';
         $pdf->content_type = 'application/pdf';
         $pdf->on_stored();
 
-        $done = new File();
+        $done = new Submission();
         $done->id = 'done-1';
         $done->type = 'subject';
         $done->name = 'page.jpg';
         $done->content_type = 'image/jpeg';
         $done->thumbnail = true;
-        File::queueThumbnail($done);
+        Submission::queueThumbnail($done);
 
         $this->assertSame([], $this->queued);
     }

@@ -11,7 +11,7 @@ use Corrai\Utils\Http\WSException;
 use Throwable;
 
 /**
- * Find dictation errors after OCR. Same step as File::on_ocr_done.
+ * Find dictation errors after OCR. Same step as Submission::on_ocr_done.
  */
 class Task1Correcting extends PathQueueItemTask
 {
@@ -20,7 +20,7 @@ class Task1Correcting extends PathQueueItemTask
         $this->correct($this->loadFile($s3_path));
     }
 
-    public function correct(File $file): void
+    public function correct(Submission $file): void
     {
         if ($file->type !== 'submission') {
             return;
@@ -114,7 +114,7 @@ class Task1Correcting extends PathQueueItemTask
     /**
      * When the copy is still unclassified, move its whole directory under the named student.
      */
-    public function assignUnclassifiedCopy(File $file, BaseAssessment $assessment, string $correction): void
+    public function assignUnclassifiedCopy(Submission $file, BaseAssessment $assessment, string $correction): void
     {
         $data = json_decode($correction, true);
         if (!is_array($data)) {
@@ -134,7 +134,7 @@ class Task1Correcting extends PathQueueItemTask
     /**
      * Once the copy belongs to a student, keep the grade and the Markdown appreciation on that student.
      */
-    public function storeStudentResult(File $file, BaseAssessment $assessment, string $correction): void
+    public function storeStudentResult(Submission $file, BaseAssessment $assessment, string $correction): void
     {
         $studentId = trim((string) ($file->student ?? ''));
         if ($studentId === '') {

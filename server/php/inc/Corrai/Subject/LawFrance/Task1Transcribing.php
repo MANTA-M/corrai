@@ -17,7 +17,7 @@ class Task1Transcribing extends PathQueueItemTask
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $file = $this->loadFile($s3_path);
-        File::queueThumbnail($file);
+        Submission::queueThumbnail($file);
         if ($file instanceof SubmissionFile) {
             $this->transcribeSubmission($file);
         }
@@ -60,7 +60,7 @@ class Task1Transcribing extends PathQueueItemTask
             . 'Return only the transcription, the unreadable marks, and the calligraphy score.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text(\Corrai\Subject\Dictation\File::TRANSCRIPTION_INSTRUCTION);
+        $request->add_text(\Corrai\Subject\Dictation\Submission::TRANSCRIPTION_INSTRUCTION);
         return $request->call_text();
     }
 }

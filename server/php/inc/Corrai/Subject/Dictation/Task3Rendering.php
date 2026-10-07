@@ -16,9 +16,9 @@ class Task3Rendering extends PathQueueItemTask
         $this->render($this->loadFile($s3_path));
     }
     /**
-     * Render the corrected copy. Same step as File::on_annotations.
+     * Render the corrected copy. Same step as Submission::on_annotations.
      */
-    public function render(File $file): void
+    public function render(Submission $file): void
     {
         if ($file->type !== 'submission') {
             return;

@@ -22,11 +22,11 @@ class Assessment extends BaseAssessment
 
     public function fileClass(): string
     {
-        return File::class;
+        return Submission::class;
     }
 
     public function submissionClass(): string
     {
-        return File::class;
+        return Submission::class;
     }
 }

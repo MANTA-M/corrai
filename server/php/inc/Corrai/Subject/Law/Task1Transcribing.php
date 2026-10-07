@@ -59,7 +59,7 @@ class Task1Transcribing extends PathQueueItemTask
             . 'Return only the transcription, the unreadable marks, and the calligraphy score.'
         );
         $request->add_file($tmpPath, $filename);
-        $request->add_text(\Corrai\Subject\Dictation\File::TRANSCRIPTION_INSTRUCTION);
+        $request->add_text(\Corrai\Subject\Dictation\Submission::TRANSCRIPTION_INSTRUCTION);
         return $request->call_text();
     }
 }

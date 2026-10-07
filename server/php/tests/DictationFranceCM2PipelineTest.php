@@ -7,7 +7,7 @@ namespace Corrai\Tests;
 use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\Student;
 use Corrai\Subject\DictationFranceCM2\Assessment;
-use Corrai\Subject\DictationFranceCM2\File;
+use Corrai\Subject\DictationFranceCM2\Submission;
 use Corrai\Subject\DictationFranceCM2\Task1Correcting;
 use Corrai\Subject\DictationFranceCM2\Task2Annotating;
 use Corrai\Subject\DictationFranceCM2\Pipeline;
@@ -217,7 +217,7 @@ class DictationFranceCM2PipelineTest extends TestCase
             ->with('st1')
             ->willReturn($student);
 
-        $file = new File();
+        $file = new Submission();
         $file->student = 'st1';
 
         $task->storeStudentResult($file, $assessment, json_encode([
@@ -235,7 +235,7 @@ class DictationFranceCM2PipelineTest extends TestCase
         $assessment = $this->createMock(Assessment::class);
         $assessment->expects($this->never())->method('getStudent');
 
-        $file = new File();
+        $file = new Submission();
         $task->storeStudentResult($file, $assessment, json_encode([
             'note' => 12,
             'appreciation' => 'Bien.',
@@ -255,7 +255,7 @@ class DictationFranceCM2PipelineTest extends TestCase
             ->with('Jeanne Martin')
             ->willReturn($student);
 
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->expects($this->once())
             ->method('saveAttributes')
             ->willReturnCallback(function () use ($file): void {
@@ -289,7 +289,7 @@ class DictationFranceCM2PipelineTest extends TestCase
             ->with('Inconnu 2')
             ->willReturn($student);
 
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->expects($this->once())->method('saveAttributes');
         $file->expects($this->once())
             ->method('appendEvent')
@@ -310,7 +310,7 @@ class DictationFranceCM2PipelineTest extends TestCase
         $assessment->expects($this->never())->method('nextUnknownStudentName');
         $assessment->expects($this->never())->method('findOrCreateStudentByName');
 
-        $file = $this->createMock(File::class);
+        $file = $this->createMock(Submission::class);
         $file->expects($this->never())->method('saveAttributes');
         $file->expects($this->never())->method('appendEvent');
 

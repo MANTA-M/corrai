@@ -10,7 +10,7 @@ use Corrai\Utils\Http\WSException;
 use Throwable;
 
 /**
- * Turn found errors into markup annotations. Same step as File::on_errors_found.
+ * Turn found errors into markup annotations. Same step as Submission::on_errors_found.
  */
 class Task2Annotating extends PathQueueItemTask
 {
@@ -23,7 +23,7 @@ class Task2Annotating extends PathQueueItemTask
         $this->annotate($this->loadFile($s3_path));
     }
 
-    public function annotate(File $file): void
+    public function annotate(Submission $file): void
     {
         if ($file->type !== 'submission') {
             return;

@@ -25,8 +25,8 @@ class GoogleOcr extends PathQueueItemTask
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $file = $this->loadFile($s3_path);
-        if (!$file instanceof File) {
-            $file = $file->asClass(File::class);
+        if (!$file instanceof Submission) {
+            $file = $file->asClass(Submission::class);
         }
         try {
             $this->recognize($file, $file->status === 'correction_asked');
@@ -41,7 +41,7 @@ class GoogleOcr extends PathQueueItemTask
         }
     }
 
-    public function recognize(File $file, bool $enqueueCorrecting = false): void
+    public function recognize(Submission $file, bool $enqueueCorrecting = false): void
     {
         if ($file->type !== 'submission') {
             return;

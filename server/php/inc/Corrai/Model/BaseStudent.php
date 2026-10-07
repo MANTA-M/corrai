@@ -12,7 +12,7 @@ use Corrai\Utils\Http\WSException;
 /**
  * Shared student model. Subject packages may provide a concrete Student.
  */
-class BaseStudent
+abstract class BaseStudent
 {
     public ?string $id = null;
     public string $school_id = '';

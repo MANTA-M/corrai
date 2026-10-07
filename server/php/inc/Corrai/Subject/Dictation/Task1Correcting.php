@@ -18,9 +18,9 @@ class Task1Correcting extends PathQueueItemTask
         $this->correct($this->loadFile($s3_path));
     }
     /**
-     * Find dictation errors. Same step as File::on_ocr_done.
+     * Find dictation errors. Same step as Submission::on_ocr_done.
      */
-    public function correct(File $file): void
+    public function correct(Submission $file): void
     {
         if ($file->type !== 'submission') {
             return;
