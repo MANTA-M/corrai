@@ -5,7 +5,9 @@ namespace Corrai\Subject\LawFrance;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\SubjectFile;
 use Corrai\Model\SubmissionFile;
+use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Http\WSException;
+use Corrai\Utils\MenuLabels;
 
 class Assessment extends BaseAssessment
 {
@@ -127,5 +129,52 @@ class Assessment extends BaseAssessment
             $previous = $studentId;
         }
         return $previous;
+    }
+
+    /**
+     * Queue generation of the French correction grid.
+     */
+    public function create_correction_grid(): void
+    {
+        if ($this->id === null || $this->id === '') {
+            throw new WSException('Assessment is incomplete', 400);
+        }
+        RedisQueue::getInstance()->enqueueAssessment($this->id, AssTaskGridCreation::class);
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    protected static function statusLabelTable(): array
+    {
+        return array_merge(parent::statusLabelTable(), [
+            'create_correction_grid' => [
+                'en' => 'Creating the correction grid',
+                'fr' => 'Création de la grille',
+                'ru' => 'Создание сетки оценивания',
+                'uk' => 'Створення сітки оцінювання',
+                'es' => 'Creación de la rúbrica',
+                'pt' => 'Criação da grelha',
+                'ro' => 'Crearea grilei',
+                'de' => 'Korrekturraster wird erstellt',
+            ],
+            'correction_grid_generated' => [
+                'en' => 'Correction grid ready',
+                'fr' => 'Grille de correction prête',
+                'ru' => 'Сетка оценивания готова',
+                'uk' => 'Сітка оцінювання готова',
+                'es' => 'Rúbrica lista',
+                'pt' => 'Grelha de correção pronta',
+                'ro' => 'Grilă de corectare gata',
+                'de' => 'Korrekturraster bereit',
+            ],
+        ]);
+    }
+
+    public function get_menu(?string $locale = null): array
+    {
+        $items = parent::get_menu($locale);
+        $items[] = MenuLabels::item('create_correction_grid', MenuLabels::locale($locale), '', MenuLabels::BLUE);
+        return $items;
     }
 }

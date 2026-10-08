@@ -216,6 +216,8 @@ export interface I18nSchema {
         startCorrectionLaunch: string
         startCorrectionError: string
         startCorrectionSuccess: string
+        correctionGridSuccess: string
+        correctionGridError: string
         startCorrectionCancelled: string
         startCorrectionPaymentError: string
         testCorrection: string

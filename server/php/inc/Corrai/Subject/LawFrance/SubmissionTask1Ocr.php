@@ -24,7 +24,7 @@ class SubmissionTask1Ocr extends PathQueueItemTask
     /**
      * OCR service to use.
      */
-    private const OCR_SERVICE = self::OCR_SERVICE_MINDEE;
+    private const OCR_SERVICE = self::OCR_SERVICE_GOOGLE;
 
     public function __construct(private ?Vision $visionClient = null)
     {

@@ -187,6 +187,8 @@ const uk: I18nSchema = {
         startCorrectionLaunch: "Запустити",
         startCorrectionError: "Не вдалося запустити перевірку",
         startCorrectionSuccess: "Перевірку запущено!",
+        correctionGridSuccess: "Створення сітки оцінювання запущено",
+        correctionGridError: "Не вдалося створити сітку оцінювання",
         startCorrectionCancelled: "Платіж скасовано",
         startCorrectionPaymentError: "Платіж не пройшов",
         testCorrection: "Тестова перевірка"

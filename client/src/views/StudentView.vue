@@ -259,6 +259,27 @@ const textButtonClass = (item: MenuItem) => {
   return 'button secondary'
 }
 
+const transcribeStudent = async () => {
+  if (!assessment.value?.id || !studentId.value) return
+  studentActionError.value = ''
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    } & StateLocales>('POST', '/student_transcribe', {
+      id: assessment.value.id,
+      student: studentId.value,
+      locale: String(locale.value),
+    })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+  } catch (err) {
+    console.error('Error transcribing student:', err)
+  }
+}
+
 const correctStudent = async () => {
   if (!assessment.value?.id || !studentId.value) return
   studentActionError.value = ''
@@ -281,7 +302,8 @@ const correctStudent = async () => {
 }
 
 const onStudentAction = (key: string) => {
-  if (key === 'correct') void correctStudent()
+  if (key === 'transcribe') void transcribeStudent()
+  else if (key === 'correct') void correctStudent()
   else if (key === 'rename') startRenameStudent()
   else if (key === 'delete') startDeleteStudent()
 }
@@ -423,23 +445,31 @@ const inlineMarkdown = (value: string) =>
 const markdownToHtml = (source: string): string => {
   const html: string[] = []
   let list: 'ul' | 'ol' | null = null
+  let paragraph: string[] = []
   const closeList = () => {
     if (list) {
       html.push(list === 'ul' ? '</ul>' : '</ol>')
       list = null
     }
   }
-  for (const line of source.replace(/\r\n/g, '\n').split('\n')) {
+  const closeParagraph = () => {
+    if (paragraph.length === 0) return
+    html.push(`<p>${paragraph.join('<br>')}</p>`)
+    paragraph = []
+  }
+  for (const line of source.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')) {
     const heading = /^(#{1,3})\s+(.*)$/.exec(line)
     const bullet = /^[-*]\s+(.*)$/.exec(line)
     const ordered = /^\d+\.\s+(.*)$/.exec(line)
     if (heading) {
+      closeParagraph()
       closeList()
       const level = Math.min(heading[1].length + 2, 6)
       html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`)
       continue
     }
     if (bullet) {
+      closeParagraph()
       if (list !== 'ul') {
         closeList()
         html.push('<ul>')
@@ -449,6 +479,7 @@ const markdownToHtml = (source: string): string => {
       continue
     }
     if (ordered) {
+      closeParagraph()
       if (list !== 'ol') {
         closeList()
         html.push('<ol>')
@@ -457,10 +488,16 @@ const markdownToHtml = (source: string): string => {
       html.push(`<li>${inlineMarkdown(ordered[1])}</li>`)
       continue
     }
+    if (line.trim() === '') {
+      closeList()
+      closeParagraph()
+      continue
+    }
     closeList()
-    if (line.trim() !== '') html.push(`<p>${inlineMarkdown(line)}</p>`)
+    paragraph.push(inlineMarkdown(line))
   }
   closeList()
+  closeParagraph()
   return html.join('')
 }
 </script>

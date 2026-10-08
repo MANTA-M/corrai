@@ -81,6 +81,16 @@ class MenuLabels
             'ro' => 'Testează corectarea',
             'de' => 'Korrektur testen',
         ],
+        'create_correction_grid' => [
+            'en' => 'Correction grid',
+            'fr' => 'Grille de correction',
+            'ru' => 'Сетка оценивания',
+            'uk' => 'Сітка оцінювання',
+            'es' => 'Rúbrica de corrección',
+            'pt' => 'Grelha de correção',
+            'ro' => 'Grilă de corectare',
+            'de' => 'Korrekturraster',
+        ],
         'view' => [
             'en' => 'View',
             'fr' => 'Voir',
@@ -181,6 +191,16 @@ class MenuLabels
             'ro' => 'Corectează',
             'de' => 'Korrigieren',
         ],
+        'transcribe' => [
+            'en' => 'Transcription',
+            'fr' => 'Transcription',
+            'ru' => 'Транскрипция',
+            'uk' => 'Транскрипція',
+            'es' => 'Transcripción',
+            'pt' => 'Transcrição',
+            'ro' => 'Transcriere',
+            'de' => 'Transkription',
+        ],
         'file_type_subject' => [
             'en' => 'Subject',
             'fr' => 'Sujet',
@@ -261,6 +281,16 @@ class MenuLabels
             'ro' => 'Necunoscut',
             'de' => 'Unbekannt',
         ],
+        'create_correction_grid' => [
+            'en' => 'Create correction grid',
+            'fr' => 'Créer la grille de correction',
+            'ru' => 'Создать таблицу проверки',
+            'uk' => 'Створити таблицю перевірки',
+            'es' => 'Crear tabla de corrección',
+            'pt' => 'Criar tabela de correção',
+            'ro' => 'Creați tabela de corecție',
+            'de' => 'Korrektur-Tabelle erstellen',
+        ]
     ];
 
     /**

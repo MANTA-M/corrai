@@ -10,6 +10,7 @@ use Corrai\Model\OCRResult;
 use Corrai\Model\S3File;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Task\PathQueueItemTask;
+use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 use Throwable;
@@ -91,18 +92,12 @@ class StudentTask1Correcting extends PathQueueItemTask
         $reply = $this->correct(
             $this->instructionText($assessment),
             $this->compileSubjectText($assessment),
+            $this->correctionGridText($assessment),
             $submission,
             $languageName
         );
 
-        $key = ObjectStore::assessmentStudentPrefix(
-            $student->school_id,
-            $student->user_id,
-            $student->assessment_id,
-            (string) $student->id
-        ) . 'correction.json';
-        S3File::at($key)->putContents($reply, 'application/json');
-
+        $this->storeCorrectionFile($student, $reply);
         $this->storeStudentResult($student, $reply);
         foreach ($files as $file) {
             $file->status = 'corrected';
@@ -117,49 +112,26 @@ class StudentTask1Correcting extends PathQueueItemTask
     private function correct(
         string $instructionText,
         string $compileSubject,
+        string $correctionGrid,
         array $submission,
         string $languageName
     ): string {
         $request = new ClaudeSonnetClient();
         $request->set_system_content(
-            "Vous êtes un profresseur en charge de cooriger les copies d'une école d'avocat.\n"
+            "Vous êtes un professeur chargé de corriger les copies d'une école d'avocat.\n"
+            . "Appliquez strictement la grille de correction. Reproduisez les mêmes modificateurs généraux, "
+            . "les mêmes parties, les mêmes questions et les mêmes critères, dans le même ordre, "
+            . "avec les mêmes libellés et les mêmes modificateurs.\n"
+            . "Pour chaque critère, indiquez s'il est retenu. Les points obtenus d'une question sont la somme "
+            . "des modificateurs positifs retenus, sans dépasser le barème de la question, après déduction "
+            . "des modificateurs négatifs retenus. La note sur 20 intègre les modificateurs généraux retenus.\n"
+            . "L'appréciation et les remarques sont rédigées en " . $languageName . ".\n"
+            . "\n# Instructions\n"
             . $instructionText
-            . "\n# Le sujet de l'examen\n"
-            . $compileSubject
+            . "\n# Sujet & Grille de correction\n"
+            . $correctionGrid
         );
-        $request->set_json_response('law_correction', [
-            'type' => 'object',
-            'additionalProperties' => false,
-            'required' => ['mark', 'appreciation', 'remarks'],
-            'properties' => [
-                'mark' => [
-                    'type' => 'number',
-                    'description' => 'Mark out of 20.',
-                ],
-                'appreciation' => [
-                    'type' => 'string',
-                    'description' => 'Appreciation in Markdown, in ' . $languageName . '.',
-                ],
-                'remarks' => [
-                    'type' => 'array',
-                    'items' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'required' => ['page', 'text'],
-                        'properties' => [
-                            'page' => [
-                                'type' => 'number',
-                                'description' => 'Page number.',
-                            ],
-                            'text' => [
-                                'type' => 'string',
-                                'description' => 'Remark ' . $languageName . '.',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
+        $request->set_json_response('law_correction', self::correctionSchema($languageName));
         $request->add_text($this->submissionText($submission));
         $reply = $request->call_text();
         $decoded = json_decode($reply, true);
@@ -171,6 +143,120 @@ class StudentTask1Correcting extends PathQueueItemTask
             throw new WSException('Cannot encode the correction', 500);
         }
         return $json . "\n";
+    }
+
+    /**
+     * Même arborescence que la grille : modificateurs généraux, parties, questions
+     * et critères proposés. Chaque critère est complété par son application à la copie.
+     *
+     * @return array<string, mixed>
+     */
+    private static function correctionSchema(string $languageName): array
+    {
+        $criterion = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['critère', 'modificateur', 'retenu', 'commentaire'],
+            'properties' => [
+                'critère' => [
+                    'type' => 'string',
+                    'description' => 'Libellé identique au critère de la grille.',
+                ],
+                'modificateur' => [
+                    'type' => 'integer',
+                    'description' => 'Points prévus par la grille : ajoutés si le nombre est positif, retirés s\'il est négatif.',
+                ],
+                'retenu' => [
+                    'type' => 'boolean',
+                    'description' => 'Vrai si ce critère s\'applique à la copie.',
+                ],
+                'commentaire' => [
+                    'type' => 'string',
+                    'description' => 'Justification courte, en ' . $languageName . '.',
+                ],
+            ],
+        ];
+
+        return [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['modificateurs_généraux', 'parties', 'mark', 'appreciation', 'remarks'],
+            'properties' => [
+                'modificateurs_généraux' => [
+                    'type' => 'array',
+                    'description' => 'Mêmes modificateurs que la grille, dans le même ordre.',
+                    'items' => $criterion,
+                ],
+                'parties' => [
+                    'type' => 'array',
+                    'description' => 'Mêmes parties et mêmes questions que la grille, dans le même ordre.',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['titre', 'questions'],
+                        'properties' => [
+                            'titre' => [
+                                'type' => 'string',
+                                'description' => 'Titre de la partie, identique à la grille.',
+                            ],
+                            'questions' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'additionalProperties' => false,
+                                    'required' => ['titre', 'points', 'points_obtenus', 'critères_proposés'],
+                                    'properties' => [
+                                        'titre' => [
+                                            'type' => 'string',
+                                            'description' => 'Titre de la question, identique à la grille.',
+                                        ],
+                                        'points' => [
+                                            'type' => 'integer',
+                                            'description' => 'Barème de la question, identique à la grille.',
+                                        ],
+                                        'points_obtenus' => [
+                                            'type' => 'integer',
+                                            'description' => 'Points retenus pour cette question, entre 0 et le barème.',
+                                        ],
+                                        'critères_proposés' => [
+                                            'type' => 'array',
+                                            'description' => 'Mêmes critères que la grille, dans le même ordre.',
+                                            'items' => $criterion,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'mark' => [
+                    'type' => 'number',
+                    'description' => 'Note sur 20.',
+                ],
+                'appreciation' => [
+                    'type' => 'string',
+                    'description' => 'Appréciation en Markdown, en ' . $languageName . '.',
+                ],
+                'remarks' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['page', 'text'],
+                        'properties' => [
+                            'page' => [
+                                'type' => 'number',
+                                'description' => 'Numéro de page.',
+                            ],
+                            'text' => [
+                                'type' => 'string',
+                                'description' => 'Remarque en ' . $languageName . '.',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
     }
 
     /**
@@ -224,7 +310,68 @@ class StudentTask1Correcting extends PathQueueItemTask
         return S3File::at($key)->getContents();
     }
 
-    private function storeStudentResult(BaseStudent $student, string $correction): void
+    private function correctionGridText(BaseAssessment $assessment): string
+    {
+        $key = ObjectStore::assessmentSubjectCorrectionGridKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id
+        );
+        $store = ObjectStore::getInstance();
+        if (!$store->exists($key)) {
+            throw new WSException('Correction grid is missing', 400);
+        }
+        return S3File::at($key)->getContents();
+    }
+
+    /**
+     * Full correction JSON, stored as the student's correction.json.
+     */
+    public function storeCorrectionFile(BaseStudent $student, string $correction): S3File
+    {
+        if ($student->id === null || $student->id === '') {
+            throw new WSException('Student has no id', 400);
+        }
+        $key = ObjectStore::assessmentStudentPrefix(
+            $student->school_id,
+            $student->user_id,
+            $student->assessment_id,
+            (string) $student->id
+        ) . 'correction.json';
+
+        $store = ObjectStore::getInstance();
+        $file = null;
+        if ($store->exists($key)) {
+            try {
+                $file = S3File::from_key($key);
+            } catch (Throwable $e) {
+                $file = null;
+            }
+        }
+        if ($file === null) {
+            $file = new S3File();
+            $file->id = HashId::create();
+            $file->key = $key;
+            $file->created = time();
+        }
+        $file->school_id = $student->school_id;
+        $file->user_id = $student->user_id;
+        $file->assessment_id = $student->assessment_id;
+        $file->name = 'correction.json';
+        $file->type = 'correction';
+        $file->student = (string) $student->id;
+        if ($file->created <= 0) {
+            $file->created = time();
+        }
+        $file->putContents($correction, 'application/json');
+        $store->setIdPointer((string) $file->id, $key, false);
+        return $file;
+    }
+
+    /**
+     * Grade and Markdown appreciation shown on the student.
+     */
+    public function storeStudentResult(BaseStudent $student, string $correction): void
     {
         $data = json_decode($correction, true);
         if (!is_array($data)) {

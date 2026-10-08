@@ -1463,6 +1463,9 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             if ($fileStudent !== $student) {
                 continue;
             }
+            if ($file instanceof S3File && $file->name === 'correction.json') {
+                continue;
+            }
             $file->delete();
         }
         if ($type === 'correction' && $student !== '') {
@@ -1728,7 +1731,11 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
      */
     public function templateInstructionPath(?string $locale = null): ?string
     {
-        $dir = dirname((new \ReflectionClass($this))->getFileName());
+        $ref = new \ReflectionClass($this);
+        while ($ref->getParentClass() && (str_contains($ref->getName(), 'Mock_') || str_contains($ref->getName(), 'MockObject'))) {
+            $ref = $ref->getParentClass();
+        }
+        $dir = dirname((string) $ref->getFileName());
         $locale = $locale !== null && trim($locale) !== '' ? trim($locale) : $this->correction_language;
         $locales = [];
         $raw = strtolower(trim($locale));

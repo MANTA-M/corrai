@@ -114,7 +114,7 @@
             type="button"
             :class="textButtonClass(item)"
             :data-testid="assessmentTestId(item.key)"
-            :disabled="(item.key === 'test_correction' || item.key === 'start_correction') && isStartingCorrection"
+            :disabled="((item.key === 'test_correction' || item.key === 'start_correction') && isStartingCorrection) || (item.key === 'create_correction_grid' && isCreatingCorrectionGrid)"
             @click="onAssessmentAction(item.key)"
           >
             {{ item.label }}
@@ -410,6 +410,7 @@ const isUpdatingStudent = ref(false)
 const showAddCopies = ref(false)
 const showStartCorrection = ref(false)
 const isStartingCorrection = ref(false)
+const isCreatingCorrectionGrid = ref(false)
 const startCorrectionError = ref('')
 const studentActionError = ref('')
 const renameStudent = ref<AssessmentStudent | null>(null)
@@ -480,7 +481,7 @@ const deleteMenuItem = computed(() =>
   (assessment.value?.menu ?? []).find((item) => item.key === 'delete')
 )
 
-const pageMenuOrder = ['edit_subject', 'add_copies', 'start_correction', 'test_correction']
+const pageMenuOrder = ['edit_subject', 'add_copies', 'create_correction_grid', 'start_correction', 'test_correction']
 
 const pageMenu = computed(() => {
   const items = (assessment.value?.menu ?? []).filter((item) => item.key !== 'edit' && item.key !== 'delete')
@@ -518,10 +519,12 @@ const onAssessmentAction = (key: string) => {
   else if (key === 'add_copies') showAddCopies.value = true
   else if (key === 'start_correction') openStartCorrection()
   else if (key === 'test_correction') void launchTestCorrection()
+  else if (key === 'create_correction_grid') void createCorrectionGrid()
 }
 
 const onStudentAction = (student: AssessmentStudent, key: string) => {
   if (key === 'view') goStudent(student.id)
+  else if (key === 'transcribe') void transcribeStudent(student)
   else if (key === 'correct') void correctStudent(student)
   else if (key === 'rename') startRenameStudent(student)
   else if (key === 'delete') startDeleteStudent(student)
@@ -635,6 +638,26 @@ const closeStartCorrection = () => {
 }
 
 const checkoutReturnHandled = ref(false)
+
+const createCorrectionGrid = async () => {
+  if (!assessment.value?.id || isCreatingCorrectionGrid.value) return
+  isCreatingCorrectionGrid.value = true
+  error.value = ''
+  try {
+    await sessionStore.getWsClient().queryWs('POST', '/assessment_correction_grid', {
+      id: assessment.value.id,
+      locale: String(locale.value),
+    })
+    toast.success(t('assessment.correctionGridSuccess'), {
+      position: toast.POSITION.TOP_CENTER,
+    })
+  } catch (err) {
+    console.error('Error creating correction grid:', err)
+    error.value = t('assessment.correctionGridError')
+  } finally {
+    isCreatingCorrectionGrid.value = false
+  }
+}
 
 const launchTestCorrection = async () => {
   if (!assessment.value?.id || isStartingCorrection.value) return
@@ -818,6 +841,27 @@ const submitDeleteStudent = async () => {
     studentActionError.value = t('assessment.studentDeleteError')
   } finally {
     isUpdatingStudent.value = false
+  }
+}
+
+const transcribeStudent = async (student: AssessmentStudent) => {
+  if (!assessment.value?.id || !student.id) return
+  studentActionError.value = ''
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    } & StateLocales>('POST', '/student_transcribe', {
+      id: assessment.value.id,
+      student: student.id,
+      locale: String(locale.value),
+    })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+  } catch (err) {
+    console.error('Error transcribing student:', err)
   }
 }
 

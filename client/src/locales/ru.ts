@@ -187,6 +187,8 @@ const ru: I18nSchema = {
         startCorrectionLaunch: "Запустить",
         startCorrectionError: "Не удалось запустить проверку",
         startCorrectionSuccess: "Проверка запущена!",
+        correctionGridSuccess: "Создание сетки оценивания запущено",
+        correctionGridError: "Не удалось создать сетку оценивания",
         startCorrectionCancelled: "Платёж отменён",
         startCorrectionPaymentError: "Платёж не прошёл",
         testCorrection: "Тестовая проверка"

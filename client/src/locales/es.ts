@@ -187,6 +187,8 @@ const es: I18nSchema = {
         startCorrectionLaunch: "Iniciar",
         startCorrectionError: "Error al iniciar la corrección",
         startCorrectionSuccess: "¡Corrección iniciada!",
+        correctionGridSuccess: "Creación de la rúbrica iniciada",
+        correctionGridError: "No se pudo crear la rúbrica de corrección",
         startCorrectionCancelled: "Pago cancelado",
         startCorrectionPaymentError: "Pago fallido",
         testCorrection: "Probar la corrección"

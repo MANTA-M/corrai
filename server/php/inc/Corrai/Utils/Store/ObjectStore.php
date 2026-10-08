@@ -314,6 +314,14 @@ class ObjectStore
         return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . 'compile_subject';
     }
 
+    /**
+     * LLM correction grid built from the compiled subject.
+     */
+    public static function assessmentSubjectCorrectionGridKey(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . 'correction_grid.json';
+    }
+
     public static function assessmentUnclassifiedFilesPrefix(
         string $schoolId,
         string $teacherId,

@@ -274,6 +274,31 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
     }
 
     /**
+     * Statuses that mean the copy has already been transcribed.
+     *
+     * @var list<string>
+     */
+    private const TRANSCRIBED_STATUSES = ['transcribed', 'correction_ready', 'corrected'];
+
+    /**
+     * Ask transcription for this student's copies that are not yet transcribed.
+     *
+     * @return list<SubmissionFile>
+     */
+    public function transcribe(): array
+    {
+        $pending = [];
+        foreach ($this->getSubmissions() as $submission) {
+            if (in_array($submission->status, self::TRANSCRIBED_STATUSES, true)) {
+                continue;
+            }
+            $submission->on_correction_asked();
+            $pending[] = $submission;
+        }
+        return $pending;
+    }
+
+    /**
      * Correct this student. Can be overridden by subject student implementations.
      *
      * @return mixed
@@ -369,6 +394,7 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
         $locale = MenuLabels::locale($locale);
         return [
             MenuLabels::item('view', $locale, 'eye', MenuLabels::BLUE, 'student_open'),
+            MenuLabels::item('transcribe', $locale, 'text', MenuLabels::BLUE),
             MenuLabels::item('correct', $locale, 'check', MenuLabels::BLUE),
             MenuLabels::item('rename', $locale, 'pencil', MenuLabels::BLUE, 'student_rename'),
             MenuLabels::item('delete', $locale, 'trash', MenuLabels::DANGER, 'student_delete'),

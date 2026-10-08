@@ -187,6 +187,8 @@ const ro: I18nSchema = {
         startCorrectionLaunch: "Lansează",
         startCorrectionError: "Lansarea corectării a eșuat",
         startCorrectionSuccess: "Corectare lansată!",
+        correctionGridSuccess: "Crearea grilei a fost lansată",
+        correctionGridError: "Crearea grilei de corectare a eșuat",
         startCorrectionCancelled: "Plata a fost anulată",
         startCorrectionPaymentError: "Plata a eșuat",
         testCorrection: "Testează corectarea"

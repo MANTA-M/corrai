@@ -187,6 +187,8 @@ const en: I18nSchema = {
         startCorrectionLaunch: "Start",
         startCorrectionError: "Failed to start correction",
         startCorrectionSuccess: "Correction started!",
+        correctionGridSuccess: "Correction grid creation started",
+        correctionGridError: "Failed to create the correction grid",
         startCorrectionCancelled: "Payment cancelled",
         startCorrectionPaymentError: "Payment failed",
         testCorrection: "Test correction"
