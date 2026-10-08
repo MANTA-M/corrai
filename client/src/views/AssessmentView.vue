@@ -522,6 +522,7 @@ const onAssessmentAction = (key: string) => {
 
 const onStudentAction = (student: AssessmentStudent, key: string) => {
   if (key === 'view') goStudent(student.id)
+  else if (key === 'correct') void correctStudent(student)
   else if (key === 'rename') startRenameStudent(student)
   else if (key === 'delete') startDeleteStudent(student)
 }
@@ -817,6 +818,27 @@ const submitDeleteStudent = async () => {
     studentActionError.value = t('assessment.studentDeleteError')
   } finally {
     isUpdatingStudent.value = false
+  }
+}
+
+const correctStudent = async (student: AssessmentStudent) => {
+  if (!assessment.value?.id || !student.id) return
+  studentActionError.value = ''
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    } & StateLocales>('POST', '/student_correct', {
+      id: assessment.value.id,
+      student: student.id,
+      locale: String(locale.value),
+    })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+  } catch (err) {
+    console.error('Error correcting student:', err)
   }
 }
 

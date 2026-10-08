@@ -29,9 +29,22 @@
               {{ sessionStore.stateLabel(sessionStore.studentStates, student.status) }}
             </p>
           </div>
-          <button type="button" class="button" data-testid="student-back" @click="goBack">
-            {{ t('assessment.back') }}
-          </button>
+          <div class="header-actions">
+            <button
+              v-for="item in studentMenu"
+              :key="item.key"
+              type="button"
+              :class="textButtonClass(item)"
+              :data-testid="`student-action-${item.key}`"
+              :disabled="isUpdatingStudent && (item.key === 'rename' || item.key === 'delete')"
+              @click="onStudentAction(item.key)"
+            >
+              {{ item.label }}
+            </button>
+            <button type="button" class="button" data-testid="student-back" @click="goBack">
+              {{ t('assessment.back') }}
+            </button>
+          </div>
         </div>
 
         <section v-if="hasResult" class="section student-result" data-testid="student-result">
@@ -78,10 +91,108 @@
       </div>
     </div>
   </div>
+
+  <div
+    v-if="renameOpen"
+    class="popup-overlay"
+    data-testid="rename-student-popup"
+    @click.self="closeRenameStudent"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.studentRenameTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="rename-student-close"
+          :aria-label="t('common.cancel')"
+          @click="closeRenameStudent"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <form @submit.prevent="submitRenameStudent">
+          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentRenamePlaceholder') }}</label>
+          <input
+            id="rename-student-input"
+            ref="renameStudentInput"
+            v-model="renameStudentDraft"
+            type="text"
+            class="input"
+            data-testid="rename-student-input"
+            :disabled="isUpdatingStudent"
+          />
+        </form>
+        <p v-if="studentActionError" class="error-message">{{ studentActionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button type="button" class="button secondary" :disabled="isUpdatingStudent" @click="closeRenameStudent">
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button primary"
+          data-testid="rename-student-save"
+          :disabled="isUpdatingStudent || !renameStudentDraft.trim()"
+          @click="submitRenameStudent"
+        >
+          {{ isUpdatingStudent ? t('assessment.studentRenaming') : t('assessment.studentRenameSave') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="deleteOpen"
+    class="popup-overlay"
+    data-testid="delete-student-popup"
+    @click.self="closeDeleteStudent"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.studentDeleteTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          :aria-label="t('common.cancel')"
+          @click="closeDeleteStudent"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <p data-testid="delete-student-confirm">
+          {{ t('assessment.studentDeleteConfirm', { name: studentName }) }}
+        </p>
+        <p v-if="studentActionError" class="error-message">{{ studentActionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          data-testid="delete-student-cancel"
+          :disabled="isUpdatingStudent"
+          @click="closeDeleteStudent"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button danger"
+          data-testid="delete-student-confirm-button"
+          :disabled="isUpdatingStudent"
+          @click="submitDeleteStudent"
+        >
+          {{ isUpdatingStudent ? t('assessment.studentDeleting') : t('assessment.studentDelete') }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
@@ -90,7 +201,7 @@ import S3File from '@/components/S3File.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useAssessmentStream } from '@/composables/useAssessmentStream'
 import { applyStudentStream } from '@/utils/assessmentStream'
-import type { AssessmentFile, AssessmentStudent } from '@/types/types'
+import type { AssessmentFile, AssessmentStudent, MenuItem, StateLocales } from '@/types/types'
 import { isDebugFile, isDirectStudentFile } from '@/utils/assessmentFiles'
 
 const route = useRoute()
@@ -114,6 +225,50 @@ useAssessmentStream({
 })
 
 const student = computed(() => students.value.find((item) => item.id === studentId.value) ?? null)
+
+const studentMenu = computed(() =>
+  (student.value?.menu ?? []).filter((item) => item.key !== 'view')
+)
+
+const isUpdatingStudent = ref(false)
+const studentActionError = ref('')
+const renameOpen = ref(false)
+const renameStudentDraft = ref('')
+const renameStudentInput = ref<HTMLInputElement | null>(null)
+const deleteOpen = ref(false)
+
+const textButtonClass = (item: MenuItem) => {
+  if (item.key === 'delete' || item.color === '#c93b45') return 'button delete'
+  if (item.color === '#1a55e8') return 'button primary'
+  return 'button secondary'
+}
+
+const correctStudent = async () => {
+  if (!assessment.value?.id || !studentId.value) return
+  studentActionError.value = ''
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    } & StateLocales>('POST', '/student_correct', {
+      id: assessment.value.id,
+      student: studentId.value,
+      locale: String(locale.value),
+    })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+  } catch (err) {
+    console.error('Error correcting student:', err)
+  }
+}
+
+const onStudentAction = (key: string) => {
+  if (key === 'correct') void correctStudent()
+  else if (key === 'rename') startRenameStudent()
+  else if (key === 'delete') startDeleteStudent()
+}
 
 const studentName = computed(() => {
   if (student.value?.name) return student.value.name
@@ -152,6 +307,88 @@ const resultFileUrl = (file: AssessmentFile) =>
 
 const goBack = () => {
   router.push({ name: 'assessment', params: { id: assessmentId.value } })
+}
+
+const startRenameStudent = () => {
+  renameStudentDraft.value = studentName.value
+  studentActionError.value = ''
+  renameOpen.value = true
+  void nextTick(() => {
+    renameStudentInput.value?.focus()
+    renameStudentInput.value?.select()
+  })
+}
+
+const closeRenameStudent = () => {
+  if (isUpdatingStudent.value) return
+  renameOpen.value = false
+  studentActionError.value = ''
+}
+
+const startDeleteStudent = () => {
+  studentActionError.value = ''
+  deleteOpen.value = true
+}
+
+const closeDeleteStudent = () => {
+  if (isUpdatingStudent.value) return
+  deleteOpen.value = false
+  studentActionError.value = ''
+}
+
+const submitRenameStudent = async () => {
+  if (!assessment.value?.id || !student.value) return
+  const name = renameStudentDraft.value.trim()
+  if (!name) return
+  studentActionError.value = ''
+  isUpdatingStudent.value = true
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    } & StateLocales>('PUT', '/student', {
+      id: assessment.value.id,
+      student: student.value.id,
+      locale: String(locale.value),
+    }, { name })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+    renameOpen.value = false
+  } catch (err) {
+    console.error('Error renaming student:', err)
+    studentActionError.value = t('assessment.studentRenameError')
+  } finally {
+    isUpdatingStudent.value = false
+  }
+}
+
+const submitDeleteStudent = async () => {
+  if (!assessment.value?.id || !student.value) return
+  studentActionError.value = ''
+  isUpdatingStudent.value = true
+  try {
+    const response = await sessionStore.getWsClient().queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    } & StateLocales>('DELETE', '/student', {
+      id: assessment.value.id,
+      student: student.value.id,
+      locale: String(locale.value),
+    })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+    deleteOpen.value = false
+    goBack()
+  } catch (err) {
+    console.error('Error deleting student:', err)
+    studentActionError.value = t('assessment.studentDeleteError')
+  } finally {
+    isUpdatingStudent.value = false
+  }
 }
 
 const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: AssessmentStudent[] }) => {
@@ -218,6 +455,13 @@ const markdownToHtml = (source: string): string => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
   flex-wrap: wrap;
 }
 
@@ -296,5 +540,26 @@ const markdownToHtml = (source: string): string => {
 .loading,
 .error {
   padding: 1rem 0;
+}
+
+.file-action-popup {
+  width: min(440px, calc(100vw - 2rem));
+}
+
+.file-action-popup h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.file-action-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.error-message {
+  color: var(--danger);
+  margin-top: 1rem;
 }
 </style>

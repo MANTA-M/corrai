@@ -14,12 +14,12 @@ use Corrai\Subject\LawFrance\Assessment;
 use Corrai\Subject\LawFrance\AssTask1Affectation;
 use Corrai\Subject\LawFrance\Submission;
 use Corrai\Subject\LawFrance\SubmissionTask1Ocr;
-use Corrai\Subject\LawFrance\SubmissionTask2Rotate;
-use Corrai\Subject\LawFrance\SubmissionTask3Crop;
+use Corrai\Subject\LawFrance\SubmissionTask2RotateAndCrop;
 use Corrai\Subject\LawFrance\SubmissionTask3Identify;
 use Corrai\Subject\LawFrance\SubmissionTask3Thumbnail;
 use Corrai\Subject\LawFrance\SubmissionTask4Thumbnail;
 use Corrai\Task\TaskRotateAndCrop;
+use Corrai\Task\Thumbnail;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\Store\ObjectStore;
 use PHPUnit\Framework\TestCase;
@@ -91,10 +91,10 @@ class LawFranceSubmissionPipelineTest extends TestCase
         $ocrData = json_decode($store->getContents($file->ocrResultKey()), true);
         $this->assertSame('Article 1er', $ocrData['text']);
 
-        $this->assertContains(SubmissionTask2Rotate::class, $this->tasks());
+        $this->assertContains(SubmissionTask2RotateAndCrop::class, $this->tasks());
     }
 
-    public function testSubmissionTask2RotateRotatesImageAndEnqueuesTask3Crop(): void
+    public function testSubmissionTask2RotateAndCropRotatesCropsAndEnqueuesIdentify(): void
     {
         $file = $this->storedPng(400, 200);
 
@@ -108,60 +108,49 @@ class LawFranceSubmissionPipelineTest extends TestCase
         $store = ObjectStore::getInstance();
         $store->putContents($file->ocrResultKey(), $ocr->to_json(true), 'application/json');
 
-        $beforeCount = count($this->queued);
-        $task = new SubmissionTask2Rotate();
+        $task = new SubmissionTask2RotateAndCrop();
         $task->process_task((object) [
             'path' => $file->contentKey(),
-            'task' => SubmissionTask2Rotate::class,
-            'task_id' => SubmissionTask2Rotate::class,
+            'task' => SubmissionTask2RotateAndCrop::class,
+            'task_id' => SubmissionTask2RotateAndCrop::class,
             'file_id' => $file->id,
         ]);
 
         $storedOcr = OCRResult::from_json($store->getContents($file->ocrResultKey()));
         $this->assertSame(0, $storedOcr->rotation);
 
+        $image = @getimagesizefromstring($store->getContents($file->contentKey()));
+        $this->assertNotFalse($image);
+        $upright = OCRResult::from_json($ocr->to_json());
+        $upright->detectRotation();
+        $upright->rotate_upright();
+        $box = $upright->get_global_box(TaskRotateAndCrop::MARGIN);
+        $x0 = (int) round($box['left'] * 200);
+        $y0 = (int) round($box['top'] * 400);
+        $x1 = (int) round($box['right'] * 200);
+        $y1 = (int) round($box['bottom'] * 400);
+        $this->assertSame(max(1, $x1 - $x0), $image[0]);
+        $this->assertSame(max(1, $y1 - $y0), $image[1]);
+        $this->assertNotSame(400, $image[0]);
+        $this->assertNotSame(200, $image[1]);
+
         $reloaded = InputFile::from_hash((string) $file->id);
+        $this->assertSame('transcribed', $reloaded->status);
         $events = array_column($reloaded->listEvents(), 'name');
         $this->assertContains(TaskRotateAndCrop::rotationEvent(90), $events);
-
-        $tasks = $this->tasks();
-        $this->assertSame(SubmissionTask3Crop::class, end($tasks));
-    }
-
-    public function testSubmissionTask3CropCropsImageAndEnqueuesSubmissionTask3Identify(): void
-    {
-        $file = $this->storedPng(200, 400);
-        $file->status = 'transcribing';
-        $file->saveAttributes();
-
-        $ocr = OCRResult::from_google([
-            'text' => 'Article 1er',
-            'bounding_boxes' => [
-                ['text' => 'Article', 'left' => 0.10, 'top' => 0.10, 'width' => 0.20, 'height' => 0.08],
-                ['text' => '1er', 'left' => 0.32, 'top' => 0.10, 'width' => 0.23, 'height' => 0.08],
-            ],
-        ]);
-        $store = ObjectStore::getInstance();
-        $store->putContents($file->ocrResultKey(), $ocr->to_json(true), 'application/json');
-
-        $task = new SubmissionTask3Crop();
-        $task->process_task((object) [
-            'path' => $file->contentKey(),
-            'task' => SubmissionTask3Crop::class,
-            'task_id' => SubmissionTask3Crop::class,
-            'file_id' => $file->id,
-        ]);
-
-        $reloaded = InputFile::from_hash((string) $file->id);
-        $this->assertSame('transcribing', $reloaded->status);
-        $events = array_column($reloaded->listEvents(), 'name');
         $this->assertContains(TaskRotateAndCrop::CROP_EVENT, $events);
 
-        $assessment = Assessment::from_hash((string) $file->assessment_id);
-        $this->assertSame('draft', $assessment->status);
-
-        $tasks = $this->tasks();
-        $this->assertSame(SubmissionTask3Identify::class, end($tasks));
+        $tasks = [];
+        foreach ($this->queued as $payload) {
+            $decoded = json_decode($payload, true);
+            if (!is_array($decoded) || ($decoded['file_id'] ?? null) !== $file->id) {
+                continue;
+            }
+            if (isset($decoded['task']) && is_string($decoded['task'])) {
+                $tasks[] = $decoded['task'];
+            }
+        }
+        $this->assertSame([Thumbnail::class, Thumbnail::class, SubmissionTask3Identify::class], $tasks);
     }
 
     public function testSubmissionTask3IdentifySetsStatusTranscribedAndEnqueuesAssTask1Affectation(): void
@@ -207,15 +196,17 @@ class LawFranceSubmissionPipelineTest extends TestCase
         $this->assertTrue($stored->thumbnail);
 
         $events = array_column($stored->listEvents(), 'name');
-        $this->assertContains('Thumbnail created', $events);
+        $this->assertContains(Thumbnail::createdEvent('fr'), $events);
     }
 
     public function testAliasesExist(): void
     {
         $this->assertTrue(class_exists(\LawFrance\Submission::class));
         $this->assertTrue(class_exists(\LawFrance\SubmissionTask1Ocr::class));
+        $this->assertTrue(class_exists(SubmissionTask2RotateAndCrop::class));
+        $this->assertTrue(class_exists(\LawFrance\SubmissionTask2RotateAndCrop::class));
         $this->assertTrue(class_exists(\LawFrance\SubmissionTask2Rotate::class));
-        $this->assertTrue(class_exists(\LawFrance\SubmissionTask3Crop::class));
+        $this->assertInstanceOf(SubmissionTask2RotateAndCrop::class, new \LawFrance\SubmissionTask2Rotate());
         $this->assertTrue(class_exists(\LawFrance\SubmissionTask3Identify::class));
         $this->assertTrue(class_exists(SubmissionTask3Identify::class));
         $this->assertTrue(class_exists(\LawFrance\AssTask1Affectation::class));

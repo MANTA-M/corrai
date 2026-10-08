@@ -136,6 +136,7 @@ class ThumbnailTaskTest extends TestCase
         $assessment->name = 'Test Assessment ' . $suffix;
         $assessment->subject = 'Dictation';
         $assessment->date = '2026-06-15';
+        $assessment->correction_language = 'en';
         $assessment->id = HashId::create();
         $assessment->save();
 
@@ -168,6 +169,9 @@ class ThumbnailTaskTest extends TestCase
         $this->assertContains('attributes.json', $dirObjects);
         $this->assertContains('thumbnail', $dirObjects);
         $this->assertNotContains('content', $dirObjects);
+
+        $events = array_column($stored->listEvents(), 'name');
+        $this->assertContains(Thumbnail::createdEvent('en'), $events);
     }
 
     public function testListDirectoryObjectsOnlyIncludesImmediateFiles(): void

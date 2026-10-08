@@ -14,8 +14,9 @@ use Corrai\Queue\RedisQueue;
 use Corrai\Subject\LawFrance\Assessment as LawAssessment;
 use Corrai\Subject\LawFrance\AssTask1Affectation;
 use Corrai\Subject\LawFrance\Submission;
-use Corrai\Subject\LawFrance\SubmissionTask3Crop;
+use Corrai\Subject\LawFrance\SubmissionTask2RotateAndCrop;
 use Corrai\Subject\LawFrance\SubmissionTask3Identify;
+use Corrai\Task\Thumbnail;
 use Corrai\Utils\Store\HashId;
 use PHPUnit\Framework\TestCase;
 use Redis;
@@ -140,14 +141,16 @@ class LawFranceSubmissionTask3CropTest extends TestCase
         $assessment->id = 'ass-1';
         $assessment->method('listFileModels')->willReturn([$submission]);
 
-        $task = new SubmissionTask3Crop();
-        $task->cropSubmission($submission, $assessment);
+        $task = new SubmissionTask2RotateAndCrop();
+        $task->complete($submission);
 
-        $this->assertSame('transcribing', $submission->status);
+        $this->assertSame('transcribed', $submission->status);
         $tickets = $this->decodedTickets();
-        $this->assertCount(1, $tickets);
+        $this->assertCount(2, $tickets);
         $this->assertSame('sub-1', $tickets[0]['file_id'] ?? null);
-        $this->assertSame(SubmissionTask3Identify::class, $tickets[0]['task'] ?? null);
+        $this->assertSame(Thumbnail::class, $tickets[0]['task'] ?? null);
+        $this->assertSame('sub-1', $tickets[1]['file_id'] ?? null);
+        $this->assertSame(SubmissionTask3Identify::class, $tickets[1]['task'] ?? null);
     }
 
     public function testSubmissionTask3CropDoesNotSetAffectingStatus(): void
@@ -166,16 +169,18 @@ class LawFranceSubmissionTask3CropTest extends TestCase
         $assessment->method('listFileModels')->willReturn([$submission1, $submission2]);
         $assessment->expects($this->never())->method('save');
 
-        $task = new SubmissionTask3Crop();
-        $task->cropSubmission($submission1, $assessment);
+        $task = new SubmissionTask2RotateAndCrop();
+        $task->complete($submission1);
 
-        $this->assertSame('transcribing', $submission1->status);
+        $this->assertSame('transcribed', $submission1->status);
         $this->assertSame('draft', $assessment->status);
 
         $tickets = $this->decodedTickets();
-        $this->assertCount(1, $tickets);
+        $this->assertCount(2, $tickets);
         $this->assertSame('sub-1', $tickets[0]['file_id'] ?? null);
-        $this->assertSame(SubmissionTask3Identify::class, $tickets[0]['task'] ?? null);
+        $this->assertSame(Thumbnail::class, $tickets[0]['task'] ?? null);
+        $this->assertSame('sub-1', $tickets[1]['file_id'] ?? null);
+        $this->assertSame(SubmissionTask3Identify::class, $tickets[1]['task'] ?? null);
     }
 
     public function testProcessTaskEndToEndWithObjectStore(): void
@@ -209,16 +214,16 @@ class LawFranceSubmissionTask3CropTest extends TestCase
         $file->status = 'transcribing';
         $file->saveAttributes();
 
-        $task = new SubmissionTask3Crop();
+        $task = new SubmissionTask2RotateAndCrop();
         $task->process_task((object) [
             'path' => $file->contentKey(),
-            'task' => SubmissionTask3Crop::class,
-            'task_id' => SubmissionTask3Crop::class,
+            'task' => SubmissionTask2RotateAndCrop::class,
+            'task_id' => SubmissionTask2RotateAndCrop::class,
             'file_id' => $file->id,
         ]);
 
         $reloadedFile = $assessment->getFile((string) $file->id);
-        $this->assertSame('transcribing', $reloadedFile->status);
+        $this->assertSame('transcribed', $reloadedFile->status);
 
         $reloadedAssessment = LawAssessment::from_hash((string) $assessment->id);
         $this->assertSame('draft', $reloadedAssessment->status);

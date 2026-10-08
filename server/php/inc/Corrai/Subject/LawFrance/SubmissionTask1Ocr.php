@@ -68,9 +68,9 @@ class SubmissionTask1Ocr extends PathQueueItemTask
             $file->saveAttributes();
 
             try {
-                RedisQueue::getInstance()->enqueueFile($file->id, SubmissionTask2Rotate::class);
+                RedisQueue::getInstance()->enqueueFile($file->id, SubmissionTask2RotateAndCrop::class);
             } catch (Throwable $e) {
-                error_log(sprintf('[SubmissionTask1Ocr] Failed to enqueue SubmissionTask2Rotate for file %s: %s', (string) $file->id, $e->getMessage()));
+                error_log(sprintf('[SubmissionTask1Ocr] Failed to enqueue SubmissionTask2RotateAndCrop for file %s: %s', (string) $file->id, $e->getMessage()));
                 throw $e;
             }
         } finally {

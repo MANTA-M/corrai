@@ -13,8 +13,9 @@ try {
     }
 
     $fileId = Request::getStringParam("file");
-    if (!$fileId) {
-        Request::add_error_message("error", "No file parameter provided");
+    $studentId = Request::getStringParam("student");
+    if (!$fileId && !$studentId) {
+        Request::add_error_message("error", "No file or student parameter provided");
         Request::output_all();
         exit();
     }
@@ -32,12 +33,20 @@ try {
         throw new WSException("Not authorized", 403);
     }
 
-    $files = $assessment->correctSubmission($fileId);
-
-    Request::add_output("id", $assessmentId);
-    Request::add_output("file", $fileId);
-    Request::add_output("files", $files);
-    Request::add_output("students", $assessment->list_students());
+    if ($studentId) {
+        $student = $assessment->getStudent($studentId);
+        $student->correct();
+        Request::add_output("id", $assessmentId);
+        Request::add_output("student", $studentId);
+        Request::add_output("files", $assessment->list_files());
+        Request::add_output("students", $assessment->list_students());
+    } else {
+        $files = $assessment->correctSubmission($fileId);
+        Request::add_output("id", $assessmentId);
+        Request::add_output("file", $fileId);
+        Request::add_output("files", $files);
+        Request::add_output("students", $assessment->list_students());
+    }
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

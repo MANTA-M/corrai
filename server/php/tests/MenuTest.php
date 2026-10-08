@@ -42,11 +42,13 @@ class MenuTest extends TestCase
     {
         $student = new Student();
         $menu = $student->get_menu('fr');
-        $this->assertSame(['view', 'rename', 'delete'], array_column($menu, 'key'));
+        $this->assertSame(['view', 'correct', 'rename', 'delete'], array_column($menu, 'key'));
         $this->assertSame('Voir l\'élève', $menu[0]['label']);
         $this->assertSame('eye', $menu[0]['icon']);
-        $this->assertSame('Supprimer', $menu[2]['label']);
-        $this->assertSame('#c93b45', $menu[2]['color']);
+        $this->assertSame('Corriger', $menu[1]['label']);
+        $this->assertSame('check', $menu[1]['icon']);
+        $this->assertSame('Supprimer', $menu[3]['label']);
+        $this->assertSame('#c93b45', $menu[3]['color']);
     }
 
     public function testUnknownLocaleUsesFrenchLabels(): void

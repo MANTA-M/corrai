@@ -5,6 +5,7 @@ namespace Corrai\Task;
 use Corrai\Model\S3File;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Utils\Image\HeicToWebp;
+use Corrai\Utils\MenuLabels;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 use Exception;
@@ -26,6 +27,22 @@ class Thumbnail extends PathQueueItemTask
     public const MAX_WIDTH = 250;
     public const JPEG_QUALITY = 82;
 
+    /**
+     * Event written once the JPEG annex exists, in the assessment correction language.
+     *
+     * @var array<string, string>
+     */
+    public const CREATED_EVENT = [
+        'en' => 'Thumbnail created',
+        'fr' => 'Vignette créée',
+        'ru' => 'Миниатюра создана',
+        'uk' => 'Мініатюру створено',
+        'es' => 'Miniatura creada',
+        'pt' => 'Miniatura criada',
+        'ro' => 'Miniatură creată',
+        'de' => 'Vorschaubild erstellt',
+    ];
+
     protected function process(object $queue_item_data, string $s3_path): void
     {
         $store = ObjectStore::getInstance();
@@ -46,7 +63,15 @@ class Thumbnail extends PathQueueItemTask
         S3File::at($file->thumbnailKey())->putContents($jpeg, 'image/jpeg');
         $file->thumbnail = true;
         $file->saveAttributes();
-        $file->appendEvent('Thumbnail created');
+        $file->appendEvent(self::createdEvent($this->loadAssessment($file)->correction_language));
+    }
+
+    /**
+     * Localized "Thumbnail created" for a correction locale. Unknown locales fall back to French.
+     */
+    public static function createdEvent(?string $locale): string
+    {
+        return MenuLabels::pick(self::CREATED_EVENT, MenuLabels::locale($locale), self::CREATED_EVENT['fr']);
     }
 
     /**

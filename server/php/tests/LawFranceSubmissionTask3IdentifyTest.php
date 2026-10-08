@@ -248,10 +248,8 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
 
         $prompt = $client->promptText();
         $this->assertStringContainsString($instruction, $prompt);
-        $this->assertStringContainsString('mot-00', $prompt);
-        $this->assertStringContainsString('mot-29', $prompt);
-        $this->assertStringNotContainsString('mot-30', $prompt);
-        $this->assertStringContainsString('"left"', $prompt);
+        $this->assertStringNotContainsString('mot-00', $prompt);
+        $this->assertSame(['copie.png'], $client->fileNames());
         $schema = $client->responseFormat();
         $this->assertSame('student_identifier', $schema['json_schema']['name'] ?? null);
 
@@ -259,6 +257,32 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
         $this->assertInstanceOf(Submission::class, $reloaded);
         $this->assertSame('17', $reloaded->student_identifier);
         $this->assertSame('transcribed', $reloaded->status);
+
+        $students = $assessment->listStudentModels();
+        $this->assertCount(1, $students);
+        $this->assertSame('17', $students[0]->name);
+        $this->assertSame($students[0]->id, $reloaded->student);
+
+        $store = ObjectStore::getInstance();
+        $studentPrefix = ObjectStore::assessmentFilePrefix(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id,
+            (string) $file->id,
+            'submission',
+            $students[0]->id
+        );
+        $unclassifiedPrefix = ObjectStore::assessmentFilePrefix(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id,
+            (string) $file->id,
+            'submission',
+            null
+        );
+        $this->assertTrue($store->exists($studentPrefix . ObjectStore::CONTENT_FILE));
+        $this->assertTrue($store->exists($studentPrefix . ObjectStore::ATTR_FILE));
+        $this->assertFalse($store->exists($unclassifiedPrefix . ObjectStore::CONTENT_FILE));
     }
 
     private function createSubmission(string $id, string $status, ?string $student): Submission
@@ -310,10 +334,26 @@ class IdentifyCapturingGemini extends GeminiFlashLiteClient
 
     private string $promptText = '';
 
+    /** @var list<string> */
+    private array $fileNames = [];
+
     public function add_text(string $text): void
     {
         $this->promptText .= $text . "\n";
         parent::add_text($text);
+    }
+
+    public function add_file(string $file_path, string $file_name): void
+    {
+        $this->fileNames[] = $file_name;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function fileNames(): array
+    {
+        return $this->fileNames;
     }
 
     public function promptText(): string

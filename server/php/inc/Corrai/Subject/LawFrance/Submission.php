@@ -29,11 +29,8 @@ class Submission extends SubmissionFile
     /**
      * Queue a 250px-wide thumbnail for an image stored as a copy or a subject.
      */
-    public static function queueThumbnail(InputFile $file): void
+    public static function queueThumbnail(SubmissionFile $file): void
     {
-        if (!$file instanceof SubmissionFile && !$file instanceof SubjectFile) {
-            return;
-        }
         if ($file->thumbnail || $file->id === null || $file->id === '') {
             return;
         }

@@ -3,6 +3,7 @@
 namespace Corrai\Model;
 
 use Exception;
+use Corrai\Model\SubmissionFile;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
 use Corrai\Utils\Store\ObjectStore;
@@ -119,7 +120,21 @@ abstract class BaseStudent
         }
 
         $loaded = $store->getJson($attrKey);
-        $student = static::from_array($loaded['data']);
+        $targetClass = static::class;
+        if ($targetClass === self::class) {
+            $assessmentId = $parsed['assessment_id'] ?? '';
+            if ($assessmentId !== '') {
+                try {
+                    $assessment = BaseAssessment::from_hash($assessmentId);
+                    $targetClass = $assessment->studentClass();
+                } catch (\Throwable $e) {
+                    $targetClass = Student::class;
+                }
+            } else {
+                $targetClass = Student::class;
+            }
+        }
+        $student = $targetClass::from_array($loaded['data']);
         $student->id = $parsed['student_id'];
         $student->school_id = $parsed['school_id'];
         $student->user_id = $parsed['teacher_id'];
@@ -222,6 +237,47 @@ abstract class BaseStudent
         $assessment->on_mark_change($this);
     }
 
+    public function getAssessment(): BaseAssessment
+    {
+        if ($this->assessment_id === '') {
+            throw new WSException('Student is not associated with an assessment', 400);
+        }
+        return BaseAssessment::from_hash($this->assessment_id);
+    }
+
+    /**
+     * @return list<SubmissionFile>
+     */
+    public function getSubmissions(): array
+    {
+        if ($this->assessment_id === '' || $this->id === null || $this->id === '') {
+            return [];
+        }
+        $assessment = $this->getAssessment();
+        $files = [];
+        foreach ($assessment->listFileModels() as $file) {
+            if ($file instanceof SubmissionFile && $file->student === $this->id) {
+                $files[] = $file;
+            }
+        }
+        return $files;
+    }
+
+    /**
+     * Correct this student. Can be overridden by subject student implementations.
+     *
+     * @return mixed
+     */
+    public function correct(): mixed
+    {
+        $assessment = $this->getAssessment();
+        $submissions = $this->getSubmissions();
+        foreach ($submissions as $submission) {
+            $assessment->correctSubmission($submission->id);
+        }
+        return $submissions;
+    }
+
     public function delete(): void
     {
         if ($this->id === null || $this->id === '') {
@@ -277,6 +333,7 @@ abstract class BaseStudent
     {
         return [
             MenuLabels::item('view', $locale, 'eye', MenuLabels::BLUE, 'student_open'),
+            MenuLabels::item('correct', $locale, 'check', MenuLabels::BLUE),
             MenuLabels::item('rename', $locale, 'pencil', MenuLabels::BLUE, 'student_rename'),
             MenuLabels::item('delete', $locale, 'trash', MenuLabels::DANGER, 'student_delete'),
         ];

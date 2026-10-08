@@ -4,6 +4,7 @@ namespace Corrai\Subject\LawFrance;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\SubjectFile;
+use Corrai\Model\SubmissionFile;
 use Corrai\Utils\Http\WSException;
 
 class Assessment extends BaseAssessment
@@ -32,6 +33,11 @@ class Assessment extends BaseAssessment
         return Submission::class;
     }
 
+    public function studentClass(): string
+    {
+        return Student::class;
+    }
+
     public function startCorrection(): array
     {
         if ($this->unclassifiedFileIds() !== []) {
@@ -46,5 +52,80 @@ class Assessment extends BaseAssessment
             $this->correctSubmission($fileId);
         }
         return $this->list_files();
+    }
+
+    /**
+     * Attach each unclassified transcribed copy to the student of the assigned
+     * copy whose name comes immediately before it.
+     */
+    public function allocateSubmission(): void
+    {
+        $unclassified = [];
+        /** @var array<string, string> $nameToStudentId */
+        $nameToStudentId = [];
+        foreach ($this->listFileModels() as $model) {
+            if (!$model instanceof SubmissionFile) {
+                continue;
+            }
+            $studentId = is_string($model->student) ? trim($model->student) : '';
+            if ($studentId === '') {
+                $unclassified[] = $model;
+                continue;
+            }
+            if ($model->name !== '' && !isset($nameToStudentId[$model->name])) {
+                $nameToStudentId[$model->name] = $studentId;
+            }
+        }
+
+        foreach ($unclassified as $submission) {
+            if ($submission->status !== 'transcribed') {
+                return;
+            }
+        }
+
+        $students = $this->listStudentModels();
+        if ($students === []) {
+            $message = 'Cannot allocate submissions: the assessment has no students';
+            if ($this->id !== null && $this->id !== '' && $this->school_id !== '' && $this->user_id !== '') {
+                $this->appendEvent($message);
+            }
+            throw new WSException($message, 400);
+        }
+
+        ksort($nameToStudentId, SORT_STRING);
+        $studentNames = [];
+        foreach ($students as $student) {
+            if ($student->id !== null && $student->id !== '') {
+                $studentNames[$student->id] = $student->name;
+            }
+        }
+
+        foreach ($unclassified as $submission) {
+            $studentId = self::studentIdBeforeName($nameToStudentId, $submission->name);
+            if ($studentId === null) {
+                continue;
+            }
+            $submission->student = $studentId;
+            $submission->saveAttributes();
+            $label = $studentNames[$studentId] ?? $studentId;
+            $submission->appendEvent('Allocated to student ' . $label);
+        }
+    }
+
+    /**
+     * Student of the assigned copy whose name is the greatest one strictly before $name.
+     *
+     * @param array<string, string> $nameToStudentId names sorted ascending
+     */
+    private static function studentIdBeforeName(array $nameToStudentId, string $name): ?string
+    {
+        $previous = null;
+        foreach ($nameToStudentId as $assignedName => $studentId) {
+            if (strcmp($assignedName, $name) >= 0) {
+                break;
+            }
+            $previous = $studentId;
+        }
+        return $previous;
     }
 }

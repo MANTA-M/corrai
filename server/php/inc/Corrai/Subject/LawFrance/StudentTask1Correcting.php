@@ -64,3 +64,13 @@ class Task2Correcting extends PathQueueItemTask
         return $request->call_text();
     }
 }
+
+if (!class_exists('Corrai\Subject\LawFrance\StudentTask1Correcting', false)) {
+    class_alias(Task2Correcting::class, 'Corrai\Subject\LawFrance\StudentTask1Correcting');
+}
+if (!class_exists('LawFrance\StudentTask1Correcting', false)) {
+    class_alias(Task2Correcting::class, 'LawFrance\StudentTask1Correcting');
+}
+if (!class_exists('LawFrance\Task2Correcting', false)) {
+    class_alias(Task2Correcting::class, 'LawFrance\Task2Correcting');
+}

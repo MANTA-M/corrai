@@ -192,6 +192,28 @@ abstract class BaseAssessment
         return SubmissionFile::class;
     }
 
+    public function studentClass(): string
+    {
+        $assessmentClass = AssessmentFactory::assessmentClass(
+            $this->subject,
+            $this->country ?? '',
+            $this->level ?? ''
+        );
+        if ($assessmentClass !== static::class) {
+            if (method_exists($assessmentClass, 'studentClass')) {
+                $method = new \ReflectionMethod($assessmentClass, 'studentClass');
+                if ($method->getDeclaringClass()->getName() !== self::class) {
+                    /** @var BaseAssessment $subjectAssessment */
+                    $subjectAssessment = new $assessmentClass();
+
+                    return $subjectAssessment->studentClass();
+                }
+            }
+        }
+
+        return Student::class;
+    }
+
     /**
      * Concrete assessment class stored in S3 for this subject, country, and level.
      *
@@ -777,7 +799,7 @@ abstract class BaseAssessment
     }
 
     /**
-     * @return Student[]
+     * @return BaseStudent[]
      */
     public function listStudentModels(): array
     {
@@ -787,6 +809,7 @@ abstract class BaseAssessment
 
         $store = ObjectStore::getInstance();
         $students = [];
+        $studentClass = $this->studentClass();
         $prefix = ObjectStore::assessmentStudentsPrefix($this->school_id, $this->user_id, $this->id);
         foreach ($store->listChildPrefixes($prefix) as $studentId) {
             $attrKey = ObjectStore::assessmentStudentAttrKey($this->school_id, $this->user_id, $this->id, $studentId);
@@ -794,7 +817,7 @@ abstract class BaseAssessment
                 continue;
             }
             try {
-                $students[] = Student::from_hash($studentId);
+                $students[] = $studentClass::from_hash($studentId);
             } catch (\Exception $e) {
                 continue;
             }
@@ -982,9 +1005,10 @@ abstract class BaseAssessment
         return $file;
     }
 
-    public function getStudent(string $studentId): Student
+    public function getStudent(string $studentId): BaseStudent
     {
-        $student = Student::from_hash($studentId);
+        $studentClass = $this->studentClass();
+        $student = $studentClass::from_hash($studentId);
         if (
             $student->school_id !== $this->school_id
             || $student->user_id !== $this->user_id
@@ -998,7 +1022,7 @@ abstract class BaseAssessment
     /**
      * Create or return an existing student with this display name on the assessment.
      */
-    public function findOrCreateStudentByName(string $name): Student
+    public function findOrCreateStudentByName(string $name): BaseStudent
     {
         $name = trim($name);
         if ($name === '') {
@@ -1026,9 +1050,10 @@ abstract class BaseAssessment
         return 'Inconnu ' . ($max + 1);
     }
 
-    public function createStudent(string $name, string $status = '', ?float $mark = null): Student
+    public function createStudent(string $name, string $status = '', ?float $mark = null): BaseStudent
     {
-        $student = new Student();
+        $studentClass = $this->studentClass();
+        $student = new $studentClass();
         $student->id = HashId::create();
         $student->school_id = $this->school_id;
         $student->user_id = $this->user_id;

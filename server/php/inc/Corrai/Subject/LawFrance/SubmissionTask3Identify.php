@@ -4,7 +4,6 @@ namespace Corrai\Subject\LawFrance;
 
 use Corrai\Clients\Openrouter\GeminiFlashLiteClient;
 use Corrai\Model\BaseAssessment;
-use Corrai\Model\OCRResult;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
@@ -14,8 +13,6 @@ use Throwable;
 class SubmissionTask3Identify extends PathQueueItemTask
 {
     public const IDENTIFY_EVENT = 'Submission identified';
-
-    private const OCR_WORD_LIMIT = 30;
 
     public function __construct(private ?GeminiFlashLiteClient $gemini = null)
     {
@@ -45,6 +42,11 @@ class SubmissionTask3Identify extends PathQueueItemTask
                 $this->writeStudentIdentifier($file, $assessment);
             } catch (Throwable $e) {
                 error_log(sprintf('[SubmissionTask3Identify] Failed to identify file %s: %s', (string) $file->id, $e->getMessage()));
+            }
+            try {
+                $this->assignIdentifiedStudent($file, $assessment);
+            } catch (Throwable $e) {
+                error_log(sprintf('[SubmissionTask3Identify] Failed to assign file %s: %s', (string) $file->id, $e->getMessage()));
             }
         }
 
@@ -80,48 +82,58 @@ class SubmissionTask3Identify extends PathQueueItemTask
                 RedisQueue::getInstance()->enqueueAssessment((string) $assessment->id, AssTask1Affectation::class);
             }
         }
+
+        if (!$assessment instanceof Assessment) {
+            return;
+        }
+        try {
+            $assessment->allocateSubmission();
+        } catch (Throwable $e) {
+            error_log(sprintf('[SubmissionTask3Identify] Failed to allocate submissions for assessment %s: %s', (string) $assessment->id, $e->getMessage()));
+        }
     }
 
     private function writeStudentIdentifier(SubmissionFile $file, BaseAssessment $assessment): void
     {
         $instruction = $assessment->instructionFilesText();
         $store = ObjectStore::getInstance();
-        $ocrKey = $file->ocrResultKey();
-        if (!$store->exists($ocrKey)) {
-            error_log(sprintf('[SubmissionTask3Identify] OCR result is missing at %s for file %s', $ocrKey, (string) $file->id));
+        $copyPath = null;
+        try {
+            $copyPath = $store->downloadToTemp($file->contentKey());
+        } catch (Throwable $e) {
+            error_log(sprintf('[SubmissionTask3Identify] Failed to read image for file %s: %s', (string) $file->id, $e->getMessage()));
             return;
         }
 
-        $ocr = OCRResult::from_json($store->getContents($ocrKey));
-        $words = $this->firstWords($ocr);
-        $wordsJson = json_encode($words, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (!is_string($wordsJson)) {
-            throw new \Exception('Cannot encode the OCR words');
-        }
-
-        $client = $this->geminiClient();
-        $client->set_system_content(
-            'You identify a student on an exam paper. '
-            . 'Respond only with a JSON object {"id": string or null}.'
-        );
-        $client->set_json_response('student_identifier', [
-            'type' => 'object',
-            'properties' => [
-                'id' => [
-                    'anyOf' => [
-                        ['type' => 'string'],
-                        ['type' => 'null'],
+        try {
+            $client = $this->geminiClient();
+            $client->set_system_content(
+                'You identify a student on an exam paper. '
+                . 'Respond only with a JSON object {"id": string or null}.'
+            );
+            $client->set_json_response('student_identifier', [
+                'type' => 'object',
+                'properties' => [
+                    'id' => [
+                        'anyOf' => [
+                            ['type' => 'string'],
+                            ['type' => 'null'],
+                        ],
                     ],
                 ],
-            ],
-            'required' => ['id'],
-            'additionalProperties' => false,
-        ]);
-        $client->add_text("Assessment instructions:\n" . $instruction);
-        $client->add_text("OCR words from the exam paper, limited to the first 30, with their box:\n" . $wordsJson);
-        $client->add_text("Find the student identification if it exists. If it does not exist, id is null.");
+                'required' => ['id'],
+                'additionalProperties' => false,
+            ]);
+            $client->add_text("Assessment instructions:\n" . $instruction);
+            $client->add_file($copyPath, $file->name);
+            $client->add_text('The attached image is the exam paper. Find the student identification if it exists. If it does not exist, id is null.');
 
-        $result = $client->call();
+            $result = $client->call();
+        } finally {
+            if ($copyPath !== null && is_file($copyPath)) {
+                @unlink($copyPath);
+            }
+        }
         $response = $result['response'] ?? null;
         if (!is_array($response) || !array_key_exists('id', $response)) {
             $detail = is_string($response) ? $response : 'empty identification';
@@ -135,23 +147,21 @@ class SubmissionTask3Identify extends PathQueueItemTask
     }
 
     /**
-     * @return list<array{text: string, box: array{left: float, top: float, right: float, bottom: float}}>
+     * A name already stored on the copy, or the identifier just read, becomes the student.
+     * Saving the file afterwards copies its whole directory under that student.
      */
-    private function firstWords(OCRResult $ocr): array
+    private function assignIdentifiedStudent(SubmissionFile $file, BaseAssessment $assessment): void
     {
-        $words = [];
-        foreach (array_slice($ocr->words, 0, self::OCR_WORD_LIMIT) as $word) {
-            $words[] = [
-                'text' => $word->text,
-                'box' => [
-                    'left' => $word->left,
-                    'top' => $word->top,
-                    'right' => $word->right,
-                    'bottom' => $word->bottom,
-                ],
-            ];
+        $assigned = is_string($file->student) && trim($file->student) !== '';
+        if ($assigned) {
+            return;
         }
-        return $words;
+        $name = is_string($file->student_identifier) ? trim($file->student_identifier) : '';
+        if ($name === '') {
+            return;
+        }
+        $student = $assessment->findOrCreateStudentByName($name);
+        $file->student = $student->id;
     }
 
     protected function geminiClient(): GeminiFlashLiteClient
