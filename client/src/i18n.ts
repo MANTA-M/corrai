@@ -33,6 +33,7 @@ export interface I18nSchema {
     common: {
         back: string
         cancel: string
+        delete: string
     }
     title: string
     nav: {
@@ -116,7 +117,6 @@ export interface I18nSchema {
         files: string
         filesEmpty: string
         addFiles: string
-        addFilesTitle: string
         dropzoneHint: string
         fileUploadType: string
         uploading: string
@@ -132,15 +132,11 @@ export interface I18nSchema {
         fileTypeCorrection: string
         fileTypeDebug: string
         fileTypeUnknown: string
-        fileStatus: string
         fileStored: string
         fileChangeType: string
         fileSetStudent: string
-        fileStudentPlaceholder: string
-        fileStudentSave: string
-        fileStudentUnknown: string
+        studentNamePlaceholder: string
         fileZoneEmpty: string
-        fileStudentsEmpty: string
         fileStudentBack: string
         fileUpdateError: string
         fileView: string
@@ -164,16 +160,13 @@ export interface I18nSchema {
         solutionTitlePrefix: string
         solutionSaveError: string
         solutionLoadError: string
-        fileRename: string
-        fileDelete: string
+        rename: string
+        renaming: string
         fileDeleteTitle: string
         fileDeleteConfirm: string
-        fileDeleting: string
         fileDeleteError: string
         fileRenameTitle: string
         fileRenamePlaceholder: string
-        fileRenameSave: string
-        fileRenaming: string
         fileRenameError: string
         fileHistory: string
         fileHistoryEmpty: string
@@ -190,29 +183,22 @@ export interface I18nSchema {
         unassignedFiles: string
         unassignedEmpty: string
         studentOpen: string
-        studentRename: string
-        studentDelete: string
         studentDeleteTitle: string
         studentDeleteConfirm: string
-        studentDeleting: string
         studentDeleteError: string
         studentRenameTitle: string
-        studentRenamePlaceholder: string
-        studentRenameSave: string
-        studentRenaming: string
         studentRenameError: string
         studentNotFound: string
+        status: string
         studentMark: string
         studentAppreciation: string
         subjectPageTitle: string
         subjectFiles: string
         subjectFilesEmpty: string
         addSubjectFile: string
-        addSubjectFileTitle: string
         solutionFiles: string
         solutionFilesEmpty: string
         addSolutionFile: string
-        addSolutionFileTitle: string
         studentFilesEmpty: string
         copies: string
         copiesEmpty: string
@@ -247,7 +233,6 @@ export interface I18nSchema {
         billing_empty: string
         preferences: string
         delete_account: string
-        delete_account_title: string
         delete_account_confirm: string
         delete_account_error: string
         identity_error: string

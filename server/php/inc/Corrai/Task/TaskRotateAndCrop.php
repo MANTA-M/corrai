@@ -84,7 +84,9 @@ class TaskRotateAndCrop extends PathQueueItemTask
         }
 
         try {
-            $result->detectRotation();
+            if ($result->rotation === 0) {
+                $result->detectRotation();
+            }
             $angle = $result->rotation;
             if ($angle !== 0) {
                 try {

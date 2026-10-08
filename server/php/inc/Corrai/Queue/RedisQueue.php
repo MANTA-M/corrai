@@ -2,6 +2,7 @@
 
 namespace Corrai\Queue;
 
+use InvalidArgumentException;
 use Redis;
 use RedisException;
 
@@ -78,6 +79,22 @@ class RedisQueue
     }
 
     /**
+     * Enqueue a ticket for a student with a given task.
+     */
+    public function enqueueStudent(string $studentId, string $task): void
+    {
+        if ($task === null || $task === '') {
+            throw new InvalidArgumentException('Task is required');
+        }
+        $payload = json_encode(['student_id' => $studentId, 'task' => $task], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($payload === false) {
+            throw new RedisException('Failed to encode student queue ticket');
+        }
+        $this->client->lPush(self::LIST_KEY, $payload);
+        error_log('Enqueued student ticket ' . $studentId . ' on ' . self::LIST_KEY);
+    }
+
+    /**
      * Enqueue a content path for the Python OCR consumer.
      *
      * ``$operation`` is stored but ignored. When OCR finishes, the Python
@@ -130,6 +147,9 @@ class RedisQueue
         if (isset($decoded['assessment_id']) && is_string($decoded['assessment_id']) && $decoded['assessment_id'] !== '') {
             $ticket['assessment_id'] = $decoded['assessment_id'];
         }
+        if (isset($decoded['student_id']) && is_string($decoded['student_id']) && $decoded['student_id'] !== '') {
+            $ticket['student_id'] = $decoded['student_id'];
+        }
         if (isset($decoded['path']) && is_string($decoded['path']) && $decoded['path'] !== '') {
             $ticket['path'] = $decoded['path'];
         }
@@ -139,8 +159,9 @@ class RedisQueue
 
         $hasFile = isset($ticket['file_id']);
         $hasAssessment = isset($ticket['assessment_id']);
+        $hasStudent = isset($ticket['student_id']);
         $hasPathTask = isset($ticket['path'], $ticket['task']);
-        if (!$hasFile && !$hasAssessment && !$hasPathTask) {
+        if (!$hasFile && !$hasAssessment && !$hasStudent && !$hasPathTask) {
             error_log('Invalid Redis file queue ticket: ' . $raw);
             return null;
         }

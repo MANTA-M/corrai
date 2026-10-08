@@ -14,19 +14,25 @@
       <div v-else-if="assessment && studentName" class="student-page" data-testid="student-page">
         <div class="header">
           <div>
-            <h1 data-testid="student-name">
-              {{ studentName }}
-              <span
-                v-if="student?.loading"
-                class="student-loading"
-                data-testid="student-loading"
-                aria-label="Loading"
-              >
-                <span class="loading-spinner"></span>
+            <h1 data-testid="student-name">{{ studentName }}</h1>
+            <p class="student-state" data-testid="student-state">
+              <span class="result-label">{{ t('assessment.status') }}</span>
+              <span class="student-state-value">
+                <span
+                  v-if="isActive"
+                  class="student-activity"
+                  data-testid="student-loading"
+                  role="status"
+                  aria-label="Loading"
+                >
+                  <span class="activity-bar"></span>
+                  <span class="activity-bar"></span>
+                  <span class="activity-bar"></span>
+                </span>
+                <span v-if="statusLabel" class="student-status" data-testid="student-status">
+                  {{ statusLabel }}
+                </span>
               </span>
-            </h1>
-            <p v-if="student?.status" class="student-status" data-testid="student-status">
-              {{ sessionStore.stateLabel(sessionStore.studentStates, student.status) }}
             </p>
           </div>
           <div class="header-actions">
@@ -113,7 +119,7 @@
       </div>
       <div class="popup-body">
         <form @submit.prevent="submitRenameStudent">
-          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentRenamePlaceholder') }}</label>
+          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentNamePlaceholder') }}</label>
           <input
             id="rename-student-input"
             ref="renameStudentInput"
@@ -137,7 +143,7 @@
           :disabled="isUpdatingStudent || !renameStudentDraft.trim()"
           @click="submitRenameStudent"
         >
-          {{ isUpdatingStudent ? t('assessment.studentRenaming') : t('assessment.studentRenameSave') }}
+          {{ isUpdatingStudent ? t('assessment.renaming') : t('assessment.rename') }}
         </button>
       </div>
     </div>
@@ -184,7 +190,7 @@
           :disabled="isUpdatingStudent"
           @click="submitDeleteStudent"
         >
-          {{ isUpdatingStudent ? t('assessment.studentDeleting') : t('assessment.studentDelete') }}
+          {{ isUpdatingStudent ? t('assessment.deleting') : t('common.delete') }}
         </button>
       </div>
     </div>
@@ -225,6 +231,16 @@ useAssessmentStream({
 })
 
 const student = computed(() => students.value.find((item) => item.id === studentId.value) ?? null)
+
+const statusLabel = computed(() =>
+  sessionStore.stateLabel(sessionStore.studentStates, student.value?.status, student.value?.status_label),
+)
+
+const isActive = computed(
+  () =>
+    Boolean(student.value?.loading) ||
+    files.value.some((file) => (file.student ?? '') === studentId.value && file.loading),
+)
 
 const studentMenu = computed(() =>
   (student.value?.menu ?? []).filter((item) => item.key !== 'view')
@@ -469,10 +485,58 @@ const markdownToHtml = (source: string): string => {
   margin: 0;
 }
 
+.student-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.45rem 0 0;
+}
+
+.student-state-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.25rem;
+}
+
+.student-activity {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 14px;
+}
+
+.activity-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--blue);
+  transform-origin: bottom;
+  animation: student-activity 0.9s ease-in-out infinite;
+}
+
+.activity-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.activity-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes student-activity {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 .student-status {
-  margin: 0.35rem 0 0;
   color: var(--info);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .section {

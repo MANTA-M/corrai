@@ -1,7 +1,6 @@
 <?php
 
 use Corrai\Model\Assessment;
-use Corrai\Model\StateLocales;
 use Corrai\Utils\Http\Request;
 use Corrai\Utils\Http\WSException;
 use Corrai\Utils\Store\ObjectStore;
@@ -52,7 +51,6 @@ try {
     Request::add_output("student", $student->to_output($locale));
     Request::add_output("students", $assessment->list_students($locale));
     Request::add_output("files", $assessment->list_files($locale));
-    StateLocales::addToOutput($assessment, $locale);
     Request::add_output("assessed_students_number", $assessment->assessed_students_number);
     Request::add_output("mark_average", $assessment->mark_average);
     Request::add_output("mark_min", $assessment->mark_min);

@@ -118,7 +118,12 @@ class OCRResult implements JsonSerializable
             );
         }
 
-        return new self($words, $text);
+        $result = new self($words, $text);
+        if (array_key_exists('rotation', $output)) {
+            $result->rotation = self::quarterTurn($output['rotation']);
+        }
+
+        return $result;
     }
 
     /**
@@ -202,7 +207,12 @@ class OCRResult implements JsonSerializable
             throw new InvalidArgumentException('OCR text must be a string');
         }
 
-        return new self($words, $text);
+        $result = new self($words, $text);
+        if (array_key_exists('rotation', $data)) {
+            $result->rotation = self::quarterTurn($data['rotation']);
+        }
+
+        return $result;
     }
 
     public static function from_json(string $json): self
@@ -238,13 +248,18 @@ class OCRResult implements JsonSerializable
      */
     public function to_array(): array
     {
-        return [
+        $data = [
             'text' => $this->text,
             'words' => array_map(
                 static fn (OCRWord $word): array => $word->to_array(),
                 $this->words,
             ),
         ];
+        if ($this->rotation !== 0) {
+            $data['rotation'] = $this->rotation;
+        }
+
+        return $data;
     }
 
     /**
@@ -511,6 +526,14 @@ class OCRResult implements JsonSerializable
             270 => [1.0 - $y, $x],
             default => throw new InvalidArgumentException('OCR rotation must be 0, 90, 180, or 270'),
         };
+    }
+
+    private static function quarterTurn(mixed $value): int
+    {
+        if (is_int($value) && in_array($value, [0, 90, 180, 270], true)) {
+            return $value;
+        }
+        throw new InvalidArgumentException('OCR rotation must be 0, 90, 180, or 270');
     }
 
     /**

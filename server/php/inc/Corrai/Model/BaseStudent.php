@@ -13,7 +13,7 @@ use Corrai\Utils\Http\WSException;
 /**
  * Shared student model. Subject packages may provide a concrete Student.
  */
-abstract class BaseStudent
+abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasMenuInterface
 {
     public ?string $id = null;
     public string $school_id = '';
@@ -42,6 +42,16 @@ abstract class BaseStudent
             'pt' => 'Pendente',
             'ro' => 'În așteptare',
             'de' => 'Ausstehend',
+        ],
+        'under_correction' => [
+            'en' => 'Under correction',
+            'fr' => 'En correction',
+            'ru' => 'В коррекции',
+            'uk' => 'В корекції',
+            'es' => 'En corrección',
+            'pt' => 'Em correção',
+            'ro' => 'În corecție',
+            'de' => 'In Korrektur',
         ],
         'graded' => [
             'en' => 'Graded',
@@ -311,6 +321,30 @@ abstract class BaseStudent
         return $map;
     }
 
+    public function get_status(): string
+    {
+        return $this->status;
+    }
+
+    public function get_status_label(?string $locale = null): string
+    {
+        return static::statusLabels($locale)[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Multilingual status labels for this student, or translations for a specific status key.
+     *
+     * @return array<string, mixed>
+     */
+    public function get_i18n(?string $key = null): array
+    {
+        $table = static::statusLabelTable();
+        if ($key !== null) {
+            return $table[$key] ?? [];
+        }
+        return $table;
+    }
+
     public function to_output(?string $locale = null): array
     {
         $locale = MenuLabels::locale($locale);
@@ -318,6 +352,7 @@ abstract class BaseStudent
             'id' => $this->id,
             'name' => $this->name,
             'status' => $this->status,
+            'status_label' => $this->get_status_label($locale),
             'mark' => $this->mark,
             'appreciation' => $this->appreciation,
             'menu' => $this->get_menu($locale),
@@ -329,8 +364,9 @@ abstract class BaseStudent
      *
      * @return array<int, array{key: string, label: string, icon: string, color: string}>
      */
-    public function get_menu(string $locale): array
+    public function get_menu(?string $locale = null): array
     {
+        $locale = MenuLabels::locale($locale);
         return [
             MenuLabels::item('view', $locale, 'eye', MenuLabels::BLUE, 'student_open'),
             MenuLabels::item('correct', $locale, 'check', MenuLabels::BLUE),

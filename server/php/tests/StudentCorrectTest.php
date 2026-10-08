@@ -8,9 +8,11 @@ use Corrai\Model\BaseAssessment;
 use Corrai\Model\BaseStudent;
 use Corrai\Model\School;
 use Corrai\Model\User;
+use Corrai\Queue\RedisConsumer;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\LawFrance\Assessment as LawAssessment;
 use Corrai\Subject\LawFrance\Student as LawStudent;
+use Corrai\Subject\LawFrance\StudentTask1Correcting;
 use Corrai\Subject\LawFrance\Submission;
 use Corrai\Utils\Http\Request;
 use Corrai\Utils\Store\ObjectStore;
@@ -92,14 +94,17 @@ class StudentCorrectTest extends TestCase
         $this->assertSame('stored', $submission->status);
 
         // Call correct on the student
+        $this->queued = [];
         $corrected = $student->correct();
         $this->assertCount(1, $corrected);
 
         $reloadedStudent = $assessment->getStudent($student->id);
-        $this->assertSame('pending', $reloadedStudent->status);
+        $this->assertSame('under_correction', $reloadedStudent->status);
 
-        $reloadedSubmission = $assessment->getFile($submission->id);
-        $this->assertSame('transcribing', $reloadedSubmission->status);
+        $this->assertCount(1, $this->queued);
+        $ticket = json_decode($this->queued[0], true);
+        $this->assertSame($student->id, $ticket['student_id'] ?? null);
+        $this->assertSame(StudentTask1Correcting::class, $ticket['task'] ?? null);
     }
 
     public function testStudentCorrectWebService(): void
@@ -138,6 +143,7 @@ class StudentCorrectTest extends TestCase
         $_REQUEST['student'] = $student->id;
         $_REQUEST['locale'] = 'fr';
 
+        $this->queued = [];
         ob_start();
         include dirname(__DIR__) . '/api/post_student_correct.php';
         $raw = ob_get_clean();
@@ -148,12 +154,78 @@ class StudentCorrectTest extends TestCase
         $this->assertSame($assessment->id, $output['id'] ?? null);
         $this->assertIsArray($output['student'] ?? null);
         $this->assertSame('Bob', $output['student']['name'] ?? null);
-        $this->assertSame('pending', $output['student']['status'] ?? null);
+        $this->assertSame('under_correction', $output['student']['status'] ?? null);
         $this->assertIsArray($output['files'] ?? null);
         $this->assertIsArray($output['students'] ?? null);
 
-        $reloadedSubmission = $assessment->getFile($submission->id);
-        $this->assertSame('transcribing', $reloadedSubmission->status);
+        $this->assertCount(1, $this->queued);
+        $ticket = json_decode($this->queued[0], true);
+        $this->assertSame($student->id, $ticket['student_id'] ?? null);
+        $this->assertSame(StudentTask1Correcting::class, $ticket['task'] ?? null);
+    }
+
+    public function testRedisQueueEnqueueStudentAndBlockingPop(): void
+    {
+        $redis = $this->createMock(Redis::class);
+        $redis->expects($this->once())
+            ->method('lPush')
+            ->with(
+                RedisQueue::LIST_KEY,
+                $this->callback(function (string $payload): bool {
+                    $decoded = json_decode($payload, true);
+                    return is_array($decoded)
+                        && ($decoded['student_id'] ?? null) === 'stu-123'
+                        && ($decoded['task'] ?? null) === StudentTask1Correcting::class;
+                })
+            );
+
+        $redis->method('brPop')
+            ->willReturn([
+                RedisQueue::LIST_KEY,
+                json_encode([
+                    'student_id' => 'stu-123',
+                    'task' => StudentTask1Correcting::class,
+                ]),
+            ]);
+
+        $queue = new RedisQueue($redis);
+        $queue->enqueueStudent('stu-123', StudentTask1Correcting::class);
+
+        $popped = $queue->blockingPop(1);
+        $this->assertNotNull($popped);
+        $this->assertSame('stu-123', $popped['student_id']);
+        $this->assertSame(StudentTask1Correcting::class, $popped['task']);
+    }
+
+    public function testRedisConsumerDispatchesStudentTask(): void
+    {
+        $school = new School();
+        $school->name = 'Dispatch School';
+        $school->save();
+
+        $teacher = new User();
+        $teacher->school_id = $school->id;
+        $teacher->name = 'Teacher Dispatch';
+        $teacher->email = 'teacher.dispatch@example.com';
+        $teacher->setPassword('secret123');
+        $teacher->save();
+
+        $assessment = new LawAssessment();
+        $assessment->school_id = $school->id;
+        $assessment->user_id = $teacher->id;
+        $assessment->name = 'Dispatch Assessment';
+        $assessment->save();
+
+        $student = $assessment->createStudent('Charlie');
+
+        // Call treatStudentTask directly via handleTicket with StudentTask1Correcting
+        RedisConsumer::handleTicket([
+            'student_id' => $student->id,
+            'task' => StudentTask1Correcting::class,
+        ]);
+
+        // Charlie has no submissions, so StudentTask1Correcting handles it without throwing uncaught exceptions
+        $this->assertTrue(true);
     }
 
     private function installQueue(): void

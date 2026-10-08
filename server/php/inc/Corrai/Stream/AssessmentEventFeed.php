@@ -117,7 +117,7 @@ class AssessmentEventFeed
         if (is_array($afterStudent)) {
             $beforeStudent = is_array($before) && is_array($before['student'] ?? null) ? $before['student'] : null;
             $sameStudent = is_array($beforeStudent) && ($beforeStudent['id'] ?? null) === ($afterStudent['id'] ?? null);
-            $studentKeys = ['name', 'status', 'mark', 'loading'];
+            $studentKeys = ['name', 'status', 'status_label', 'mark', 'loading'];
             if ($scope === 'student') {
                 $studentKeys[] = 'appreciation';
             }
@@ -155,6 +155,7 @@ class AssessmentEventFeed
             'id' => $student->id,
             'name' => $student->name,
             'status' => $student->status,
+            'status_label' => $student->get_status_label(null),
             'mark' => $student->mark,
         ];
         if ($withAppreciation) {

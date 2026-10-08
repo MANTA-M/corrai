@@ -322,7 +322,7 @@
     >
       <div class="popup-content delete-account-popup">
         <div class="popup-header">
-          <h2>{{ $t('settings.delete_account_title') }}</h2>
+          <h2>{{ $t('settings.delete_account') }}</h2>
           <button
             type="button"
             class="close-button"

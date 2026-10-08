@@ -22,7 +22,7 @@ use Corrai\Subject\Physics\Task1Transcribing as Physics;
 /**
  * Shared assessment model. Subject packages provide a concrete Assessment.
  */
-abstract class BaseAssessment
+abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, HasMenuInterface
 {
     /**
      * The unique identifier of the assessment (7-char hash).
@@ -459,8 +459,9 @@ abstract class BaseAssessment
      *
      * @return array<int, array{key: string, label: string, icon: string, color: string}>
      */
-    public function get_menu(string $locale): array
+    public function get_menu(?string $locale = null): array
     {
+        $locale = MenuLabels::locale($locale);
         $items = [
             MenuLabels::item('edit', $locale, '', MenuLabels::BLUE),
             MenuLabels::item('delete', $locale, '', MenuLabels::DANGER),
@@ -533,6 +534,14 @@ abstract class BaseAssessment
     ];
 
     /**
+     * @return array<string, array<string, string>>
+     */
+    protected static function statusLabelTable(): array
+    {
+        return self::STATUS_LABELS;
+    }
+
+    /**
      * Every assessment state, as key => label in the queried locale.
      *
      * @return array<string, string>
@@ -541,7 +550,7 @@ abstract class BaseAssessment
     {
         $locale = MenuLabels::locale($locale);
         $map = [];
-        foreach (self::STATUS_LABELS as $status => $labels) {
+        foreach (static::statusLabelTable() as $status => $labels) {
             $map[$status] = MenuLabels::pick($labels, $locale, $status);
         }
         return $map;
@@ -558,9 +567,28 @@ abstract class BaseAssessment
         return $class::statusLabels($locale);
     }
 
+    public function get_status(): string
+    {
+        return $this->status;
+    }
+
     public function get_status_label(?string $locale = null): string
     {
-        return self::statusLabels($locale)[$this->status] ?? $this->status;
+        return static::statusLabels($locale)[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Multilingual status labels for this assessment, or translations for a specific status key.
+     *
+     * @return array<string, mixed>
+     */
+    public function get_i18n(?string $key = null): array
+    {
+        $table = static::statusLabelTable();
+        if ($key !== null) {
+            return $table[$key] ?? [];
+        }
+        return $table;
     }
 
     public function to_output(?string $locale = null): array

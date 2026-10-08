@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
+use Corrai\Model\HasI18nInterface;
+use Corrai\Model\HasMenuInterface;
+use Corrai\Model\HasStatusInterface;
+use Corrai\Model\InputFile;
+use Corrai\Model\BaseStudent;
+use Corrai\Model\BaseAssessment;
 use Corrai\Model\InstructionFile;
-use Corrai\Model\StateLocales;
 use Corrai\Model\SubjectFile;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Student;
@@ -116,33 +121,35 @@ class MenuTest extends TestCase
         $this->assertSame('Consignes particulières', $instructionOutputFr['label']);
     }
 
-    public function testStateLocalesAreKeyLabelMapsForTheQueriedLocale(): void
+    public function testHasI18nProvidesMultilingualStatusLabels(): void
     {
         $dictation = new DictationFranceCM2Assessment();
-        $french = StateLocales::maps($dictation, 'fr');
-        $this->assertSame('Noté', $french['student_states']['graded']);
-        $this->assertSame('En attente', $french['student_states']['pending']);
-        $this->assertSame('Brouillon', $french['assessment_states']['draft']);
-        $this->assertSame('Correction en cours', $french['assessment_states']['correcting']);
-        $this->assertSame('Corrigé', $french['assessment_states']['corrected']);
-        $this->assertSame('Stocké', $french['file_states']['stored']);
-        $this->assertSame('OCR terminé', $french['file_states']['ocr_done']);
-        $this->assertSame('Erreurs trouvées', $french['file_states']['errors_found']);
-        $this->assertSame('Annotations', $french['file_states']['annotations']);
+        $student = new Student();
+        $dictationFile = new DictationFranceCM2Submission();
 
-        $english = StateLocales::maps($dictation, 'en-US');
-        $this->assertSame('Graded', $english['student_states']['graded']);
-        $this->assertSame('Draft', $english['assessment_states']['draft']);
-        $this->assertSame('OCR done', $english['file_states']['ocr_done']);
-        $this->assertSame('Annotations', $english['file_states']['annotations']);
+        $this->assertSame('Noté', $student->get_i18n('graded')['fr']);
+        $this->assertSame('En attente', $student->get_i18n('pending')['fr']);
+        $this->assertSame('Brouillon', $dictation->get_i18n('draft')['fr']);
+        $this->assertSame('Correction en cours', $dictation->get_i18n('correcting')['fr']);
+        $this->assertSame('Corrigé', $dictation->get_i18n('corrected')['fr']);
+        $this->assertSame('Stocké', $dictationFile->get_i18n('stored')['fr']);
+        $this->assertSame('OCR terminé', $dictationFile->get_i18n('ocr_done')['fr']);
+        $this->assertSame('Erreurs trouvées', $dictationFile->get_i18n('errors_found')['fr']);
+        $this->assertSame('Annotations', $dictationFile->get_i18n('annotations')['fr']);
 
-        $math = StateLocales::maps(new MathAssessment(), 'de');
-        $this->assertSame('Benotet', $math['student_states']['graded']);
-        $this->assertSame('Entwurf', $math['assessment_states']['draft']);
-        $this->assertSame('Gespeichert', $math['file_states']['stored']);
-        $this->assertSame('Transkribiert', $math['file_states']['transcribed']);
-        $this->assertSame('Korrektur bereit', $math['file_states']['correction_ready']);
-        $this->assertArrayNotHasKey('ocr_done', $math['file_states']);
+        $this->assertSame('Graded', $student->get_i18n('graded')['en']);
+        $this->assertSame('Draft', $dictation->get_i18n('draft')['en']);
+        $this->assertSame('OCR done', $dictationFile->get_i18n('ocr_done')['en']);
+        $this->assertSame('Annotations', $dictationFile->get_i18n('annotations')['en']);
+
+        $math = new MathAssessment();
+        $mathFile = new SubmissionFile();
+        $this->assertSame('Benotet', $student->get_i18n('graded')['de']);
+        $this->assertSame('Entwurf', $math->get_i18n('draft')['de']);
+        $this->assertSame('Gespeichert', $mathFile->get_i18n('stored')['de']);
+        $this->assertSame('Transkribiert', $mathFile->get_i18n('transcribed')['de']);
+        $this->assertSame('Korrektur bereit', $mathFile->get_i18n('correction_ready')['de']);
+        $this->assertArrayNotHasKey('ocr_done', $mathFile->get_i18n());
 
         $generic = new SubmissionFile();
         $generic->status = 'correction_asked';
@@ -168,5 +175,43 @@ class MenuTest extends TestCase
         $this->assertTrue(property_exists($submission, 'student_identifier'));
         $this->assertSame('ID-42', $submission->student_identifier);
         $this->assertSame('ID-42', $submission->attributePayload()['student_identifier']);
+    }
+
+    public function testInterfacesConformance(): void
+    {
+        $student = new Student();
+        $this->assertInstanceOf(HasStatusInterface::class, $student);
+        $this->assertInstanceOf(HasI18nInterface::class, $student);
+        $this->assertInstanceOf(HasMenuInterface::class, $student);
+        $this->assertSame('', $student->get_status());
+        $student->status = 'pending';
+        $this->assertSame('pending', $student->get_status());
+        $this->assertSame('En attente', $student->get_status_label('fr'));
+        $this->assertIsArray($student->get_i18n());
+        $this->assertSame('En attente', $student->get_i18n('pending')['fr']);
+        $this->assertIsArray($student->get_menu());
+        $this->assertIsArray($student->get_menu('fr'));
+
+        $assessment = new MathAssessment();
+        $this->assertInstanceOf(HasStatusInterface::class, $assessment);
+        $this->assertInstanceOf(HasI18nInterface::class, $assessment);
+        $this->assertInstanceOf(HasMenuInterface::class, $assessment);
+        $this->assertSame('draft', $assessment->get_status());
+        $this->assertSame('Brouillon', $assessment->get_status_label('fr'));
+        $this->assertIsArray($assessment->get_i18n());
+        $this->assertSame('Brouillon', $assessment->get_i18n('draft')['fr']);
+        $this->assertIsArray($assessment->get_menu());
+        $this->assertIsArray($assessment->get_menu('fr'));
+
+        $file = new SubmissionFile();
+        $this->assertInstanceOf(HasStatusInterface::class, $file);
+        $this->assertInstanceOf(HasI18nInterface::class, $file);
+        $file->status = 'stored';
+        $this->assertSame('stored', $file->get_status());
+        $this->assertSame('Stocké', $file->get_status_label('fr'));
+        $this->assertIsArray($file->get_i18n());
+        $this->assertSame('Stocké', $file->get_i18n('stored')['fr']);
+        $this->assertIsArray($file->get_menu());
+        $this->assertIsArray($file->get_menu('fr'));
     }
 }

@@ -4,6 +4,7 @@ namespace Corrai\Subject\LawFrance;
 
 use Corrai\Model\BaseStudent;
 use Corrai\Model\SubmissionFile;
+use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Http\WSException;
 
 /**
@@ -18,17 +19,16 @@ class Student extends BaseStudent
      */
     public function correct(): array
     {
-        $assessment = $this->getAssessment();
         $submissions = $this->getSubmissions();
         if ($submissions === []) {
             throw new WSException('No submissions found for student ' . $this->name, 400);
         }
 
-        $this->status = 'pending';
+        $this->status = 'under_correction';
         $this->save();
 
-        foreach ($submissions as $submission) {
-            $assessment->correctSubmission($submission->id);
+        if ($this->id !== null && $this->id !== '') {
+            RedisQueue::getInstance()->enqueueStudent((string) $this->id, StudentTask1Correcting::class);
         }
 
         return $submissions;

@@ -154,7 +154,7 @@
                 v-if="student.status"
                 class="student-status"
                 data-testid="student-status"
-              >{{ sessionStore.stateLabel(sessionStore.studentStates, student.status) }}</span>
+              >{{ sessionStore.stateLabel(sessionStore.studentStates, student.status, student.status_label) }}</span>
               <span
                 v-if="student.mark != null"
                 class="student-mark"
@@ -284,7 +284,7 @@
       </div>
       <div class="popup-body">
         <form @submit.prevent="submitRenameStudent">
-          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentRenamePlaceholder') }}</label>
+          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentNamePlaceholder') }}</label>
           <input
             id="rename-student-input"
             ref="renameStudentInput"
@@ -308,7 +308,7 @@
           :disabled="isUpdatingStudent || !renameStudentDraft.trim()"
           @click="submitRenameStudent"
         >
-          {{ isUpdatingStudent ? t('assessment.studentRenaming') : t('assessment.studentRenameSave') }}
+          {{ isUpdatingStudent ? t('assessment.renaming') : t('assessment.rename') }}
         </button>
       </div>
     </div>
@@ -355,7 +355,7 @@
           :disabled="isUpdatingStudent"
           @click="submitDeleteStudent"
         >
-          {{ isUpdatingStudent ? t('assessment.studentDeleting') : t('assessment.studentDelete') }}
+          {{ isUpdatingStudent ? t('assessment.deleting') : t('common.delete') }}
         </button>
       </div>
     </div>

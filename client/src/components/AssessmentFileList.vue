@@ -142,7 +142,7 @@
           </label>
         </fieldset>
         <label v-if="selectedStudentId === NOT_FOUND" class="file-action-label" for="reassign-name-input">
-          {{ t('assessment.fileStudentPlaceholder') }}
+          {{ t('assessment.studentNamePlaceholder') }}
           <input
             id="reassign-name-input"
             ref="reassignNameInput"
@@ -270,7 +270,7 @@
           :disabled="isUpdating || !renameDraft.trim()"
           @click="submitRename"
         >
-          {{ isUpdating ? t('assessment.fileRenaming') : t('assessment.fileRenameSave') }}
+          {{ isUpdating ? t('assessment.renaming') : t('assessment.rename') }}
         </button>
       </div>
     </div>
@@ -318,7 +318,7 @@
           :disabled="isUpdating"
           @click="submitDelete"
         >
-          {{ isUpdating ? t('assessment.fileDeleting') : t('assessment.fileDelete') }}
+          {{ isUpdating ? t('assessment.deleting') : t('common.delete') }}
         </button>
       </div>
     </div>

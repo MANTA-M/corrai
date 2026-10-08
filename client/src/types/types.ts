@@ -72,6 +72,8 @@ export interface AssessmentStudent {
   id: string
   name: string
   status?: string
+  /** Localized status, returned by the server and shown as-is */
+  status_label?: string
   mark?: number | null
   /** Teacher comment, stored as Markdown */
   appreciation?: string

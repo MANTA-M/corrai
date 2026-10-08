@@ -24,8 +24,15 @@ use Mindee\V2\Product\Ocr\Params\OcrParameters;
  *   "bounding_boxes": [
  *     {"text": "Une", "left": 0.04, "top": 0.04, "width": 0.08, "height": 0.02, "page": 0}
  *   ],
+ *   "rotation": 0,
  *   "usage": null
  * }
+ *
+ * `rotation` is the clockwise angle of the page, 0, 90, 180, or 270, the same
+ * value OCRResult stores for a Google Vision scan of the same page. Mindee
+ * reports the clockwise turn that makes the page upright. Vision's angle is
+ * the turn the page already has, so 90 and 270 are swapped and 0 and 180 stay.
+ * The key is present only when Mindee returned an orientation.
  *
  * Coordinates are fractions of the page, origin top-left. `page` is zero-based.
  * The call follows https://docs.mindee.com/raw-text-ocr-models/sdk-integration/ocr-quick-start :
@@ -179,6 +186,7 @@ class MindeeOCR extends LlmClient
      * @return array{
      *   text: string,
      *   bounding_boxes: list<array{text: string, left: float, top: float, width: float, height: float, page: int}>,
+     *   rotation?: int,
      *   usage: null
      * }
      */
@@ -195,7 +203,7 @@ class MindeeOCR extends LlmClient
     /**
      * Enqueue the document and poll until Mindee returns the OCR pages.
      *
-     * @return list<array{content: string, words: list<array{content: string, polygon: list<array{0: float, 1: float}>}>}>
+     * @return list<array{content: string, words: list<array{content: string, polygon: list<array{0: float, 1: float}>}>, orientation?: int}>
      */
     protected function requestPages(): array
     {
@@ -216,9 +224,10 @@ class MindeeOCR extends LlmClient
             if (!is_array($pages) || $pages === []) {
                 throw new \Exception('Empty OCR response');
             }
+            $rawPages = $this->rawPages($response);
 
             $out = [];
-            foreach ($pages as $page) {
+            foreach ($pages as $index => $page) {
                 $words = [];
                 foreach ($page->words as $word) {
                     $polygon = [];
@@ -230,10 +239,15 @@ class MindeeOCR extends LlmClient
                         'polygon' => $polygon,
                     ];
                 }
-                $out[] = [
+                $pageOut = [
                     'content' => $page->content,
                     'words' => $words,
                 ];
+                $orientation = $this->pageOrientation($rawPages[$index] ?? null);
+                if ($orientation !== null) {
+                    $pageOut['orientation'] = $orientation;
+                }
+                $out[] = $pageOut;
             }
             return $out;
         } finally {
@@ -306,7 +320,7 @@ class MindeeOCR extends LlmClient
 
     /**
      * @param list<array<string, mixed>> $pages
-     * @return array{text: string, bounding_boxes: list<array<string, mixed>>, usage: null}
+     * @return array{text: string, bounding_boxes: list<array<string, mixed>>, rotation?: int, usage: null}
      */
     private function outputFromPages(array $pages): array
     {
@@ -356,6 +370,10 @@ class MindeeOCR extends LlmClient
             'bounding_boxes' => $boxes,
             'usage' => null,
         ];
+        $rotation = $this->rotationFromPages($pages);
+        if ($rotation !== null) {
+            $result['rotation'] = $rotation;
+        }
 
         if (self::LOG_RESPONSE) {
             $code = $this->lastResponseCode ?: 200;
@@ -364,6 +382,75 @@ class MindeeOCR extends LlmClient
         }
 
         return $result;
+    }
+
+    /**
+     * Pages from the raw inference JSON. The SDK keeps words only, so the
+     * orientation has to be read here.
+     *
+     * @return list<mixed>
+     */
+    private function rawPages(OcrResponse $response): array
+    {
+        $raw = json_decode($response->getRawHttp(), true);
+        $pages = is_array($raw) ? ($raw['inference']['result']['pages'] ?? null) : null;
+        return is_array($pages) ? array_values($pages) : [];
+    }
+
+    /**
+     * Mindee page orientation: the clockwise degrees that make the page upright.
+     */
+    private function pageOrientation(mixed $page): ?int
+    {
+        if (!is_array($page)) {
+            return null;
+        }
+        $orientation = $page['orientation'] ?? $page['rotation'] ?? null;
+        if (is_array($orientation)) {
+            $orientation = $orientation['value'] ?? $orientation['degrees'] ?? null;
+        }
+        if (!is_numeric($orientation)) {
+            return null;
+        }
+        $angle = (int) $orientation % 360;
+        if ($angle < 0) {
+            $angle += 360;
+        }
+        return in_array($angle, [0, 90, 180, 270], true) ? $angle : null;
+    }
+
+    /**
+     * Clockwise page angle used by OCRResult, matching Vision on the same page.
+     *
+     * Mindee's orientation is the clockwise correction. OCRResult.rotation is
+     * the clockwise tilt already present: 90 and 270 exchange places.
+     *
+     * @param list<array<string, mixed>> $pages
+     */
+    private function rotationFromPages(array $pages): ?int
+    {
+        $best = null;
+        $bestWords = -1;
+        foreach ($pages as $page) {
+            if (!is_array($page)) {
+                continue;
+            }
+            $orientation = $this->pageOrientation($page);
+            if ($orientation === null) {
+                continue;
+            }
+            $words = 0;
+            foreach ($page['words'] ?? [] as $word) {
+                if (is_array($word) && is_string($word['content'] ?? null) && $word['content'] !== '') {
+                    $words++;
+                }
+            }
+            if ($words > $bestWords) {
+                $bestWords = $words;
+                $best = (360 - $orientation) % 360;
+            }
+        }
+        return $best;
     }
 
     /**

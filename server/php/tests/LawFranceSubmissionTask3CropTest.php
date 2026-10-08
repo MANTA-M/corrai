@@ -6,7 +6,6 @@ namespace Corrai\Tests;
 
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\School;
-use Corrai\Model\StateLocales;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\User;
 use Corrai\Queue\RedisConsumer;
@@ -32,7 +31,7 @@ class LawFranceSubmissionTask3CropTest extends TestCase
         parent::tearDown();
     }
 
-    public function testAssessmentAffectingStateLocalesExist(): void
+    public function testAssessmentAffectingI18nLabelsExist(): void
     {
         $assessment = new LawAssessment();
         $labelsFr = BaseAssessment::statusLabels('fr');
@@ -59,8 +58,7 @@ class LawFranceSubmissionTask3CropTest extends TestCase
         $labelsRo = BaseAssessment::statusLabels('ro');
         $this->assertSame('Atribuirea copiilor', $labelsRo['affecting']);
 
-        $mapFr = StateLocales::maps($assessment, 'fr');
-        $this->assertSame('Affectation des copies', $mapFr['assessment_states']['affecting']);
+        $this->assertSame('Affectation des copies', $assessment->get_i18n('affecting')['fr']);
 
         $assessment->status = 'affecting';
         $output = $assessment->to_output('fr');

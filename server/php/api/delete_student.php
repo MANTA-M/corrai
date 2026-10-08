@@ -2,7 +2,6 @@
 
 use Corrai\Model\Assessment;
 use Corrai\Utils\Http\Request;
-use Corrai\Model\StateLocales;
 use Corrai\Utils\Http\WSException;
 
 try {
@@ -41,7 +40,6 @@ try {
     $locale = Request::getStringParam('locale');
     Request::add_output("files", $files);
     Request::add_output("students", $assessment->list_students($locale));
-    StateLocales::addToOutput($assessment, $locale);
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

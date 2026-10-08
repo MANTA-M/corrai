@@ -325,7 +325,7 @@
     v-if="uploadType && assessment?.id"
     :assessment-id="assessment.id"
     :fixed-type="uploadType"
-    :title="uploadType === 'subject' ? t('assessment.addSubjectFileTitle') : t('assessment.addSolutionFileTitle')"
+    :title="uploadType === 'subject' ? t('assessment.addSubjectFile') : t('assessment.addSolutionFile')"
     auto-close
     @close="uploadType = null"
     @uploaded="onUploaded"

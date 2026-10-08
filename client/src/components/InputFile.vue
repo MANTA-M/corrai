@@ -25,7 +25,7 @@
         </li>
         <li>
           <button type="button" data-testid="file-rename" @click="onAction('rename')">
-            {{ t('assessment.fileRename') }}
+            {{ t('assessment.rename') }}
           </button>
         </li>
         <li>
@@ -58,7 +58,7 @@
         </li>
         <li>
           <button type="button" class="danger" data-testid="file-delete" @click="onAction('delete')">
-            {{ t('assessment.fileDelete') }}
+            {{ t('common.delete') }}
           </button>
         </li>
       </ul>

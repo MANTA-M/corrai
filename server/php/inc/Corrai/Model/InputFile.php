@@ -17,7 +17,7 @@ use Corrai\Utils\Http\WSException;
  * Subject pipelines subclass SubmissionFile; subject material and instructions
  * use SubjectFile and InstructionFile.
  */
-abstract class InputFile
+abstract class InputFile implements HasStatusInterface, HasI18nInterface
 {
     public ?string $id = null;
     public string $school_id = '';
@@ -718,6 +718,11 @@ abstract class InputFile
         return $map;
     }
 
+    public function get_status(): string
+    {
+        return $this->status;
+    }
+
     /**
      * Localized label of the current status. An unknown status is returned unchanged.
      */
@@ -732,12 +737,27 @@ abstract class InputFile
     }
 
     /**
+     * Multilingual status labels for this file, or translations for a specific status key.
+     *
+     * @return array<string, mixed>
+     */
+    public function get_i18n(?string $key = null): array
+    {
+        $table = static::statusLabelTable();
+        if ($key !== null) {
+            return $table[$key] ?? [];
+        }
+        return $table;
+    }
+
+    /**
      * Actions the client can offer for this file.
      *
      * @return array<int, array{key: string, label: string, icon: string, color: string}>
      */
-    public function get_menu(string $locale): array
+    public function get_menu(?string $locale = null): array
     {
+        $locale = MenuLabels::locale($locale);
         $items = [
             MenuLabels::item('view', $locale, 'eye', MenuLabels::BLUE),
         ];

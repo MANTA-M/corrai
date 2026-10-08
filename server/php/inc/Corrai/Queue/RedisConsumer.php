@@ -3,6 +3,7 @@
 namespace Corrai\Queue;
 
 use Corrai\Model\BaseAssessment;
+use Corrai\Model\BaseStudent;
 use Corrai\Model\InputFile;
 use Corrai\Subject\AssessmentFactory;
 use Corrai\Utils\Store\ObjectStore;
@@ -28,6 +29,8 @@ class RedisConsumer
             self::treatPathTask($ticket['path'], $ticket['task']);
         } elseif (isset($ticket['assessment_id'], $ticket['task'])) {
             self::treatAssessmentTask($ticket['assessment_id'], $ticket['task']);
+        } elseif (isset($ticket['student_id'], $ticket['task'])) {
+            self::treatStudentTask($ticket['student_id'], $ticket['task']);
         } elseif (isset($ticket['file_id'], $ticket['task'])) {
             self::treatFileTask($ticket['file_id'], $ticket['task']);
         } elseif (isset($ticket['file_id'])) {
@@ -64,6 +67,34 @@ class RedisConsumer
             return;
         }
         throw new Exception("Task $taskClass cannot process an assessment queue item");
+    }
+
+    /**
+     * Run a task class against a student.
+     */
+    public static function treatStudentTask(string $studentId, string $taskClass): void
+    {
+        if (str_starts_with($taskClass, 'LawFrance\\')) {
+            $taskClass = 'Corrai\\Subject\\' . $taskClass;
+        }
+        if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
+            throw new Exception("Unknown task class $taskClass");
+        }
+        $task = new $taskClass();
+        if (method_exists($task, 'process_task')) {
+            $task->process_task((object) [
+                'student_id' => $studentId,
+                'task' => $taskClass,
+                'task_id' => $taskClass,
+            ]);
+            return;
+        }
+        if (method_exists($task, 'processStudent')) {
+            $student = BaseStudent::from_hash($studentId);
+            $task->processStudent($student);
+            return;
+        }
+        throw new Exception("Task $taskClass cannot process a student queue item");
     }
 
     /**

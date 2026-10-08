@@ -6,7 +6,7 @@
   >
     <div class="popup-content add-file-popup">
       <div class="popup-header">
-        <h2>{{ title || t('assessment.addFilesTitle') }}</h2>
+        <h2>{{ title || t('assessment.addFiles') }}</h2>
         <button
           type="button"
           class="close-button"

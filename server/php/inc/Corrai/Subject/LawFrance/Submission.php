@@ -73,7 +73,7 @@ class Submission extends SubmissionFile
 
     public function on_transcribed(): void
     {
-        (new Task2Correcting())->correctSubmission($this);
+        (new StudentTask1Correcting())->correctSubmission($this);
     }
 
     public function on_correction_ready(): void

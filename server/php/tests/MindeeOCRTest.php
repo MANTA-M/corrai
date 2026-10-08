@@ -158,6 +158,64 @@ class MindeeOCRTest extends TestCase
         $this->assertSame("Page\nTwo", $output['text']);
         $this->assertSame(0, $output['bounding_boxes'][0]['page']);
         $this->assertSame(1, $output['bounding_boxes'][1]['page']);
+        $this->assertArrayNotHasKey('rotation', $output);
+    }
+
+    public function testOrientationUsesTheSameAngleAsVision(): void
+    {
+        $word = [
+            'content' => 'Une',
+            'polygon' => [[0.1, 0.1], [0.3, 0.1], [0.3, 0.2], [0.1, 0.2]],
+        ];
+        $path = $this->tempPng();
+        try {
+            foreach ([0 => 0, 90 => 270, 180 => 180, 270 => 90] as $mindee => $vision) {
+                $client = new FakeMindeeOCR([[
+                    'content' => 'Une',
+                    'orientation' => ['value' => $mindee],
+                    'words' => [$word],
+                ]]);
+                $client->set_file($path, 'scan.png');
+                $output = $client->process();
+
+                $this->assertSame($vision, $output['rotation']);
+                $ocr = OCRResult::from_google($output);
+                $this->assertSame($vision, $ocr->rotation);
+                $restored = OCRResult::from_json($ocr->to_json());
+                $this->assertSame($vision, $restored->rotation);
+            }
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function testRotationFollowsThePageWithTheMostWords(): void
+    {
+        $word = [
+            'content' => 'Une',
+            'polygon' => [[0.1, 0.1], [0.3, 0.1], [0.3, 0.2], [0.1, 0.2]],
+        ];
+        $client = new FakeMindeeOCR([
+            [
+                'content' => 'Une',
+                'orientation' => 90,
+                'words' => [$word],
+            ],
+            [
+                'content' => 'Une makine page',
+                'orientation' => 180,
+                'words' => [$word, $word, $word],
+            ],
+        ]);
+        $path = $this->tempPng();
+        try {
+            $client->set_file($path, 'scan.png');
+            $output = $client->process();
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(180, $output['rotation']);
     }
 
     public function testSetRemoteFileRejectsAFileId(): void
