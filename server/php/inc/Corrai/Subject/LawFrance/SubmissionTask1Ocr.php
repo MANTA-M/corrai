@@ -13,6 +13,19 @@ class SubmissionTask1Ocr extends PathQueueItemTask
 {
     private const OCR_LANG = 'fr';
 
+    /**
+     * OCR service to use is Mindee.
+     */
+    private const OCR_SERVICE_MINDEE = 'mindee';
+    /**
+     * OCR service to use is Google Vision.
+     */
+    private const OCR_SERVICE_GOOGLE = 'google';
+    /**
+     * OCR service to use.
+     */
+    private const OCR_SERVICE = self::OCR_SERVICE_MINDEE;
+
     public function __construct(private ?Vision $visionClient = null)
     {
     }
@@ -53,10 +66,17 @@ class SubmissionTask1Ocr extends PathQueueItemTask
             $store = ObjectStore::getInstance();
             $copyPath = $store->downloadToTemp($file->contentKey());
 
-            $client = $this->createVisionClient();
-            $client->set_file($copyPath, $file->name, $file);
-            $client->set_language(self::OCR_LANG);
-            $result = OCRResult::from_google($client->process());
+            if (self::OCR_SERVICE === self::OCR_SERVICE_MINDEE) {
+                $client = $this->createMindeeClient();
+                $client->set_file($copyPath, $file->name, $file);
+                $client->set_language(self::OCR_LANG);
+                $result = OCRResult::from_mindee($client->process());
+            } else {
+                $client = $this->createVisionClient();
+                $client->set_file($copyPath, $file->name, $file);
+                $client->set_language(self::OCR_LANG);
+                $result = OCRResult::from_google($client->process());
+            }  
 
             $store->putContents(
                 $file->ocrResultKey(),
