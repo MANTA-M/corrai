@@ -8,6 +8,24 @@ namespace Corrai\Model;
  */
 class SubmissionFile extends InputFile
 {
+    /**
+     * Student hash this file belongs to. Null / empty when unassigned.
+     */
+    public ?string $student = null;
+
+    /**
+     * Identifier read on the copy (a number or a name). Null when none was found.
+     */
+    public ?string $student_identifier = null;
+
+    /**
+     * Subject material stays with the assessment. Copies can move between students.
+     */
+    public function canReassign(): bool
+    {
+        return true;
+    }
+
     public function on_stored(): void
     {
     }

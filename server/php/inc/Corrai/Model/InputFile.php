@@ -76,6 +76,10 @@ abstract class InputFile
         } else {
             $file->student = null;
         }
+        if ($file instanceof SubmissionFile) {
+            $identifier = $data['student_identifier'] ?? null;
+            $file->student_identifier = is_string($identifier) ? $identifier : null;
+        }
         $status = (string) ($data['status'] ?? '');
         $file->status = $status === 'loaded' ? 'stored' : $status;
         $file->content_type = (string) ($data['content_type'] ?? 'application/octet-stream');
@@ -135,7 +139,7 @@ abstract class InputFile
      */
     public function attributePayload(): array
     {
-        return [
+        $payload = [
             'name' => $this->name,
             'student' => $this->student,
             'status' => $this->status,
@@ -145,6 +149,10 @@ abstract class InputFile
             'thumbnail' => $this->thumbnail,
             'class' => $this->storedClass(),
         ];
+        if ($this instanceof SubmissionFile) {
+            $payload['student_identifier'] = $this->student_identifier;
+        }
+        return $payload;
     }
 
     /**
@@ -166,7 +174,7 @@ abstract class InputFile
      */
     private function attributeState(): array
     {
-        return [
+        $state = [
             'id' => $this->id,
             'school_id' => $this->school_id,
             'user_id' => $this->user_id,
@@ -178,7 +186,12 @@ abstract class InputFile
             'size' => $this->size,
             'created' => $this->created,
             'thumbnail' => $this->thumbnail,
+            'class' => $this->storedClass(),
         ];
+        if ($this instanceof SubmissionFile) {
+            $state['student_identifier'] = $this->student_identifier;
+        }
+        return $state;
     }
 
     public function validate(): void
@@ -313,6 +326,22 @@ abstract class InputFile
         return SubmissionFile::class;
     }
 
+    /**
+     * Student hash this file belongs to, if it is a submission file.
+     */
+    public function studentId(): ?string
+    {
+        return $this instanceof SubmissionFile ? $this->student : null;
+    }
+
+    /**
+     * Subject material stays with the assessment. Copies can move between students.
+     */
+    public function canReassign(): bool
+    {
+        return false;
+    }
+
     public function attrKey(): string
     {
         return ObjectStore::assessmentFileAttrKey(
@@ -321,7 +350,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -333,7 +362,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -345,7 +374,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -357,7 +386,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -369,7 +398,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -381,7 +410,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -393,7 +422,7 @@ abstract class InputFile
             $this->assessment_id,
             $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
     }
 
@@ -507,7 +536,7 @@ abstract class InputFile
             $this->assessment_id,
             (string) $this->id,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
         $events = [];
         foreach ($store->listImmediateFiles($prefix) as $name) {
@@ -560,7 +589,7 @@ abstract class InputFile
             $this->id,
             $eventId,
             $this->role(),
-            $this->student
+            $this->studentId()
         );
         S3File::at($key)->putJson([
             'timestamp' => $timestamp,
@@ -603,6 +632,16 @@ abstract class InputFile
             'pt' => 'Correção pedida',
             'ro' => 'Corectare cerută',
             'de' => 'Korrektur angefordert',
+        ],
+        'transcribing' => [
+            'en' => 'Transcribing',
+            'fr' => 'Transcription en cours',
+            'ru' => 'Переводится на русский',
+            'uk' => 'Транскрибовано',
+            'es' => 'Transcríbete',
+            'pt' => 'A transcrição',
+            'ro' => 'Se transcrie',
+            'de' => 'Wird transkribiert',
         ],
         'transcribed' => [
             'en' => 'Transcribed',
@@ -733,22 +772,7 @@ abstract class InputFile
     }
 
     /**
-     * Subject material stays with the assessment. Copies can move between students.
-     */
-    public function canReassign(): bool
-    {
-        return !$this instanceof SubjectFile && !$this instanceof InstructionFile;
-    }
-
-    /**
      * Called when the file is stored.
      */
     abstract public function on_stored(): void;
-
-    /**
-     * Called when the file is asked for correction.
-     */
-    public function on_correction_asked(): void
-    {
-    }
 }

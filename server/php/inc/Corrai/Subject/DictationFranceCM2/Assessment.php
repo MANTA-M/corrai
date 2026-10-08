@@ -115,22 +115,4 @@ class Assessment extends BaseAssessment
         }
         return $this->list_files();
     }
-
-    /**
-     * @return string[]
-     */
-    private function pendingSubmissionIds(): array
-    {
-        $ids = [];
-        foreach ($this->listFileModels() as $file) {
-            if (!$file instanceof SubmissionFile || $file->id === null || $file->id === '') {
-                continue;
-            }
-            if ($file->status === 'corrected') {
-                continue;
-            }
-            $ids[] = $file->id;
-        }
-        return $ids;
-    }
 }

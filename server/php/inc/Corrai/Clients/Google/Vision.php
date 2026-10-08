@@ -34,7 +34,7 @@ class Vision extends LlmClient
     public const SCOPE = 'https://www.googleapis.com/auth/cloud-vision';
     public const FEATURE = 'DOCUMENT_TEXT_DETECTION';
     public const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo (10 MB)
-    public const LOG_RESPONSE = true;
+    public const LOG_RESPONSE = false;
 
     private const PDF_PAGES_PER_REQUEST = 5;
     private const TOKEN_LIFETIME = 3600;

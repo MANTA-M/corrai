@@ -728,7 +728,7 @@ class AssessmentLifecycleTest extends TestCase
         $tmp = $this->createRandomTempFile('copy_', '.txt');
         $file = $assessment->createFileFromPath(basename($tmp), $tmp, 'text/plain', 'submission', null);
 
-        $menu = $assessment->to_output('fr')['menu'];
+        $menu = $assessment->get_menu('fr');
         $this->assertContains('test_correction', array_column($menu, 'key'));
         $testItem = array_values(array_filter($menu, fn($item) => $item['key'] === 'test_correction'))[0];
         $this->assertSame('Tester la correction', $testItem['label']);

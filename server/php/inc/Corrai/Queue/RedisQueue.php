@@ -62,6 +62,22 @@ class RedisQueue
     }
 
     /**
+     * Enqueue a ticket for an assessment with a given task.
+     */
+    public function enqueueAssessment(string $assessmentId, string $task): void
+    {
+        if ($task === null || $task === '') {
+            throw new InvalidArgumentException('Task is required');
+        }
+        $payload = json_encode(['assessment_id' => $assessmentId, 'task' => $task], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($payload === false) {
+            throw new RedisException('Failed to encode assessment queue ticket');
+        }
+        $this->client->lPush(self::LIST_KEY, $payload);
+        error_log('Enqueued assessment ticket ' . $assessmentId . ' on ' . self::LIST_KEY);
+    }
+
+    /**
      * Enqueue a content path for the Python OCR consumer.
      *
      * ``$operation`` is stored but ignored. When OCR finishes, the Python
@@ -111,6 +127,9 @@ class RedisQueue
         if (isset($decoded['file_id']) && is_string($decoded['file_id']) && $decoded['file_id'] !== '') {
             $ticket['file_id'] = $decoded['file_id'];
         }
+        if (isset($decoded['assessment_id']) && is_string($decoded['assessment_id']) && $decoded['assessment_id'] !== '') {
+            $ticket['assessment_id'] = $decoded['assessment_id'];
+        }
         if (isset($decoded['path']) && is_string($decoded['path']) && $decoded['path'] !== '') {
             $ticket['path'] = $decoded['path'];
         }
@@ -119,8 +138,9 @@ class RedisQueue
         }
 
         $hasFile = isset($ticket['file_id']);
+        $hasAssessment = isset($ticket['assessment_id']);
         $hasPathTask = isset($ticket['path'], $ticket['task']);
-        if (!$hasFile && !$hasPathTask) {
+        if (!$hasFile && !$hasAssessment && !$hasPathTask) {
             error_log('Invalid Redis file queue ticket: ' . $raw);
             return null;
         }

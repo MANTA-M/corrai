@@ -64,7 +64,7 @@ class AssessmentEventFeed
             'status' => $file->status,
             'status_label' => $file->get_status_label(null),
             'type' => $file->role(),
-            'student' => $file->student,
+            'student' => $file->studentId(),
             'student_name' => $studentName,
             'thumbnail' => $file->thumbnail,
         ];
@@ -142,7 +142,7 @@ class AssessmentEventFeed
      */
     private static function changedStudent(BaseAssessment $assessment, InputFile $file, bool $withAppreciation, ?bool $loading = null): ?array
     {
-        $studentId = trim((string) ($file->student ?? ''));
+        $studentId = trim((string) ($file->studentId() ?? ''));
         if ($studentId === '') {
             return null;
         }

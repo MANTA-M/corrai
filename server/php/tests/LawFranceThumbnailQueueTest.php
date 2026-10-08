@@ -36,6 +36,8 @@ class LawFranceThumbnailQueueTest extends TestCase
         $copy->content_type = 'image/png';
         $copy->on_stored();
 
+        $this->assertSame('stored', $copy->status);
+
         $subject = new SubjectFile();
         $subject->id = 'subject-1';
         $subject->name = 'sujet.tiff';
@@ -58,6 +60,8 @@ class LawFranceThumbnailQueueTest extends TestCase
         $pdf->content_type = 'application/pdf';
         $pdf->on_stored();
 
+        $this->assertSame('stored', $pdf->status);
+
         $done = new SubjectFile();
         $done->id = 'done-1';
         $done->name = 'page.jpg';
@@ -66,6 +70,20 @@ class LawFranceThumbnailQueueTest extends TestCase
         Submission::queueThumbnail($done);
 
         $this->assertSame([], $this->queued);
+    }
+
+    public function testOnStoreSetsStatusAndEnqueuesThumbnail(): void
+    {
+        $this->installQueue();
+
+        $copy = new Submission();
+        $copy->id = 'copy-store';
+        $copy->name = 'copie_store.png';
+        $copy->content_type = 'image/png';
+        $copy->on_store();
+
+        $this->assertSame('stored', $copy->status);
+        $this->assertSame([Thumbnail::class], $this->tasks());
     }
 
     public function testUploadTaskQueuesASubjectImageWithoutTranscribing(): void

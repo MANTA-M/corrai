@@ -11,13 +11,19 @@ use Corrai\Task\Thumbnail;
 /**
  * Submission state machine.
  *
- * Statuses: correction_asked → transcribed → correction_ready → corrected
+ * Statuses: stored|correction_asked → transcribing → transcribed → correction_ready → corrected
  */
 class Submission extends SubmissionFile
 {
     public function on_stored(): void
     {
+        $this->status = 'stored';
         self::queueThumbnail($this);
+    }
+
+    public function on_store(): void
+    {
+        $this->on_stored();
     }
 
     /**
@@ -58,7 +64,14 @@ class Submission extends SubmissionFile
 
     public function on_correction_asked(): void
     {
-        (new Task1Transcribing())->transcribeSubmission($this);
+        $this->status = 'transcribing';
+        try {
+            $this->saveAttributes();
+        } catch (\Throwable) {
+        }
+        if ($this->id !== null && $this->id !== '') {
+            RedisQueue::getInstance()->enqueueFile($this->id, SubmissionTask1Ocr::class);
+        }
     }
 
     public function on_transcribed(): void
@@ -70,4 +83,8 @@ class Submission extends SubmissionFile
     {
         (new Task3Annotating())->annotateSubmission($this);
     }
+}
+
+if (!class_exists('LawFrance\Submission', false)) {
+    class_alias(Submission::class, 'LawFrance\Submission');
 }

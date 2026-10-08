@@ -107,6 +107,20 @@ try {
             }
         }
         if ($fileId === '') {
+            $assessmentId = is_array($decoded) && isset($decoded['assessment_id']) && is_string($decoded['assessment_id'])
+                ? $decoded['assessment_id']
+                : '';
+            if ($assessmentId !== '') {
+                $phpItems[] = [
+                    'file_id' => $assessmentId,
+                    'name' => 'Assessment ' . $assessmentId,
+                    'type' => 'assessment',
+                    'status' => $decoded['task'] ?? 'queued',
+                    'content_key' => '',
+                    'raw' => $raw,
+                ];
+                continue;
+            }
             $phpItems[] = [
                 'file_id' => '',
                 'name' => '',

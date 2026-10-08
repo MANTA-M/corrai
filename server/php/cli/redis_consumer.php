@@ -61,7 +61,7 @@ while (true) {
             continue;
         }
         $label = $ticket['task'] ?? 'status';
-        $target = $ticket['path'] ?? $ticket['file_id'] ?? 'unknown';
+        $target = $ticket['path'] ?? $ticket['file_id'] ?? $ticket['assessment_id'] ?? 'unknown';
         error_log('Treating ' . $label . ' on ' . $target);
         $start = microtime(true);
         RedisConsumer::handleTicket($ticket);

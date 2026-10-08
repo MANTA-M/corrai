@@ -111,7 +111,7 @@ abstract class PathQueueItemTask
             if ($assessmentEvent !== null) {
                 SSEvent::publish(SSEvent::assessmentChannel((string) $assessment->id), $assessmentEvent);
             }
-            $studentId = trim((string) ($file->student ?? ''));
+            $studentId = trim((string) ($file->studentId() ?? ''));
             if ($studentId !== '') {
                 $studentEvent = AssessmentEventFeed::delta('student', $before, $after);
                 if ($studentEvent !== null) {

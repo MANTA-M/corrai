@@ -126,6 +126,13 @@ abstract class BaseAssessment
     public ?float $mark_max = null;
 
     /**
+     * Assessment state.
+     *
+     * Statuses: draft → affecting → correcting → corrected
+     */
+    public string $status = 'draft';
+
+    /**
      * Allowed file type tags. Empty / unknown is stored as an empty string.
      */
     public const FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'];
@@ -222,6 +229,7 @@ abstract class BaseAssessment
             'correction_language' => $this->correction_language,
             'date' => $this->date,
             'created_at' => $this->created_at,
+            'status' => $this->status,
             'stripe_checkout_session_id' => $this->stripe_checkout_session_id,
             'stripe_paid_session_id' => $this->stripe_paid_session_id,
             'stripe_unit_amount' => $this->stripe_unit_amount,
@@ -246,6 +254,7 @@ abstract class BaseAssessment
         $assessment->correction_language = self::normalizeLocale($data['correction_language'] ?? null);
         $assessment->date = $data['date'] ?? '';
         $assessment->created_at = $data['created_at'] ?? '';
+        $assessment->status = (string) ($data['status'] ?? 'draft');
         $assessment->stripe_checkout_session_id = self::stringAttribute($data['stripe_checkout_session_id'] ?? null);
         $assessment->stripe_paid_session_id = self::stringAttribute($data['stripe_paid_session_id'] ?? null);
         $assessment->stripe_unit_amount = self::unitAmountAttribute($data['stripe_unit_amount'] ?? null);
@@ -458,7 +467,7 @@ abstract class BaseAssessment
      *
      * @var array<string, array<string, string>>
      */
-    private const STATUS_LABELS = [
+    public const STATUS_LABELS = [
         'draft' => [
             'en' => 'Draft',
             'fr' => 'Brouillon',
@@ -468,6 +477,16 @@ abstract class BaseAssessment
             'pt' => 'Rascunho',
             'ro' => 'Ciornă',
             'de' => 'Entwurf',
+        ],
+        'affecting' => [
+            'en' => 'Assigning copies',
+            'fr' => 'Affectation des copies',
+            'ru' => 'Назначение копий',
+            'uk' => 'Призначення робіт',
+            'es' => 'Asignación de copias',
+            'pt' => 'Atribuição de cópias',
+            'ro' => 'Atribuirea copiilor',
+            'de' => 'Zuweisung der Kopien',
         ],
         'correcting' => [
             'en' => 'Correcting',
@@ -517,6 +536,11 @@ abstract class BaseAssessment
         return $class::statusLabels($locale);
     }
 
+    public function get_status_label(?string $locale = null): string
+    {
+        return self::statusLabels($locale)[$this->status] ?? $this->status;
+    }
+
     public function to_output(?string $locale = null): array
     {
         $locale = MenuLabels::locale($locale);
@@ -531,12 +555,13 @@ abstract class BaseAssessment
             'correction_language' => $this->correction_language,
             'date' => $this->date,
             'created_at' => $this->created_at,
+            'status' => $this->status,
+            'status_label' => $this->get_status_label($locale),
             'assessed_students_number' => $this->assessed_students_number,
             'mark_average' => $this->mark_average,
             'mark_min' => $this->mark_min,
             'mark_max' => $this->mark_max,
             'label' => $this->localizedLabel($locale),
-            'menu' => $this->get_menu($locale),
         ];
     }
 
@@ -803,8 +828,9 @@ abstract class BaseAssessment
         $out = [];
         foreach ($this->listFileModels() as $file) {
             $studentName = null;
-            if ($file->student !== null && isset($names[$file->student])) {
-                $studentName = $names[$file->student];
+            $studentId = $file instanceof SubmissionFile ? $file->student : ($file instanceof S3File ? $file->student : null);
+            if ($studentId !== null && isset($names[$studentId])) {
+                $studentName = $names[$studentId];
             }
             $out[] = $file->to_output($studentName, $locale);
         }
@@ -892,6 +918,50 @@ abstract class BaseAssessment
             return strcmp($a['name'], $b['name']);
         });
         return $events;
+    }
+
+    /**
+     * Append an immutable event object under this assessment.
+     */
+    public function appendEvent(string $name, ?int $timestamp = null): void
+    {
+        if ($this->id === null || $this->id === '') {
+            throw new \Exception('Cannot append event without assessment id');
+        }
+        $timestamp = $timestamp ?? time();
+        $eventId = sprintf('%d-%s', $timestamp, bin2hex(random_bytes(4)));
+        $key = ObjectStore::assessmentEventKey(
+            $this->school_id,
+            $this->user_id,
+            $this->id,
+            $eventId
+        );
+        S3File::at($key)->putJson([
+            'timestamp' => $timestamp,
+            'name' => $name,
+        ]);
+    }
+
+    /**
+     * Check if there are any unassigned submissions still in 'transcribing' state.
+     */
+    public function hasUnassignedTranscribingSubmissions(?string $excludeFileId = null): bool
+    {
+        foreach ($this->listFileModels() as $model) {
+            if (!$model instanceof SubmissionFile && (!method_exists($model, 'role') || $model->role() !== 'submission')) {
+                continue;
+            }
+            if ($excludeFileId !== null && $model->id === $excludeFileId) {
+                continue;
+            }
+            if ($model->student !== null && trim((string) $model->student) !== '') {
+                continue;
+            }
+            if ($model->status === 'transcribing') {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function getFile(string $fileId): InputFile|S3File
@@ -1050,11 +1120,14 @@ abstract class BaseAssessment
     {
         $student = $this->getStudent($studentId);
         foreach ($this->listFileModels() as $file) {
-            if (($file->student ?? '') !== $studentId) {
+            $currentStudent = $file instanceof SubmissionFile ? $file->student : ($file instanceof S3File ? $file->student : null);
+            if ($currentStudent !== $studentId) {
                 continue;
             }
-            $file->student = null;
-            $file->saveAttributes();
+            if ($file instanceof SubmissionFile || $file instanceof S3File) {
+                $file->student = null;
+                $file->saveAttributes();
+            }
         }
         $student->delete();
         $this->save();
@@ -1082,7 +1155,7 @@ abstract class BaseAssessment
             $nextType = $type;
         }
 
-        $nextStudent = $file->student;
+        $nextStudent = $file instanceof SubmissionFile ? $file->student : ($file instanceof S3File ? $file->student : null);
         if ($student !== null) {
             $trimmed = trim($student);
             if ($trimmed === '') {
@@ -1100,7 +1173,9 @@ abstract class BaseAssessment
         } elseif (!$blobNow && $blobNext && $file instanceof InputFile) {
             $this->demoteInput($file, $nextType, $nextStudent);
         } else {
-            $file->student = $nextStudent;
+            if ($file instanceof SubmissionFile || $file instanceof S3File) {
+                $file->student = $nextStudent;
+            }
             if ($file instanceof InputFile) {
                 $expected = $this->classForInputType($nextType);
                 if ($file::class !== $expected) {
@@ -1331,7 +1406,7 @@ abstract class BaseAssessment
             if ($this->fileRole($file) !== $type) {
                 continue;
             }
-            $fileStudent = $file->student ?? '';
+            $fileStudent = $file instanceof SubmissionFile ? ($file->student ?? '') : ($file instanceof S3File ? ($file->student ?? '') : '');
             if ($fileStudent !== $student) {
                 continue;
             }
@@ -1379,6 +1454,24 @@ abstract class BaseAssessment
     public function pipelineClass(): string
     {
         return Catalog::pipelineClass($this->subject, $this->country ?? '', $this->level ?? '');
+    }
+
+    /**
+     * @return string[]
+     */
+    protected function pendingSubmissionIds(): array
+    {
+        $ids = [];
+        foreach ($this->listFileModels() as $file) {
+            if (!$file instanceof SubmissionFile || $file->id === null || $file->id === '') {
+                continue;
+            }
+            if ($file->status === 'corrected') {
+                continue;
+            }
+            $ids[] = $file->id;
+        }
+        return $ids;
     }
 
     /**
@@ -1445,11 +1538,16 @@ abstract class BaseAssessment
      */
     public function pricedCopyCount(): int
     {
-        return count($this->unclassifiedFileIds());
+        $unclassified = count($this->unclassifiedFileIds());
+        if ($unclassified > 0) {
+            return $unclassified;
+        }
+
+        return count($this->pendingSubmissionIds());
     }
 
     /**
-     * Start correction for every unclassified copy.
+     * Start correction for every unclassified copy or pending submission.
      *
      * Checkout calls this after payment, and also when the batch is free.
      * The set of copies does not depend on whether a charge was made.
@@ -1459,7 +1557,18 @@ abstract class BaseAssessment
      */
     public function startCorrection(): array
     {
-        return $this->correctUnclassifiedFiles();
+        if ($this->unclassifiedFileIds() !== []) {
+            return $this->correctUnclassifiedFiles();
+        }
+
+        $ids = $this->pendingSubmissionIds();
+        if ($ids === []) {
+            throw new WSException('No copies to correct', 400);
+        }
+        foreach ($ids as $fileId) {
+            $this->correctSubmission($fileId);
+        }
+        return $this->list_files();
     }
 
     /**
@@ -1718,7 +1827,9 @@ abstract class BaseAssessment
         $file->user_id = $this->user_id;
         $file->assessment_id = $this->id;
         $file->name = $filename;
-        $file->student = $student;
+        if ($file instanceof SubmissionFile) {
+            $file->student = $student;
+        }
         $file->status = 'stored';
         $file->content_type = $contentType;
         $file->size = $size;
@@ -1833,7 +1944,9 @@ abstract class BaseAssessment
         $file->user_id = $blob->user_id;
         $file->assessment_id = $blob->assessment_id;
         $file->name = $blob->name;
-        $file->student = $student;
+        if ($file instanceof SubmissionFile) {
+            $file->student = $student;
+        }
         $file->status = 'stored';
         $file->content_type = $blob->content_type;
         $file->size = strlen($bytes);

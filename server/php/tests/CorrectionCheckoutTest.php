@@ -118,6 +118,28 @@ class CorrectionCheckoutTest extends TestCase
         $this->assertSame('cs_test_paid', $again->stripe_paid_session_id);
     }
 
+    public function testStartCorrectionCallsConcreteSubclassMethod(): void
+    {
+        $called = false;
+        $mock = new class($called) extends \Corrai\Subject\DictationFranceCM2\Assessment {
+            public function __construct(private bool &$calledRef)
+            {
+            }
+            public function startCorrection(): array
+            {
+                $this->calledRef = true;
+                return ['called'];
+            }
+        };
+        $mock->id = 'test_subclass';
+        $mock->user_id = 'user_subclass';
+        $mock->school_id = 'school_subclass';
+
+        $res = $mock->startCorrection();
+        $this->assertTrue($called);
+        $this->assertSame(['called'], $res);
+    }
+
     private function assessment(): Assessment
     {
         $assessment = Assessment::from_array([

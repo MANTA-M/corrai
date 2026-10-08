@@ -26,6 +26,8 @@ class RedisConsumer
     {
         if (isset($ticket['path'], $ticket['task'])) {
             self::treatPathTask($ticket['path'], $ticket['task']);
+        } elseif (isset($ticket['assessment_id'], $ticket['task'])) {
+            self::treatAssessmentTask($ticket['assessment_id'], $ticket['task']);
         } elseif (isset($ticket['file_id'], $ticket['task'])) {
             self::treatFileTask($ticket['file_id'], $ticket['task']);
         } elseif (isset($ticket['file_id'])) {
@@ -34,6 +36,34 @@ class RedisConsumer
             error_log('Missing path or task on ticket: ' . json_encode($ticket));
             return;
         }
+    }
+
+    /**
+     * Run a task class against an assessment.
+     */
+    public static function treatAssessmentTask(string $assessmentId, string $taskClass): void
+    {
+        if (str_starts_with($taskClass, 'LawFrance\\')) {
+            $taskClass = 'Corrai\\Subject\\' . $taskClass;
+        }
+        if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
+            throw new Exception("Unknown task class $taskClass");
+        }
+        $task = new $taskClass();
+        if (method_exists($task, 'process_task')) {
+            $task->process_task((object) [
+                'assessment_id' => $assessmentId,
+                'task' => $taskClass,
+                'task_id' => $taskClass,
+            ]);
+            return;
+        }
+        if (method_exists($task, 'processAssessment')) {
+            $assessment = BaseAssessment::from_hash($assessmentId);
+            $task->processAssessment($assessment);
+            return;
+        }
+        throw new Exception("Task $taskClass cannot process an assessment queue item");
     }
 
     /**
@@ -50,6 +80,9 @@ class RedisConsumer
      */
     public static function treatPathTask(string $path, string $taskClass, ?string $fileId = null): void
     {
+        if (str_starts_with($taskClass, 'LawFrance\\')) {
+            $taskClass = 'Corrai\\Subject\\' . $taskClass;
+        }
         if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
             throw new Exception("Unknown task class $taskClass");
         }

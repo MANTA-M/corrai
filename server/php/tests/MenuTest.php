@@ -20,20 +20,22 @@ class MenuTest extends TestCase
     {
         $assessment = new DictationFranceCM2Assessment();
         $french = $assessment->to_output('fr');
+        $this->assertArrayNotHasKey('menu', $french);
         $this->assertSame('Dictée CM2 France', $french['label']);
+        $frenchMenu = $assessment->get_menu('fr');
         $this->assertSame(
             ['edit', 'delete', 'edit_subject', 'add_copies'],
-            array_column($french['menu'], 'key')
+            array_column($frenchMenu, 'key')
         );
-        $this->assertSame('', $french['menu'][0]['icon']);
-        $this->assertSame('Modifier', $french['menu'][0]['label']);
-        $this->assertSame('Supprimer l\'évaluation', $french['menu'][1]['label']);
-        $this->assertSame('#c93b45', $french['menu'][1]['color']);
-        $this->assertSame('Ajouter des copies', $french['menu'][3]['label']);
+        $this->assertSame('', $frenchMenu[0]['icon']);
+        $this->assertSame('Modifier', $frenchMenu[0]['label']);
+        $this->assertSame('Supprimer l\'évaluation', $frenchMenu[1]['label']);
+        $this->assertSame('#c93b45', $frenchMenu[1]['color']);
+        $this->assertSame('Ajouter des copies', $frenchMenu[3]['label']);
 
         $english = $assessment->to_output('en-US');
         $this->assertSame('Dictation CM2 France', $english['label']);
-        $this->assertSame('Edit', $english['menu'][0]['label']);
+        $this->assertSame('Edit', $assessment->get_menu('en-US')[0]['label']);
     }
 
     public function testStudentMenuUsesIconActions(): void
@@ -52,7 +54,8 @@ class MenuTest extends TestCase
         $assessment = new MathAssessment();
         $output = $assessment->to_output('zz');
         $this->assertSame('Math', $output['label']);
-        $this->assertSame('Modifier', $output['menu'][0]['label']);
+        $this->assertArrayNotHasKey('menu', $output);
+        $this->assertSame('Modifier', $assessment->get_menu('zz')[0]['label']);
     }
 
     public function testFileMenuDependsOnTheFileType(): void
@@ -143,5 +146,25 @@ class MenuTest extends TestCase
         $generic->status = 'correction_asked';
         $this->assertSame('Correction demandée', $generic->get_status_label('fr'));
         $this->assertArrayNotHasKey('ocr_done', $generic::statusLabels('fr'));
+    }
+
+    public function testSubjectFileDoesNotHaveStudentIdentifier(): void
+    {
+        $subject = SubjectFile::from_array([
+            'id' => 'sub1',
+            'name' => 'sujet.pdf',
+            'student_identifier' => 'ID-42',
+        ]);
+        $this->assertFalse(property_exists($subject, 'student_identifier'));
+        $this->assertArrayNotHasKey('student_identifier', $subject->attributePayload());
+
+        $submission = SubmissionFile::from_array([
+            'id' => 'copy1',
+            'name' => 'copie.png',
+            'student_identifier' => 'ID-42',
+        ]);
+        $this->assertTrue(property_exists($submission, 'student_identifier'));
+        $this->assertSame('ID-42', $submission->student_identifier);
+        $this->assertSame('ID-42', $submission->attributePayload()['student_identifier']);
     }
 }

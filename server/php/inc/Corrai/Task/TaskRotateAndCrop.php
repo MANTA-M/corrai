@@ -110,7 +110,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
                 $result->rotate_upright();
 
                 try {
-                    $this->storeImage($file, $image, $type);
+                    self::storeImage($file, $image, $type);
                     $store->putContents($ocrKey, $result->to_json(true), 'application/json');
                 } catch (Throwable $e) {
                     error_log(sprintf('[TaskRotateAndCrop] Failed to persist rotated image and OCR coordinates for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
@@ -144,7 +144,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
             $result->resize_to_global($box);
 
             try {
-                $this->storeImage($file, $image, $type);
+                self::storeImage($file, $image, $type);
                 $store->putContents($ocrKey, $result->to_json(true), 'application/json');
             } catch (Throwable $e) {
                 error_log(sprintf('[TaskRotateAndCrop] Failed to persist cropped image and OCR coordinates for file %s (%s): %s', (string) $file->id, $s3_path, $e->getMessage()));
@@ -182,7 +182,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
      *
      * @return array{0: GdImage, 1: bool} Image, and whether GD decoded it.
      */
-    private static function decode(string $bytes): array
+    public static function decode(string $bytes): array
     {
         $image = @imagecreatefromstring($bytes);
         if ($image instanceof GdImage) {
@@ -208,7 +208,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
      * Undo a clockwise page rotation. GD rotates counter-clockwise.
      * Imagick rotates clockwise, so a file GD cannot read is turned by -$angle.
      */
-    private static function rotate(GdImage $image, int $angle, string $sourceBytes, bool $decodedByGd): GdImage
+    public static function rotate(GdImage $image, int $angle, string $sourceBytes, bool $decodedByGd): GdImage
     {
         if ($decodedByGd) {
             return self::rotateGd($image, $angle);
@@ -219,7 +219,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         return $rotated;
     }
 
-    private static function rotateGd(GdImage $image, int $angle): GdImage
+    public static function rotateGd(GdImage $image, int $angle): GdImage
     {
         if (!imageistruecolor($image)) {
             imagepalettetotruecolor($image);
@@ -233,7 +233,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         return $rotated;
     }
 
-    private static function imagickToGd(string $bytes, int $angle): GdImage
+    public static function imagickToGd(string $bytes, int $angle): GdImage
     {
         if (!extension_loaded('imagick')) {
             throw new InvalidArgumentException('The source file is not an image GD or Imagick can read');
@@ -267,7 +267,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
      *
      * @param array{left: float, top: float, right: float, bottom: float} $box
      */
-    private static function crop(GdImage $image, array $box): GdImage
+    public static function crop(GdImage $image, array $box): GdImage
     {
         $width = imagesx($image);
         $height = imagesy($image);
@@ -298,7 +298,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         return $canvas;
     }
 
-    private function storeImage(InputFile $file, GdImage $image, int $type): void
+    public static function storeImage(InputFile $file, GdImage $image, int $type): void
     {
         if ($type === IMAGETYPE_WEBP && !function_exists('imagewebp')) {
             $type = IMAGETYPE_PNG;
@@ -311,7 +311,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         $file->saveAttributes();
     }
 
-    private static function outputType(string $bytes): int
+    public static function outputType(string $bytes): int
     {
         $info = @getimagesizefromstring($bytes);
         $type = is_array($info) ? (int) ($info[2] ?? 0) : 0;
@@ -321,7 +321,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         };
     }
 
-    private static function contentType(int $type): string
+    public static function contentType(int $type): string
     {
         return match ($type) {
             IMAGETYPE_JPEG => 'image/jpeg',
@@ -331,7 +331,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         };
     }
 
-    private static function encode(GdImage $image, int $type): string
+    public static function encode(GdImage $image, int $type): string
     {
         ob_start();
         $encoded = match ($type) {
