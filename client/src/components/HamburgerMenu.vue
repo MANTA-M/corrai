@@ -9,9 +9,9 @@ defineEmits<{
 </script>
 
 <template>
-  <button 
-    class="hamburger" 
-    :class="{ 'is-open': isOpen }" 
+  <button
+    class="hamburger"
+    :class="{ 'is-open': isOpen }"
     @click="$emit('toggle')"
     aria-label="Toggle menu"
   >

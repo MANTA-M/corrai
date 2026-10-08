@@ -173,6 +173,16 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
         );
     }
 
+    public function compiledSubmissionKey(): string
+    {
+        return ObjectStore::assessmentStudentCompiledSubmissionKey(
+            $this->school_id,
+            $this->user_id,
+            $this->assessment_id,
+            (string) $this->id
+        );
+    }
+
     /**
      * Persist with optional If-Match. Retries a few times on conflict when $retry is true.
      *

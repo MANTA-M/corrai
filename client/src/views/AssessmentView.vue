@@ -15,7 +15,9 @@
         <div class="header">
           <div>
             <div class="title-line">
-              <h1 data-testid="assessment-details-heading">{{ assessment.name || t('assessment.details') }}</h1>
+              <h1 data-testid="assessment-details-heading">
+                {{ assessment.name || t('assessment.details') }}
+              </h1>
               <div
                 v-if="sessionStore.debugMode"
                 ref="debugMenuRoot"
@@ -32,7 +34,11 @@
                 >
                   <ActionIcon name="caret" />
                 </button>
-                <ul v-if="debugMenuOpen" class="debug-menu-list" data-testid="assessment-debug-menu-list">
+                <ul
+                  v-if="debugMenuOpen"
+                  class="debug-menu-list"
+                  data-testid="assessment-debug-menu-list"
+                >
                   <li v-if="debugLoading" class="debug-menu-status">…</li>
                   <template v-else>
                     <li class="debug-menu-heading">{{ t('assessment.files') }}</li>
@@ -71,40 +77,57 @@
             </div>
             <p class="assessment-meta" data-testid="assessment-meta">
               <template v-if="assessment.date"
-                ><span data-testid="assessment-date-value">{{ assessment.date }}</span>, </template
-              ><span data-testid="assessment-subject-value">{{ subjectLabel(assessment.subject) }}</span
+                ><span data-testid="assessment-date-value">{{ assessment.date }}</span
+                >, </template
+              ><span data-testid="assessment-subject-value">{{
+                subjectLabel(assessment.subject)
+              }}</span
               ><template v-if="assessment.level"
-                >, <span data-testid="assessment-level-value">{{ levelLabel(assessment.subject, assessment.country, assessment.level) }}</span></template
+                >,
+                <span data-testid="assessment-level-value">{{
+                  levelLabel(assessment.subject, assessment.country, assessment.level)
+                }}</span></template
               >
             </p>
             <p v-if="showAssessmentStats" class="assessment-stats" data-testid="assessment-stats">
               <span
                 v-if="(assessment.assessed_students_number ?? 0) > 0"
                 data-testid="assessed-students-number"
-              >{{ t('assessment.assessedStudentsNumber', { count: assessment.assessed_students_number }) }}</span>
+                >{{
+                  t('assessment.assessedStudentsNumber', {
+                    count: assessment.assessed_students_number,
+                  })
+                }}</span
+              >
               <template v-if="hasMarkStats">
                 <span v-if="(assessment.assessed_students_number ?? 0) > 0"> · </span>
-                <span data-testid="mark-average">{{ t('assessment.markAverage', { mark: formatMark(displayedMarkAverage ?? 0) }) }}</span>
+                <span data-testid="mark-average">{{
+                  t('assessment.markAverage', { mark: formatMark(displayedMarkAverage ?? 0) })
+                }}</span>
                 <span> · </span>
-                <span data-testid="mark-min">{{ t('assessment.markMin', { mark: formatMark(displayedMarkMin ?? 0) }) }}</span>
+                <span data-testid="mark-min">{{
+                  t('assessment.markMin', { mark: formatMark(displayedMarkMin ?? 0) })
+                }}</span>
                 <span> · </span>
-                <span data-testid="mark-max">{{ t('assessment.markMax', { mark: formatMark(displayedMarkMax ?? 0) }) }}</span>
+                <span data-testid="mark-max">{{
+                  t('assessment.markMax', { mark: formatMark(displayedMarkMax ?? 0) })
+                }}</span>
               </template>
             </p>
           </div>
-        <div v-if="headerMenu.length" class="header-actions">
-          <button
-            v-for="item in headerMenu"
-            :key="item.key"
-            type="button"
-            :class="textButtonClass(item)"
-            :data-testid="assessmentTestId(item.key)"
-            :disabled="item.key === 'delete' && isDeleting"
-            @click="onAssessmentAction(item.key)"
-          >
-            {{ item.key === 'delete' && isDeleting ? t('assessment.deleting') : item.label }}
-          </button>
-        </div>
+          <div v-if="headerMenu.length" class="header-actions">
+            <button
+              v-for="item in headerMenu"
+              :key="item.key"
+              type="button"
+              :class="textButtonClass(item)"
+              :data-testid="assessmentTestId(item.key)"
+              :disabled="item.key === 'delete' && isDeleting"
+              @click="onAssessmentAction(item.key)"
+            >
+              {{ item.key === 'delete' && isDeleting ? t('assessment.deleting') : item.label }}
+            </button>
+          </div>
         </div>
 
         <div class="page-actions">
@@ -114,7 +137,11 @@
             type="button"
             :class="textButtonClass(item)"
             :data-testid="assessmentTestId(item.key)"
-            :disabled="((item.key === 'test_correction' || item.key === 'start_correction') && isStartingCorrection) || (item.key === 'create_correction_grid' && isCreatingCorrectionGrid)"
+            :disabled="
+              ((item.key === 'test_correction' || item.key === 'start_correction') &&
+                isStartingCorrection) ||
+              (item.key === 'create_correction_grid' && isCreatingCorrectionGrid)
+            "
             @click="onAssessmentAction(item.key)"
           >
             {{ item.label }}
@@ -150,16 +177,16 @@
               >
                 <span class="loading-spinner"></span>
               </span>
-              <span
-                v-if="student.status"
-                class="student-status"
-                data-testid="student-status"
-              >{{ sessionStore.stateLabel(sessionStore.studentStates, student.status, student.status_label) }}</span>
-              <span
-                v-if="student.mark != null"
-                class="student-mark"
-                data-testid="student-mark"
-              >{{ formatMark(student.mark) }}</span>
+              <span v-if="student.status" class="student-status" data-testid="student-status">{{
+                sessionStore.stateLabel(
+                  sessionStore.studentStates,
+                  student.status,
+                  student.status_label,
+                )
+              }}</span>
+              <span v-if="student.mark != null" class="student-mark" data-testid="student-mark">{{
+                formatMark(student.mark)
+              }}</span>
               <div class="row-actions" @click.stop @keydown.stop>
                 <MenuIconButton
                   v-for="item in studentMenu(student)"
@@ -173,11 +200,7 @@
           </ul>
         </section>
 
-        <section
-          v-if="unassignedFiles.length > 0"
-          class="section"
-          data-testid="unassigned-files"
-        >
+        <section v-if="unassignedFiles.length > 0" class="section" data-testid="unassigned-files">
           <h2>{{ t('assessment.unassignedFiles') }}</h2>
           <AssessmentFileList
             :assessment-id="assessment.id || ''"
@@ -231,12 +254,19 @@
       </div>
       <div class="popup-body">
         <p v-if="showCorrectionPrice" data-testid="start-correction-price">
-          {{ t('assessment.correctionPrice', { count: copyFiles.length, price: correctionUnitPrice }) }}
+          {{
+            t('assessment.correctionPrice', { count: copyFiles.length, price: correctionUnitPrice })
+          }}
         </p>
         <p v-if="startCorrectionError" class="error-message">{{ startCorrectionError }}</p>
       </div>
       <div class="popup-footer">
-        <button type="button" class="button secondary" :disabled="isStartingCorrection" @click="closeStartCorrection">
+        <button
+          type="button"
+          class="button secondary"
+          :disabled="isStartingCorrection"
+          @click="closeStartCorrection"
+        >
           {{ t('common.cancel') }}
         </button>
         <button
@@ -284,7 +314,9 @@
       </div>
       <div class="popup-body">
         <form @submit.prevent="submitRenameStudent">
-          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentNamePlaceholder') }}</label>
+          <label class="file-action-label" for="rename-student-input">{{
+            t('assessment.studentNamePlaceholder')
+          }}</label>
           <input
             id="rename-student-input"
             ref="renameStudentInput"
@@ -298,7 +330,12 @@
         <p v-if="studentActionError" class="error-message">{{ studentActionError }}</p>
       </div>
       <div class="popup-footer">
-        <button type="button" class="button secondary" :disabled="isUpdatingStudent" @click="closeRenameStudent">
+        <button
+          type="button"
+          class="button secondary"
+          :disabled="isUpdatingStudent"
+          @click="closeRenameStudent"
+        >
           {{ t('common.cancel') }}
         </button>
         <button
@@ -378,7 +415,14 @@ import { useAssessmentStream } from '@/composables/useAssessmentStream'
 import { applyAssessmentStream } from '@/utils/assessmentStream'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
-import { isAssessmentSubject, type AssessmentFile, type AssessmentStats, type AssessmentStudent, type MenuItem, type StateLocales } from '@/types/types'
+import {
+  isAssessmentSubject,
+  type AssessmentFile,
+  type AssessmentStats,
+  type AssessmentStudent,
+  type MenuItem,
+  type StateLocales,
+} from '@/types/types'
 import { isDebugFile, isUnassignedFile } from '@/utils/assessmentFiles'
 
 const route = useRoute()
@@ -396,7 +440,8 @@ useAssessmentStream({
     if (event.scope !== 'assessment' || !assessment.value) return
     const merged = applyAssessmentStream(files.value, students.value, event)
     const stats: AssessmentStats = {}
-    if ('assessed_students_number' in event) stats.assessed_students_number = event.assessed_students_number
+    if ('assessed_students_number' in event)
+      stats.assessed_students_number = event.assessed_students_number
     if ('mark_average' in event) stats.mark_average = event.mark_average
     if ('mark_min' in event) stats.mark_min = event.mark_min
     if ('mark_max' in event) stats.mark_max = event.mark_max
@@ -430,13 +475,17 @@ interface AssessmentEvent {
 }
 
 const subjectLabel = (subject: string) => {
-  const node = subjects.value.find(item => item.subject === subject)
+  const node = subjects.value.find((item) => item.subject === subject)
   if (node?.name) return node.name
   if (isAssessmentSubject(subject)) return t(`assessment.subjects.${subject}`)
   return subject || '—'
 }
 
-const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) => {
+const levelLabel = (
+  subject: string,
+  country: string | null | undefined,
+  level: string | null | undefined,
+) => {
   if (!level) return ''
   const fromCatalog = levelName(subject, country, level)
   if (fromCatalog && fromCatalog !== level) return fromCatalog
@@ -446,11 +495,13 @@ const levelLabel = (subject: string, country: string | null | undefined, level: 
 }
 
 const unassignedFiles = computed(() =>
-  files.value.filter((file) => isUnassignedFile(file, sessionStore.debugMode))
+  files.value.filter((file) => isUnassignedFile(file, sessionStore.debugMode)),
 )
 
 const copyFiles = computed(() =>
-  files.value.filter((file) => (file.type ?? '') === 'submission' && (file.status ?? '') !== 'corrected')
+  files.value.filter(
+    (file) => (file.type ?? '') === 'submission' && (file.status ?? '') !== 'corrected',
+  ),
 )
 
 const effectiveDiscountRate = computed(() => {
@@ -473,18 +524,24 @@ const correctionUnitPrice = computed(() => {
   })
 })
 
-const headerMenu = computed(() =>
-  (assessment.value?.menu ?? []).filter((item) => false)
-)
+const headerMenu = computed(() => (assessment.value?.menu ?? []).filter((item) => false))
 
 const deleteMenuItem = computed(() =>
-  (assessment.value?.menu ?? []).find((item) => item.key === 'delete')
+  (assessment.value?.menu ?? []).find((item) => item.key === 'delete'),
 )
 
-const pageMenuOrder = ['edit_subject', 'add_copies', 'create_correction_grid', 'start_correction', 'test_correction']
+const pageMenuOrder = [
+  'edit_subject',
+  'add_copies',
+  'create_correction_grid',
+  'start_correction',
+  'test_correction',
+]
 
 const pageMenu = computed(() => {
-  const items = (assessment.value?.menu ?? []).filter((item) => item.key !== 'edit' && item.key !== 'delete')
+  const items = (assessment.value?.menu ?? []).filter(
+    (item) => item.key !== 'edit' && item.key !== 'delete',
+  )
   return [...items].sort((a, b) => {
     const indexA = pageMenuOrder.indexOf(a.key)
     const indexB = pageMenuOrder.indexOf(b.key)
@@ -494,11 +551,10 @@ const pageMenu = computed(() => {
   })
 })
 
-const studentMenuFallback = computed(
-  () =>
-    (students.value.find((student) => student.menu?.length)?.menu ?? []).filter(
-      (item) => item.key !== 'view'
-    )
+const studentMenuFallback = computed(() =>
+  (students.value.find((student) => student.menu?.length)?.menu ?? []).filter(
+    (item) => item.key !== 'view',
+  ),
 )
 
 const studentMenu = (student: AssessmentStudent) =>
@@ -536,7 +592,7 @@ const formatMark = (mark: number) =>
 const studentMarks = computed(() =>
   students.value
     .map((student) => student.mark)
-    .filter((mark): mark is number => typeof mark === 'number' && Number.isFinite(mark))
+    .filter((mark): mark is number => typeof mark === 'number' && Number.isFinite(mark)),
 )
 
 const displayedMarkAverage = computed(() => {
@@ -557,14 +613,15 @@ const displayedMarkMax = computed(() => {
   return Math.max(...marks)
 })
 
-const hasMarkStats = computed(() =>
-  displayedMarkAverage.value != null
-  && displayedMarkMin.value != null
-  && displayedMarkMax.value != null
+const hasMarkStats = computed(
+  () =>
+    displayedMarkAverage.value != null &&
+    displayedMarkMin.value != null &&
+    displayedMarkMax.value != null,
 )
 
-const showAssessmentStats = computed(() =>
-  (assessment.value?.assessed_students_number ?? 0) > 0 || hasMarkStats.value
+const showAssessmentStats = computed(
+  () => (assessment.value?.assessed_students_number ?? 0) > 0 || hasMarkStats.value,
 )
 
 const studentRows = computed(() => {
@@ -578,7 +635,9 @@ const studentRows = computed(() => {
     if (!id || byId.has(id)) continue
     byId.set(id, { id, name: (file.student_name ?? '').trim() || id })
   }
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, String(locale.value || 'fr')))
+  return [...byId.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, String(locale.value || 'fr')),
+  )
 })
 
 const goBack = () => {
@@ -595,7 +654,9 @@ const goStudent = (studentId: string) => {
   router.push({ name: 'assessment-student', params: { id: assessment.value.id, studentId } })
 }
 
-const onFilesUpdated = (payload: { files: AssessmentFile[]; students?: AssessmentStudent[] } & AssessmentStats) => {
+const onFilesUpdated = (
+  payload: { files: AssessmentFile[]; students?: AssessmentStudent[] } & AssessmentStats,
+) => {
   const { files, students, ...stats } = payload
   applyUpdate(files, students, stats)
 }
@@ -805,10 +866,12 @@ const submitRenameStudent = async () => {
   studentActionError.value = ''
   isUpdatingStudent.value = true
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('PUT', '/student', { id: assessment.value.id, student: renameStudent.value.id, locale: String(locale.value) }, { name })
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('PUT', '/student', { id: assessment.value.id, student: renameStudent.value.id, locale: String(locale.value) }, { name })
     sessionStore.applyStateLocales(response)
     if (response?.files) {
       applyUpdate(response.files, response.students)
@@ -827,10 +890,12 @@ const submitDeleteStudent = async () => {
   studentActionError.value = ''
   isUpdatingStudent.value = true
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('DELETE', '/student', { id: assessment.value.id, student: deleteStudentTarget.value.id, locale: String(locale.value) })
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('DELETE', '/student', { id: assessment.value.id, student: deleteStudentTarget.value.id, locale: String(locale.value) })
     sessionStore.applyStateLocales(response)
     if (response?.files) {
       applyUpdate(response.files, response.students)
@@ -848,10 +913,12 @@ const transcribeStudent = async (student: AssessmentStudent) => {
   if (!assessment.value?.id || !student.id) return
   studentActionError.value = ''
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('POST', '/student_transcribe', {
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('POST', '/student_transcribe', {
       id: assessment.value.id,
       student: student.id,
       locale: String(locale.value),
@@ -869,10 +936,12 @@ const correctStudent = async (student: AssessmentStudent) => {
   if (!assessment.value?.id || !student.id) return
   studentActionError.value = ''
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('POST', '/student_correct', {
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('POST', '/student_correct', {
       id: assessment.value.id,
       student: student.id,
       locale: String(locale.value),
@@ -958,9 +1027,8 @@ const eventUrl = (eventId: string) =>
   })
 
 const eventLabel = (event: AssessmentEvent) => {
-  const name = event.name === 'Stored' || event.name === 'Loaded'
-    ? t('assessment.fileStored')
-    : event.name
+  const name =
+    event.name === 'Stored' || event.name === 'Loaded' ? t('assessment.fileStored') : event.name
   if (!event.timestamp) return name
   const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
     dateStyle: 'short',

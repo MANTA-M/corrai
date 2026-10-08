@@ -1,6 +1,8 @@
 <template>
   <p v-if="error" class="error-message">{{ error }}</p>
-  <p v-if="!sortedFiles.length" class="zone-empty">{{ emptyText || t('assessment.fileZoneEmpty') }}</p>
+  <p v-if="!sortedFiles.length" class="zone-empty">
+    {{ emptyText || t('assessment.fileZoneEmpty') }}
+  </p>
   <ul v-else-if="cards" class="file-cards" data-testid="assessment-file-list">
     <InputFile
       v-for="file in sortedFiles"
@@ -67,11 +69,7 @@
               {{ t('assessment.fileAnnexesEmpty') }}
             </li>
             <li v-for="name in storedFiles" :key="name">
-              <S3File
-                :label="name"
-                :href="objectUrl(file, name)"
-                :test-id="s3TestId(name)"
-              />
+              <S3File :label="name" :href="objectUrl(file, name)" :test-id="s3TestId(name)" />
             </li>
           </ul>
         </div>
@@ -126,10 +124,7 @@
             />
             <span>{{ student.name }}</span>
           </label>
-          <label
-            class="reassign-option"
-            :class="{ selected: selectedStudentId === NOT_FOUND }"
-          >
+          <label class="reassign-option" :class="{ selected: selectedStudentId === NOT_FOUND }">
             <input
               v-model="selectedStudentId"
               type="radio"
@@ -141,7 +136,11 @@
             <span>{{ t('assessment.fileReassignNotFound') }}</span>
           </label>
         </fieldset>
-        <label v-if="selectedStudentId === NOT_FOUND" class="file-action-label" for="reassign-name-input">
+        <label
+          v-if="selectedStudentId === NOT_FOUND"
+          class="file-action-label"
+          for="reassign-name-input"
+        >
           {{ t('assessment.studentNamePlaceholder') }}
           <input
             id="reassign-name-input"
@@ -153,7 +152,9 @@
             :disabled="isUpdating"
           />
         </label>
-        <p v-if="actionError" class="error-message" data-testid="reassign-file-error">{{ actionError }}</p>
+        <p v-if="actionError" class="error-message" data-testid="reassign-file-error">
+          {{ actionError }}
+        </p>
       </div>
       <div class="popup-footer">
         <button
@@ -240,7 +241,9 @@
       </div>
       <div class="popup-body">
         <form @submit.prevent="submitRename">
-          <label class="file-action-label" for="rename-file-input">{{ t('assessment.fileRenamePlaceholder') }}</label>
+          <label class="file-action-label" for="rename-file-input">{{
+            t('assessment.fileRenamePlaceholder')
+          }}</label>
           <input
             id="rename-file-input"
             ref="renameInput"
@@ -251,7 +254,9 @@
             :disabled="isUpdating"
           />
         </form>
-        <p v-if="actionError" class="error-message" data-testid="rename-file-error">{{ actionError }}</p>
+        <p v-if="actionError" class="error-message" data-testid="rename-file-error">
+          {{ actionError }}
+        </p>
       </div>
       <div class="popup-footer">
         <button
@@ -299,7 +304,9 @@
         <p data-testid="delete-file-confirm">
           {{ t('assessment.fileDeleteConfirm', { name: deleteTarget.name }) }}
         </p>
-        <p v-if="actionError" class="error-message" data-testid="delete-file-error">{{ actionError }}</p>
+        <p v-if="actionError" class="error-message" data-testid="delete-file-error">
+          {{ actionError }}
+        </p>
       </div>
       <div class="popup-footer">
         <button
@@ -333,7 +340,13 @@ import MenuIconButton from '@/components/MenuIconButton.vue'
 import S3File from '@/components/S3File.vue'
 import { useSessionStore } from '@/stores/session'
 import { isEditableTextFile } from '@/utils/assessmentFiles'
-import type { AssessmentFile, AssessmentStats, AssessmentStudent, MenuItem, StateLocales } from '@/types/types'
+import type {
+  AssessmentFile,
+  AssessmentStats,
+  AssessmentStudent,
+  MenuItem,
+  StateLocales,
+} from '@/types/types'
 
 const NOT_FOUND = '__not_found__'
 
@@ -387,13 +400,13 @@ interface FileDebugInfo {
 }
 
 const sortedFiles = computed(() =>
-  [...props.files].sort((a, b) => a.name.localeCompare(b.name, String(locale.value || 'fr')))
+  [...props.files].sort((a, b) => a.name.localeCompare(b.name, String(locale.value || 'fr'))),
 )
 
 const sortedStudents = computed(() =>
   [...(props.students ?? [])].sort((a, b) =>
-    a.name.localeCompare(b.name, String(locale.value || 'fr'))
-  )
+    a.name.localeCompare(b.name, String(locale.value || 'fr')),
+  ),
 )
 
 const filesMenuItem = computed<MenuItem>(() => ({
@@ -472,15 +485,13 @@ const toggleDirectory = (file: AssessmentFile) => {
 const loadDirectory = async (file: AssessmentFile) => {
   directoryLoading.value = true
   try {
-    const data = await sessionStore.getWsClient().queryWs<{ objects?: string[] }>(
-      'GET',
-      '/file_annexes',
-      {
+    const data = await sessionStore
+      .getWsClient()
+      .queryWs<{ objects?: string[] }>('GET', '/file_annexes', {
         assessment: props.assessmentId,
         file: file.id,
         locale: String(locale.value),
-      }
-    )
+      })
     if (directoryFileId.value !== file.id) return
     storedFiles.value = (data.objects ?? []).filter((name) => name !== 'content' && name !== '')
   } catch (err) {
@@ -514,9 +525,8 @@ const statusLabel = (file: AssessmentFile) =>
   sessionStore.stateLabel(sessionStore.fileStates, file.status, file.status_label)
 
 const eventLabel = (event: FileEvent) => {
-  const name = event.name === 'Stored' || event.name === 'Loaded'
-    ? t('assessment.fileStored')
-    : event.name
+  const name =
+    event.name === 'Stored' || event.name === 'Loaded' ? t('assessment.fileStored') : event.name
   if (!event.timestamp) return name
   const when = new Intl.DateTimeFormat(String(locale.value || 'fr'), {
     dateStyle: 'short',
@@ -551,7 +561,9 @@ const onFileAction = (file: AssessmentFile, key: string) => {
 const openReassign = (file: AssessmentFile) => {
   reassignTarget.value = file
   const current = (file.student ?? '').trim()
-  selectedStudentId.value = sortedStudents.value.some((student) => student.id === current) ? current : ''
+  selectedStudentId.value = sortedStudents.value.some((student) => student.id === current)
+    ? current
+    : ''
   newStudentName.value = ''
   actionError.value = ''
   error.value = ''
@@ -636,12 +648,16 @@ const confirmReassign = async () => {
     if (studentId === NOT_FOUND) {
       const name = newStudentName.value.trim()
       studentId =
-        (props.students ?? []).find((student) => student.name.toLowerCase() === name.toLowerCase())?.id ?? ''
+        (props.students ?? []).find((student) => student.name.toLowerCase() === name.toLowerCase())
+          ?.id ?? ''
       if (!studentId) {
-        const created = await wsClient.queryWs<{
-          student?: AssessmentStudent
-          students?: AssessmentStudent[]
-        } & AssessmentStats & StateLocales>('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
+        const created = await wsClient.queryWs<
+          {
+            student?: AssessmentStudent
+            students?: AssessmentStudent[]
+          } & AssessmentStats &
+            StateLocales
+        >('POST', '/student', { id: props.assessmentId, locale: String(locale.value) }, { name })
         sessionStore.applyStateLocales(created)
         studentId = created?.student?.id ?? ''
         students = created?.students ?? students
@@ -656,11 +672,14 @@ const confirmReassign = async () => {
       }
     }
 
-    const response = await wsClient.queryWs<{ files?: AssessmentFile[]; students?: AssessmentStudent[] }>(
+    const response = await wsClient.queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>(
       'PUT',
       '/file',
       { assessment: props.assessmentId, file: file.id, locale: String(locale.value) },
-      { student: studentId }
+      { student: studentId },
     )
     if (response?.files) {
       applyUpdatedFiles(response.files, response.students ?? students)

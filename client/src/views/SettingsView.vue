@@ -178,7 +178,12 @@
               </p>
             </div>
             <div class="logout-row">
-              <button type="button" class="button" data-testid="settings-logout" @click="handleLogout">
+              <button
+                type="button"
+                class="button"
+                data-testid="settings-logout"
+                @click="handleLogout"
+              >
                 {{ $t('nav.logout') }}
               </button>
             </div>
@@ -195,34 +200,34 @@
               <div class="field-row">
                 <label class="field-label" for="user_country">{{ $t('settings.country') }}</label>
                 <div class="field-control">
-                <select
-                  id="user_country"
-                  data-testid="settings-country"
-                  :value="sessionStore.country"
-                  class="select"
-                  :disabled="isSavingCountry"
-                  @change="onCountryChange"
-                >
-                  <option v-for="country in countries" :key="country.code" :value="country.code">
-                    {{ country.name }}
-                  </option>
-                </select>
+                  <select
+                    id="user_country"
+                    data-testid="settings-country"
+                    :value="sessionStore.country"
+                    class="select"
+                    :disabled="isSavingCountry"
+                    @change="onCountryChange"
+                  >
+                    <option v-for="country in countries" :key="country.code" :value="country.code">
+                      {{ country.name }}
+                    </option>
+                  </select>
                 </div>
               </div>
               <div class="field-row">
                 <label class="field-label" for="user_language">{{ $t('language') }}</label>
                 <div class="field-control">
-                <select
-                  id="user_language"
-                  data-testid="settings-language"
-                  :value="sessionStore.locale"
-                  class="select"
-                  @change="onLocaleChange"
-                >
-                  <option v-for="code in locales" :key="code" :value="code">
-                    {{ languageName(code) }}
-                  </option>
-                </select>
+                  <select
+                    id="user_language"
+                    data-testid="settings-language"
+                    :value="sessionStore.locale"
+                    class="select"
+                    @change="onLocaleChange"
+                  >
+                    <option v-for="code in locales" :key="code" :value="code">
+                      {{ languageName(code) }}
+                    </option>
+                  </select>
                 </div>
               </div>
               <div class="field-row">
@@ -256,10 +261,15 @@
                   :disabled="isRequestingNotificationPermission"
                   class="test-button test-button--warning"
                 >
-                  {{ isRequestingNotificationPermission ? '...' : $t('settings.enable_notifications') }}
+                  {{
+                    isRequestingNotificationPermission ? '...' : $t('settings.enable_notifications')
+                  }}
                 </button>
               </div>
-              <div v-else-if="notificationService.getPermission() === 'granted'" class="notice-granted">
+              <div
+                v-else-if="notificationService.getPermission() === 'granted'"
+                class="notice-granted"
+              >
                 <div class="status-banner status-banner--success">
                   <p class="status-banner__text">
                     {{ $t('settings.notifications_enabled_status') }}
@@ -271,7 +281,11 @@
                     :disabled="isCreatingWebpushSubscription"
                     class="test-button"
                   >
-                    {{ isCreatingWebpushSubscription ? '...' : $t('settings.create_webpush_subscription') }}
+                    {{
+                      isCreatingWebpushSubscription
+                        ? '...'
+                        : $t('settings.create_webpush_subscription')
+                    }}
                   </button>
                   <button
                     @click.prevent.stop="resetNotifications"
@@ -294,7 +308,9 @@
                   :disabled="isRequestingNotificationPermission"
                   class="test-button test-button--info"
                 >
-                  {{ isRequestingNotificationPermission ? '...' : $t('settings.enable_notifications') }}
+                  {{
+                    isRequestingNotificationPermission ? '...' : $t('settings.enable_notifications')
+                  }}
                 </button>
               </div>
             </div>
@@ -336,7 +352,9 @@
         </div>
         <div class="popup-body">
           <p data-testid="delete-account-confirm">{{ $t('settings.delete_account_confirm') }}</p>
-          <p v-if="deleteError" class="field-error" data-testid="delete-account-error">{{ deleteError }}</p>
+          <p v-if="deleteError" class="field-error" data-testid="delete-account-error">
+            {{ deleteError }}
+          </p>
         </div>
         <div class="popup-footer">
           <button

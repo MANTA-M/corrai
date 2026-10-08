@@ -42,10 +42,10 @@
   --dialog-user-bg: var(--pale);
   --dialog-bot-bg: var(--white);
 
-  --font-sans: "DM Sans", sans-serif;
-  --font-display: "Manrope", sans-serif;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Manrope', sans-serif;
   --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
 
   --type-label: 0.875rem;
@@ -277,7 +277,9 @@ main h2 {
 .submit-button:hover:not(:disabled),
 .edit-button:hover,
 .add-file-button:hover:not(:disabled),
-.test-button:not(.test-button--warning):not(.test-button--danger):not(.test-button--info):hover:not(:disabled) {
+.test-button:not(.test-button--warning):not(.test-button--danger):not(.test-button--info):hover:not(
+    :disabled
+  ) {
   background: var(--blue-hover);
   color: white;
   transform: translateY(-2px);
@@ -748,4 +750,3 @@ pre > code {
 .entity-row.is-loading {
   background: color-mix(in srgb, var(--blue) 4%, transparent);
 }
-

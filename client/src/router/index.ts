@@ -6,69 +6,93 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      redirect: '/assessment-list'
+      redirect: '/assessment-list',
     },
     {
       path: '/settings_page',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
-      meta: { title: 'Settings', requiresAuth: true }
+      meta: { title: 'Settings', requiresAuth: true },
     },
     {
       path: '/assessment-list',
       name: 'assessment-list',
       component: () => import('@/views/AssessmentList.vue'),
-      meta: { title: 'Assessments', requiresAuth: true }
+      meta: { title: 'Assessments', requiresAuth: true },
     },
     {
       path: '/create_assessment',
       name: 'create-assessment',
       component: () => import('@/views/CreateAssessmentView.vue'),
-      meta: { title: 'Create Assessment', requiresAuth: true }
+      meta: { title: 'Create Assessment', requiresAuth: true },
     },
     {
       path: '/assessment/:id/edit',
       name: 'assessment-edit',
       component: () => import('@/views/CreateAssessmentView.vue'),
-      meta: { title: 'Edit Assessment', requiresAuth: true }
+      meta: { title: 'Edit Assessment', requiresAuth: true },
     },
     {
       path: '/assessment/:id/sujet',
       name: 'assessment-subject',
       component: () => import('@/views/SubjectView.vue'),
-      meta: { title: 'Sujet', requiresAuth: true }
+      meta: { title: 'Sujet', requiresAuth: true },
+    },
+    {
+      path: '/assessment/:id/grille',
+      name: 'assessment-correction-grid',
+      component: () => import('@/views/CorrectionGridView.vue'),
+      meta: { title: 'Grille de correction', requiresAuth: true, minimalHeader: true },
+    },
+    {
+      path: '/assessment/:id/student/:studentId/grille',
+      name: 'student-correction-grid',
+      component: () => import('@/views/CorrectionGridView.vue'),
+      meta: { title: 'Grille de correction', requiresAuth: true, minimalHeader: true },
+    },
+    {
+      path: '/assessment/:id/student/:studentId/compiled_submission',
+      name: 'compiled_submission',
+      component: () => import('@/views/CompiledSubmissionView.vue'),
+      meta: { title: 'Copie compilée', requiresAuth: true, minimalHeader: true },
+    },
+    {
+      path: '/assessment/:id/student/:studentId/compiled-submission',
+      name: 'student-compiled-submission',
+      component: () => import('@/views/CompiledSubmissionView.vue'),
+      meta: { title: 'Copie compilée', requiresAuth: true, minimalHeader: true },
     },
     {
       path: '/assessment/:id/student/:studentId',
       name: 'assessment-student',
       component: () => import('@/views/StudentView.vue'),
-      meta: { title: 'Élève', requiresAuth: true }
+      meta: { title: 'Élève', requiresAuth: true },
     },
     {
       path: '/assessment/:id',
       name: 'assessment',
       component: () => import('@/views/AssessmentView.vue'),
-      meta: { title: 'Assessment', requiresAuth: true }
+      meta: { title: 'Assessment', requiresAuth: true },
     },
     {
       path: '/share',
       name: 'share',
       component: () => import('@/views/ShareView.vue'),
-      meta: { title: 'Share', requiresAuth: true }
+      meta: { title: 'Share', requiresAuth: true },
     },
     {
       path: '/not-authenticated',
       name: 'not-authenticated',
       component: () => import('@/views/NotAuthenticatedView.vue'),
-      meta: { title: 'Not Authenticated', requiresAuth: false }
+      meta: { title: 'Not Authenticated', requiresAuth: false },
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
-      meta: { title: 'Page Not Found' }
-    }
-  ]
+      meta: { title: 'Page Not Found' },
+    },
+  ],
 })
 
 export default router

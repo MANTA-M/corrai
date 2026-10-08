@@ -68,7 +68,7 @@ export function educationLevelName(country: string, code: string): string | null
   const cycles = EDUCATION_LEVELS[country]
   if (!cycles) return null
   for (const cycle of cycles) {
-    const level = cycle.levels.find(item => item.code === code)
+    const level = cycle.levels.find((item) => item.code === code)
     if (level) return level.name
   }
   return null

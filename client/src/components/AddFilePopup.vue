@@ -63,12 +63,7 @@
           class="upload-list"
           data-testid="add-file-status-list"
         >
-          <li
-            v-for="item in uploadItems"
-            :key="item.id"
-            class="upload-item"
-            :class="item.status"
-          >
+          <li v-for="item in uploadItems" :key="item.id" class="upload-item" :class="item.status">
             <span class="upload-name">{{ item.name }}</span>
             <span class="upload-status">{{ statusLabel(item) }}</span>
           </li>
@@ -84,22 +79,21 @@
           :aria-valuemin="0"
           :aria-valuemax="uploadProgressTotal"
           :aria-valuenow="uploadProgressCurrent"
-          :aria-label="t('assessment.uploadProgress', {
-            current: uploadProgressCurrent,
-            total: uploadProgressTotal
-          })"
+          :aria-label="
+            t('assessment.uploadProgress', {
+              current: uploadProgressCurrent,
+              total: uploadProgressTotal,
+            })
+          "
         >
           <div class="upload-progress-track">
-            <div
-              class="upload-progress-fill"
-              :style="{ width: `${uploadProgressPercent}%` }"
-            />
+            <div class="upload-progress-fill" :style="{ width: `${uploadProgressPercent}%` }" />
           </div>
           <span class="upload-progress-label">
             {{
               t('assessment.uploadProgress', {
                 current: uploadProgressCurrent,
-                total: uploadProgressTotal
+                total: uploadProgressTotal,
               })
             }}
           </span>
@@ -134,8 +128,8 @@ const props = withDefaults(
   {
     fixedType: '',
     title: '',
-    autoClose: false
-  }
+    autoClose: false,
+  },
 )
 
 const emit = defineEmits<{
@@ -166,7 +160,8 @@ let dragCounter = 0
 const showUploadProgress = computed(() => uploadItems.value.length > 5)
 const uploadProgressTotal = computed(() => uploadItems.value.length)
 const uploadProgressCurrent = computed(
-  () => uploadItems.value.filter((item) => item.status === 'done' || item.status === 'error').length
+  () =>
+    uploadItems.value.filter((item) => item.status === 'done' || item.status === 'error').length,
 )
 const uploadProgressPercent = computed(() => {
   if (uploadProgressTotal.value === 0) return 0
@@ -184,7 +179,7 @@ const scrollItemIntoView = async (index: number) => {
   const itemCenter = list.scrollTop + (itemRect.top - listRect.top) + itemRect.height / 2
   list.scrollTo({
     top: Math.max(0, itemCenter - listRect.height / 2),
-    behavior: 'smooth'
+    behavior: 'smooth',
   })
 }
 
@@ -244,7 +239,7 @@ const uploadFiles = async (files: File[]) => {
   uploadItems.value = files.map((file, index) => ({
     id: `${file.name}-${index}-${Date.now()}`,
     name: file.name,
-    status: 'pending'
+    status: 'pending',
   }))
 
   const wsClient = sessionStore.getWsClient()
@@ -260,14 +255,17 @@ const uploadFiles = async (files: File[]) => {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const params: Record<string, string> = { assessment: props.assessmentId, locale: String(locale.value) }
+        const params: Record<string, string> = {
+          assessment: props.assessmentId,
+          locale: String(locale.value),
+        }
         if (fileType.value) params.type = fileType.value
         const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
           'POST',
           '/file',
           params,
           formData,
-          'form'
+          'form',
         )
         item.status = 'done'
         if (response?.files) {
@@ -283,11 +281,13 @@ const uploadFiles = async (files: File[]) => {
     }
 
     if (latestFiles) {
-      const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === props.assessmentId)
+      const existingIndex = sessionStore.own_assessments.findIndex(
+        (e: Assessment) => e.id === props.assessmentId,
+      )
       if (existingIndex !== -1) {
         sessionStore.own_assessments[existingIndex] = {
           ...sessionStore.own_assessments[existingIndex],
-          files: latestFiles
+          files: latestFiles,
         }
       }
     }
@@ -362,7 +362,9 @@ const uploadFiles = async (files: File[]) => {
   text-align: center;
   cursor: pointer;
   background: var(--surface-2);
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
   flex-shrink: 0;
 }
 

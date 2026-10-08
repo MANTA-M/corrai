@@ -2,7 +2,7 @@
 import HamburgerMenu from './HamburgerMenu.vue'
 import { useSessionStore } from '@/stores/session'
 import { useRoute } from 'vue-router'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const sessionStore = useSessionStore()
 const route = useRoute()
@@ -12,51 +12,71 @@ const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
 }
 
+const isMinimalHeader = computed(() => {
+  return (
+    route.meta.minimalHeader === true ||
+    route.name === 'assessment-correction-grid' ||
+    route.name === 'student-correction-grid'
+  )
+})
 </script>
 
 <template>
   <header class="header">
     <div class="row">
-      <div class="header-left" v-if="sessionStore.isAuthenticated">
-        <router-link to="/assessment-list" class="brand" @click="isMenuOpen = false">
-          <span class="brand-mark" aria-hidden="true">C<span>✓</span></span>corrai
+      <template v-if="isMinimalHeader">
+        <router-link to="/assessment-list" class="brand">
+          <span class="brand-mark" aria-hidden="true">C<span>✓</span></span
+          >corrai
         </router-link>
-        <HamburgerMenu :is-open="isMenuOpen" @toggle="toggleMenu" />
-        <nav :class="{ 'is-open': isMenuOpen }">
-          <router-link to="/assessment-list" class="nav-link" @click="isMenuOpen = false">{{
-            $t('nav.assessments')
-          }}</router-link>
-          <!-- Mobile menu items -->
-          <div class="mobile-menu-items">
-            <router-link
-              v-if="sessionStore.isAuthenticated"
-              to="/settings_page"
-              class="account-button"
-              @click="isMenuOpen = false"
-            >
-              <span v-if="sessionStore.user_name" class="account-name">{{ sessionStore.user_name }}</span>
-              <span class="account-label">{{ $t('nav.myAccount') }}</span>
-            </router-link>
-          </div>
-        </nav>
-      </div>
-      <div class="header-right desktop-only">
-        <router-link
-          v-if="!sessionStore.isAuthenticated && route.name !== 'login'"
-          to="/login"
-          class="button primary"
-        >
-          {{ $t('nav.login') }}
-        </router-link>
-        <router-link
-          v-else-if="sessionStore.isAuthenticated"
-          to="/settings_page"
-          class="account-button"
-        >
-          <span v-if="sessionStore.user_name" class="account-name">{{ sessionStore.user_name }}</span>
-          <span class="account-label">{{ $t('nav.myAccount') }}</span>
-        </router-link>
-      </div>
+      </template>
+      <template v-else>
+        <div class="header-left" v-if="sessionStore.isAuthenticated">
+          <router-link to="/assessment-list" class="brand" @click="isMenuOpen = false">
+            <span class="brand-mark" aria-hidden="true">C<span>✓</span></span
+            >corrai
+          </router-link>
+          <HamburgerMenu :is-open="isMenuOpen" @toggle="toggleMenu" />
+          <nav :class="{ 'is-open': isMenuOpen }">
+            <router-link to="/assessment-list" class="nav-link" @click="isMenuOpen = false">{{
+              $t('nav.assessments')
+            }}</router-link>
+            <!-- Mobile menu items -->
+            <div class="mobile-menu-items">
+              <router-link
+                v-if="sessionStore.isAuthenticated"
+                to="/settings_page"
+                class="account-button"
+                @click="isMenuOpen = false"
+              >
+                <span v-if="sessionStore.user_name" class="account-name">{{
+                  sessionStore.user_name
+                }}</span>
+                <span class="account-label">{{ $t('nav.myAccount') }}</span>
+              </router-link>
+            </div>
+          </nav>
+        </div>
+        <div class="header-right desktop-only">
+          <router-link
+            v-if="!sessionStore.isAuthenticated && route.name !== 'login'"
+            to="/login"
+            class="button primary"
+          >
+            {{ $t('nav.login') }}
+          </router-link>
+          <router-link
+            v-else-if="sessionStore.isAuthenticated"
+            to="/settings_page"
+            class="account-button"
+          >
+            <span v-if="sessionStore.user_name" class="account-name">{{
+              sessionStore.user_name
+            }}</span>
+            <span class="account-label">{{ $t('nav.myAccount') }}</span>
+          </router-link>
+        </div>
+      </template>
     </div>
   </header>
 </template>

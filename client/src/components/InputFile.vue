@@ -44,20 +44,25 @@
           </button>
           <ul v-if="directoryOpen" class="file-card-submenu" data-testid="file-directory-list">
             <li v-if="directoryLoading" class="file-directory-status">…</li>
-            <li v-else-if="storedFiles.length === 0" class="file-directory-status" data-testid="file-directory-empty">
+            <li
+              v-else-if="storedFiles.length === 0"
+              class="file-directory-status"
+              data-testid="file-directory-empty"
+            >
               {{ t('assessment.fileAnnexesEmpty') }}
             </li>
             <li v-for="name in storedFiles" :key="name">
-              <S3File
-                :label="name"
-                :href="objectUrl(name)"
-                :test-id="s3TestId(name)"
-              />
+              <S3File :label="name" :href="objectUrl(name)" :test-id="s3TestId(name)" />
             </li>
           </ul>
         </li>
         <li>
-          <button type="button" class="danger" data-testid="file-delete" @click="onAction('delete')">
+          <button
+            type="button"
+            class="danger"
+            data-testid="file-delete"
+            @click="onAction('delete')"
+          >
             {{ t('common.delete') }}
           </button>
         </li>
@@ -72,12 +77,7 @@
       :aria-label="viewLabel"
       :title="viewLabel"
     >
-      <img
-        v-if="file.thumbnail"
-        :src="thumbnailUrl"
-        alt=""
-        data-testid="file-thumbnail"
-      />
+      <img v-if="file.thumbnail" :src="thumbnailUrl" alt="" data-testid="file-thumbnail" />
       <span v-else class="file-thumb-missing" data-testid="file-thumbnail">?</span>
       <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ viewLabel }}</span>
     </a>
@@ -128,7 +128,7 @@ const fileViewUrl = computed(() =>
   sessionStore.getWsClient().getWsUrl('/file', {
     assessment: props.assessmentId,
     file: props.file.id,
-  })
+  }),
 )
 
 const thumbnailUrl = computed(() =>
@@ -136,15 +136,13 @@ const thumbnailUrl = computed(() =>
     assessment: props.assessmentId,
     file: props.file.id,
     annex: 'thumbnail',
-  })
+  }),
 )
 
-const viewLabel = computed(() =>
-  props.file.menu?.find((item) => item.key === 'view')?.label ?? ''
-)
+const viewLabel = computed(() => props.file.menu?.find((item) => item.key === 'view')?.label ?? '')
 
 const statusLabel = computed(() =>
-  sessionStore.stateLabel(sessionStore.fileStates, props.file.status, props.file.status_label)
+  sessionStore.stateLabel(sessionStore.fileStates, props.file.status, props.file.status_label),
 )
 
 const objectUrl = (name: string) =>
@@ -184,18 +182,16 @@ const toggleDirectory = () => {
 const loadDirectory = async () => {
   directoryLoading.value = true
   try {
-    const data = await sessionStore.getWsClient().queryWs<{ objects?: string[] }>(
-      'GET',
-      '/file_annexes',
-      {
+    const data = await sessionStore
+      .getWsClient()
+      .queryWs<{ objects?: string[] }>('GET', '/file_annexes', {
         assessment: props.assessmentId,
         file: props.file.id,
         locale: String(locale.value),
-      }
-    )
+      })
     if (!directoryOpen.value) return
     storedFiles.value = (data.objects ?? []).filter(
-      (name) => name !== 'content' && !name.includes('/')
+      (name) => name !== 'content' && !name.includes('/'),
     )
   } catch (err) {
     console.error('Error loading file directory:', err)

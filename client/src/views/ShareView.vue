@@ -34,7 +34,11 @@
             <p>{{ t('assessment.loading') }}</p>
           </div>
           <template v-else>
-            <p v-if="assessments.length === 0" class="empty-message" data-testid="share-assessments-empty">
+            <p
+              v-if="assessments.length === 0"
+              class="empty-message"
+              data-testid="share-assessments-empty"
+            >
               {{ t('share.noAssessments') }}
             </p>
             <ul v-else class="assessments-list" data-testid="share-assessment-list">
@@ -86,7 +90,7 @@ const assessments = computed(() => {
 })
 
 const canUpload = computed(
-  () => sharedFiles.value.length > 0 && !isUploading.value && !isLoadingFiles.value
+  () => sharedFiles.value.length > 0 && !isUploading.value && !isLoadingFiles.value,
 )
 
 const subjectLabel = (subject: string) => {
@@ -119,7 +123,7 @@ const uploadToAssessment = async (assessmentId: string) => {
         '/file',
         { assessment: assessmentId, locale: String(locale.value) },
         formData,
-        'form'
+        'form',
       )
       if (response?.files) {
         latestFiles = response.files
@@ -127,7 +131,9 @@ const uploadToAssessment = async (assessmentId: string) => {
     }
 
     if (latestFiles) {
-      const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === assessmentId)
+      const existingIndex = sessionStore.own_assessments.findIndex(
+        (e: Assessment) => e.id === assessmentId,
+      )
       if (existingIndex !== -1) {
         sessionStore.own_assessments[existingIndex] = {
           ...sessionStore.own_assessments[existingIndex],
@@ -236,7 +242,9 @@ onMounted(async () => {
   margin-bottom: 0.75rem;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
   text-align: left;
   color: inherit;
   font: inherit;

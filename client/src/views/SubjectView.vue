@@ -38,7 +38,12 @@
                 </button>
               </template>
               <template v-else>
-                <h1 data-testid="subject-page-title">{{ t('assessment.subjectPageTitle') + (assessment.name ? ': ' + assessment.name : '') }}</h1>
+                <h1 data-testid="subject-page-title">
+                  {{
+                    t('assessment.subjectPageTitle') +
+                    (assessment.name ? ': ' + assessment.name : '')
+                  }}
+                </h1>
                 <MenuIconButton
                   :item="pencilItem"
                   test-id="subject-name-edit"
@@ -47,9 +52,18 @@
               </template>
             </div>
           </div>
-          <button type="button" class="button" data-testid="subject-back" @click="goBack">
-            {{ t('assessment.back') }}
-          </button>
+          <div class="header-actions">
+            <router-link
+              class="button secondary"
+              data-testid="subject-correction-grid"
+              :to="{ name: 'assessment-correction-grid', params: { id: assessment.id } }"
+            >
+              {{ t('assessment.correctionGrid') }}
+            </router-link>
+            <button type="button" class="button" data-testid="subject-back" @click="goBack">
+              {{ t('assessment.back') }}
+            </button>
+          </div>
         </div>
 
         <ul class="meta-list" data-testid="subject-meta">
@@ -80,7 +94,9 @@
               </button>
             </template>
             <template v-else>
-              <span class="meta-value" data-testid="subject-subject-value">{{ subjectLabel(assessment.subject) }}</span>
+              <span class="meta-value" data-testid="subject-subject-value">{{
+                subjectLabel(assessment.subject)
+              }}</span>
               <MenuIconButton
                 :item="pencilItem"
                 test-id="subject-subject-edit"
@@ -217,7 +233,9 @@
               </button>
             </template>
             <template v-else>
-              <span class="meta-value" data-testid="subject-date-value">{{ assessment.date || '' }}</span>
+              <span class="meta-value" data-testid="subject-date-value">{{
+                assessment.date || ''
+              }}</span>
               <MenuIconButton
                 :item="pencilItem"
                 test-id="subject-date-edit"
@@ -240,7 +258,9 @@
               @click="openUpload('subject')"
             >
               <ActionIcon name="plus" />
-              <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ t('assessment.addSubjectFile') }}</span>
+              <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{
+                t('assessment.addSubjectFile')
+              }}</span>
             </button>
           </div>
           <AssessmentFileList
@@ -265,7 +285,9 @@
                 @click="openUpload('solution')"
               >
                 <ActionIcon name="plus" />
-                <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ t('assessment.addSolutionFile') }}</span>
+                <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{
+                  t('assessment.addSolutionFile')
+                }}</span>
               </button>
             </div>
           </div>
@@ -283,7 +305,9 @@
         <section class="section" data-testid="file-zone-instructions">
           <div class="section-header">
             <h2>{{ t('assessment.fileTypeInstructions') }}</h2>
-            <span v-if="isSavingInstruction" class="instruction-saving-indicator">{{ t('assessment.saving') }}</span>
+            <span v-if="isSavingInstruction" class="instruction-saving-indicator">{{
+              t('assessment.saving')
+            }}</span>
           </div>
           <div class="instruction-editor-wrapper">
             <textarea
@@ -325,7 +349,9 @@
     v-if="uploadType && assessment?.id"
     :assessment-id="assessment.id"
     :fixed-type="uploadType"
-    :title="uploadType === 'subject' ? t('assessment.addSubjectFile') : t('assessment.addSolutionFile')"
+    :title="
+      uploadType === 'subject' ? t('assessment.addSubjectFile') : t('assessment.addSolutionFile')
+    "
     auto-close
     @close="uploadType = null"
     @uploaded="onUploaded"
@@ -356,14 +382,27 @@ import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
 import { useSessionStore } from '@/stores/session'
 import { toast } from 'vue3-toastify'
-import { isAssessmentSubject, type Assessment, type AssessmentFile, type AssessmentStudent, type MenuItem } from '@/types/types'
+import {
+  isAssessmentSubject,
+  type Assessment,
+  type AssessmentFile,
+  type AssessmentStudent,
+  type MenuItem,
+} from '@/types/types'
 
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
 const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
-const { subjects, load: loadSubjects, countryName, levelName, countriesFor, levelsFor, countryForLevel } =
-  useSubjectCatalog()
+const {
+  subjects,
+  load: loadSubjects,
+  countryName,
+  levelName,
+  countriesFor,
+  levelsFor,
+  countryForLevel,
+} = useSubjectCatalog()
 
 type MetaField = 'name' | 'subject' | 'country' | 'level' | 'date'
 
@@ -382,7 +421,7 @@ const pencilItem = computed<MenuItem>(() => ({
 
 const catalogCountries = computed(() => countriesFor(assessment.value?.subject || ''))
 const catalogLevels = computed(() =>
-  levelsFor(assessment.value?.subject || '', assessment.value?.country)
+  levelsFor(assessment.value?.subject || '', assessment.value?.country),
 )
 const unknownCountry = computed(() => {
   const code = draft.value.trim()
@@ -411,7 +450,11 @@ const countryLabel = (subject: string, country: string | null | undefined) => {
   return countryName(subject, country) || country
 }
 
-const levelLabel = (subject: string, country: string | null | undefined, level: string | null | undefined) => {
+const levelLabel = (
+  subject: string,
+  country: string | null | undefined,
+  level: string | null | undefined,
+) => {
   if (!level) return ''
   const fromCatalog = levelName(subject, country, level)
   if (fromCatalog && fromCatalog !== level) return fromCatalog
@@ -427,9 +470,11 @@ const textKind = ref<'instructions' | 'solution'>('instructions')
 
 const subjectFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'subject'))
 const solutionFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'solution'))
-const instructionFiles = computed(() => files.value.filter((file) => (file.type ?? '') === 'instructions'))
+const instructionFiles = computed(() =>
+  files.value.filter((file) => (file.type ?? '') === 'instructions'),
+)
 const canTestCorrection = computed(() =>
-  (assessment.value?.menu ?? []).some((item) => item.key === 'test_correction')
+  (assessment.value?.menu ?? []).some((item) => item.key === 'test_correction'),
 )
 
 const isTestingCorrection = ref(false)
@@ -500,7 +545,7 @@ watch(
   () => {
     loadInstructionContent()
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 const saveInstructionContent = async () => {
@@ -539,7 +584,7 @@ const saveInstructionContent = async () => {
         '/file',
         { assessment: assessment.value.id, locale: String(locale.value) },
         formData,
-        'form'
+        'form',
       )
       if (response?.files) {
         lastSavedContent = contentToSave
@@ -547,14 +592,17 @@ const saveInstructionContent = async () => {
       }
     } else {
       const patch: { content: string; name?: string } = { content: contentToSave }
-      if (targetFile.name?.toLowerCase().includes('consigne') || targetFile.name?.toLowerCase().endsWith('.txt')) {
+      if (
+        targetFile.name?.toLowerCase().includes('consigne') ||
+        targetFile.name?.toLowerCase().endsWith('.txt')
+      ) {
         patch.name = 'instructions.md'
       }
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
         { assessment: assessment.value.id, file: targetFile.id, locale: String(locale.value) },
-        patch
+        patch,
       )
       if (response?.files) {
         lastSavedContent = contentToSave
@@ -702,7 +750,9 @@ const saveField = async () => {
   saveError.value = ''
   isSaving.value = true
   try {
-    await sessionStore.getWsClient().queryWs('PUT', '/assessment', { hash: assessment.value.id }, body)
+    await sessionStore
+      .getWsClient()
+      .queryWs('PUT', '/assessment', { hash: assessment.value.id }, body)
     const patch: Partial<Assessment> =
       field === 'level'
         ? { level: value || null, ...(body.country ? { country: body.country } : {}) }
@@ -710,7 +760,9 @@ const saveField = async () => {
           ? { country: value || null }
           : { [field]: value }
     assessment.value = { ...assessment.value, ...patch }
-    const index = sessionStore.own_assessments.findIndex((item: Assessment) => item.id === assessment.value?.id)
+    const index = sessionStore.own_assessments.findIndex(
+      (item: Assessment) => item.id === assessment.value?.id,
+    )
     if (index !== -1) {
       sessionStore.own_assessments[index] = {
         ...sessionStore.own_assessments[index],
@@ -735,6 +787,13 @@ loadSubjects()
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
   flex-wrap: wrap;
 }
 

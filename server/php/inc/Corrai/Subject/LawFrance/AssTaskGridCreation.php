@@ -119,6 +119,7 @@ class AssTaskGridCreation extends QueueItemTask
             . "Il doit être toujours possible d'avoir 100% des points accordés à la question.\n"
             . "Toutes les instructions utiles présentes dans le fichier d'instructions se retrouveront de manière synthétique dans le tableau \"instructions_générales\" du JSON.\n"
             . "Le contenu du sujet sera réparti sans redites entre les instructions générales et les parties.\n"
+            . "Dans la section \"references\", mets le texte verbatim de chaque article cité dans le sujet et recherché sur un site législatif officiel français et en vigueur, en incluant l'ensemble des alinéas (en identifiant/numérotant distinctement chaque alinéa).\n"
             . "Tout doit être en Français.\n";
     }
 
@@ -143,10 +144,26 @@ class AssTaskGridCreation extends QueueItemTask
             ],
         ];
 
+        $reference = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['reference', 'texte'],
+            'properties' => [
+                'reference' => [
+                    'type' => 'string',
+                    'description' => 'Référence de l\'article cité dans le sujet.',
+                ],
+                'texte' => [
+                    'type' => 'string',
+                    'description' => 'Texte verbatim de l\'article recherché sur un site législatif officiel français et en vigueur, incluant tous ses alinéas.',
+                ],
+            ],
+        ];
+
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['instructions_générales', 'modificateurs_généraux', 'parties'],
+            'required' => ['instructions_générales', 'modificateurs_généraux', 'parties', 'references'],
             'properties' => [
                 'instructions_générales' => [
                     'type' => 'array',
@@ -197,6 +214,11 @@ class AssTaskGridCreation extends QueueItemTask
                             ],
                         ],
                     ],
+                ],
+                'references' => [
+                    'type' => 'array',
+                    'description' => 'Texte verbatim de chaque article cité dans le sujet et recherché sur un site législatif officiel français et en vigueur, incluant tous ses alinéas.',
+                    'items' => $reference,
                 ],
             ],
         ];

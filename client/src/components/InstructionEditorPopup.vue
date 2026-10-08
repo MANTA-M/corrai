@@ -6,59 +6,65 @@
       @click.self="emit('close')"
     >
       <div class="popup-content instruction-editor">
-      <div class="popup-header">
-        <h2>{{ existingFile ? labels.editTitle : labels.createTitle }}</h2>
-        <button
-          type="button"
-          class="close-button"
-          data-testid="instruction-editor-close"
-          :aria-label="t('common.cancel')"
-          @click="emit('close')"
-        >
-          &times;
-        </button>
+        <div class="popup-header">
+          <h2>{{ existingFile ? labels.editTitle : labels.createTitle }}</h2>
+          <button
+            type="button"
+            class="close-button"
+            data-testid="instruction-editor-close"
+            :aria-label="t('common.cancel')"
+            @click="emit('close')"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="popup-body">
+          <label class="instruction-label" for="instruction-title">{{
+            t('assessment.instructionTitle')
+          }}</label>
+          <input
+            id="instruction-title"
+            v-model="title"
+            type="text"
+            class="instruction-title-input"
+            data-testid="instruction-title"
+            :disabled="isSaving || isLoading"
+          />
+          <label class="instruction-label" for="instruction-body">{{
+            t('assessment.instructionBody')
+          }}</label>
+          <textarea
+            id="instruction-body"
+            v-model="body"
+            class="instruction-body-input"
+            data-testid="instruction-body"
+            :disabled="isSaving || isLoading"
+          />
+          <p v-if="error" class="error-message" data-testid="instruction-editor-error">
+            {{ error }}
+          </p>
+        </div>
+        <div class="popup-footer">
+          <button
+            type="button"
+            class="button secondary"
+            data-testid="instruction-editor-cancel"
+            :disabled="isSaving"
+            @click="emit('close')"
+          >
+            {{ t('common.cancel') }}
+          </button>
+          <button
+            type="button"
+            class="button add-file-button"
+            data-testid="instruction-editor-save"
+            :disabled="isSaving || isLoading || !title.trim()"
+            @click="save"
+          >
+            {{ isSaving ? t('assessment.instructionSaving') : t('assessment.instructionSave') }}
+          </button>
+        </div>
       </div>
-      <div class="popup-body">
-        <label class="instruction-label" for="instruction-title">{{ t('assessment.instructionTitle') }}</label>
-        <input
-          id="instruction-title"
-          v-model="title"
-          type="text"
-          class="instruction-title-input"
-          data-testid="instruction-title"
-          :disabled="isSaving || isLoading"
-        />
-        <label class="instruction-label" for="instruction-body">{{ t('assessment.instructionBody') }}</label>
-        <textarea
-          id="instruction-body"
-          v-model="body"
-          class="instruction-body-input"
-          data-testid="instruction-body"
-          :disabled="isSaving || isLoading"
-        />
-        <p v-if="error" class="error-message" data-testid="instruction-editor-error">{{ error }}</p>
-      </div>
-      <div class="popup-footer">
-        <button
-          type="button"
-          class="button secondary"
-          data-testid="instruction-editor-cancel"
-          :disabled="isSaving"
-          @click="emit('close')"
-        >
-          {{ t('common.cancel') }}
-        </button>
-        <button
-          type="button"
-          class="button add-file-button"
-          data-testid="instruction-editor-save"
-          :disabled="isSaving || isLoading || !title.trim()"
-          @click="save"
-        >
-          {{ isSaving ? t('assessment.instructionSaving') : t('assessment.instructionSave') }}
-        </button>
-      </div>
-    </div>
     </div>
   </Teleport>
 </template>
@@ -67,7 +73,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
-import { ASSESSMENT_FILE_TYPES, type AssessmentFile, type AssessmentFileTypeZone } from '@/types/types'
+import {
+  ASSESSMENT_FILE_TYPES,
+  type AssessmentFile,
+  type AssessmentFileTypeZone,
+} from '@/types/types'
 
 const props = defineProps<{
   assessmentId: string
@@ -99,7 +109,7 @@ const labels = computed(() =>
         prefix: t('assessment.instructionTitlePrefix'),
         saveError: t('assessment.instructionSaveError'),
         loadError: t('assessment.instructionLoadError'),
-      }
+      },
 )
 
 const title = ref('')
@@ -201,7 +211,7 @@ const save = async () => {
         '/file',
         { assessment: props.assessmentId, locale: String(locale.value) },
         formData,
-        'form'
+        'form',
       )
       files = response?.files
     } else {
@@ -212,8 +222,12 @@ const save = async () => {
       const response = await wsClient.queryWs<{ files?: AssessmentFile[] }>(
         'PUT',
         '/file',
-        { assessment: props.assessmentId, file: props.existingFile.id, locale: String(locale.value) },
-        patch
+        {
+          assessment: props.assessmentId,
+          file: props.existingFile.id,
+          locale: String(locale.value),
+        },
+        patch,
       )
       files = response?.files
     }

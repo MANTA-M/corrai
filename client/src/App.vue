@@ -36,7 +36,7 @@ async function createLocalKeyPair(): Promise<{ publicKey: string; privateKey: st
       namedCurve: 'P-256',
     },
     true,
-    ['sign', 'verify']
+    ['sign', 'verify'],
   )
 
   const publicKeyArrayBuffer = await crypto.subtle.exportKey('spki', keyPair.publicKey)
@@ -119,7 +119,7 @@ watch(
       }
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 onMounted(async () => {
@@ -146,7 +146,10 @@ onMounted(async () => {
   <div class="shell">
     <InitProfile v-if="!sessionStore.keyPair && !adoptingAsTeacher" />
 
-    <div v-else-if="adoptingAsTeacher || provisioning || !sessionStore.isInitialized" class="provisioning">
+    <div
+      v-else-if="adoptingAsTeacher || provisioning || !sessionStore.isInitialized"
+      class="provisioning"
+    >
       <p>{{ t('assessment.loading') }}</p>
     </div>
 

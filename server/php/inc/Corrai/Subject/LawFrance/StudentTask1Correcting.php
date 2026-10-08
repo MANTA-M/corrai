@@ -17,6 +17,10 @@ use Throwable;
 
 class StudentTask1Correcting extends PathQueueItemTask
 {
+    public function __construct(private readonly ?ClaudeSonnetClient $client = null)
+    {
+    }
+
     public function process_task(object $queue_item_data): void
     {
         $studentId = $queue_item_data->student_id ?? null;
@@ -88,6 +92,8 @@ class StudentTask1Correcting extends PathQueueItemTask
             $submission[] = $this->ocrText($file);
         }
 
+        $this->storeCompiledSubmissionFile($student, $submission);
+
         $languageName = $assessment->correctionLanguageName();
         $reply = $this->correct(
             $this->instructionText($assessment),
@@ -116,13 +122,13 @@ class StudentTask1Correcting extends PathQueueItemTask
         array $submission,
         string $languageName
     ): string {
-        $request = new ClaudeSonnetClient();
+        $request = $this->client ?? new ClaudeSonnetClient();
         $request->set_system_content(
             "Vous êtes un professeur chargé de corriger les copies d'une école d'avocat.\n"
             . "Appliquez strictement la grille de correction. Reproduisez les mêmes modificateurs généraux, "
             . "les mêmes parties, les mêmes questions et les mêmes critères, dans le même ordre, "
             . "avec les mêmes libellés et les mêmes modificateurs.\n"
-            . "Pour chaque critère, indiquez s'il est retenu. Les points obtenus d'une question sont la somme "
+            . "Pour chaque critère, indiquez s'il est retenu et donnez un score de confiance de 0 à 1. Les points obtenus d'une question sont la somme "
             . "des modificateurs positifs retenus, sans dépasser le barème de la question, après déduction "
             . "des modificateurs négatifs retenus. La note sur 20 intègre les modificateurs généraux retenus.\n"
             . "L'appréciation et les remarques sont rédigées en " . $languageName . ".\n"
@@ -156,7 +162,7 @@ class StudentTask1Correcting extends PathQueueItemTask
         $criterion = [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['critère', 'modificateur', 'retenu', 'commentaire'],
+            'required' => ['critère', 'modificateur', 'retenu', 'score_de_confiance', 'commentaire'],
             'properties' => [
                 'critère' => [
                     'type' => 'string',
@@ -169,6 +175,10 @@ class StudentTask1Correcting extends PathQueueItemTask
                 'retenu' => [
                     'type' => 'boolean',
                     'description' => 'Vrai si ce critère s\'applique à la copie.',
+                ],
+                'score_de_confiance' => [
+                    'type' => 'number',
+                    'description' => 'Score de confiance de 0 à 1 quant à l\'évaluation de ce critère.',
                 ],
                 'commentaire' => [
                     'type' => 'string',
@@ -320,6 +330,77 @@ class StudentTask1Correcting extends PathQueueItemTask
         $store = ObjectStore::getInstance();
         if (!$store->exists($key)) {
             throw new WSException('Correction grid is missing', 400);
+        }
+        return S3File::at($key)->getContents();
+    }
+
+    /**
+     * Compiled submission JSON, stored as the student's compiled_submission.json.
+     *
+     * @param list<string>|array<string, mixed>|string $submission
+     */
+    public function storeCompiledSubmissionFile(BaseStudent $student, array|string $submission): S3File
+    {
+        if ($student->id === null || $student->id === '') {
+            throw new WSException('Student has no id', 400);
+        }
+        $key = ObjectStore::assessmentStudentCompiledSubmissionKey(
+            $student->school_id,
+            $student->user_id,
+            $student->assessment_id,
+            (string) $student->id
+        );
+
+        $store = ObjectStore::getInstance();
+        $file = null;
+        if ($store->exists($key)) {
+            try {
+                $file = S3File::from_key($key);
+            } catch (Throwable $e) {
+                $file = null;
+            }
+        }
+        if ($file === null) {
+            $file = new S3File();
+            $file->id = HashId::create();
+            $file->key = $key;
+            $file->created = time();
+        }
+        $file->school_id = $student->school_id;
+        $file->user_id = $student->user_id;
+        $file->assessment_id = $student->assessment_id;
+        $file->name = 'compiled_submission.json';
+        $file->type = 'submission';
+        $file->student = (string) $student->id;
+        if ($file->created <= 0) {
+            $file->created = time();
+        }
+        if (is_array($submission)) {
+            $payload = isset($submission['pages']) ? $submission : ['pages' => array_values($submission)];
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            if (!is_string($json)) {
+                throw new WSException('Cannot encode compiled submission', 500);
+            }
+            $content = $json . "\n";
+        } else {
+            $content = $submission;
+        }
+        $file->putContents($content, 'application/json');
+        $store->setIdPointer((string) $file->id, $key, false);
+        return $file;
+    }
+
+    public function compiledSubmissionText(BaseStudent $student): string
+    {
+        $key = ObjectStore::assessmentStudentCompiledSubmissionKey(
+            $student->school_id,
+            $student->user_id,
+            $student->assessment_id,
+            (string) $student->id
+        );
+        $store = ObjectStore::getInstance();
+        if (!$store->exists($key)) {
+            throw new WSException('Compiled submission is missing', 400);
         }
         return S3File::at($key)->getContents();
     }

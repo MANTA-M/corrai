@@ -47,6 +47,26 @@
             >
               {{ item.label }}
             </button>
+            <router-link
+              class="button secondary"
+              data-testid="student-compiled-submission"
+              :to="{
+                name: 'compiled_submission',
+                params: { id: assessment.id, studentId },
+              }"
+            >
+              {{ t('assessment.compiledSubmission') }}
+            </router-link>
+            <router-link
+              class="button secondary"
+              data-testid="student-correction-grid"
+              :to="{
+                name: 'student-correction-grid',
+                params: { id: assessment.id, studentId },
+              }"
+            >
+              {{ t('assessment.correctionGrid') }}
+            </router-link>
             <button type="button" class="button" data-testid="student-back" @click="goBack">
               {{ t('assessment.back') }}
             </button>
@@ -93,7 +113,9 @@
 
       <div v-else class="error">
         <h1>{{ t('assessment.studentNotFound') }}</h1>
-        <button class="button" data-testid="student-back" @click="goBack">{{ t('assessment.back') }}</button>
+        <button class="button" data-testid="student-back" @click="goBack">
+          {{ t('assessment.back') }}
+        </button>
       </div>
     </div>
   </div>
@@ -119,7 +141,9 @@
       </div>
       <div class="popup-body">
         <form @submit.prevent="submitRenameStudent">
-          <label class="file-action-label" for="rename-student-input">{{ t('assessment.studentNamePlaceholder') }}</label>
+          <label class="file-action-label" for="rename-student-input">{{
+            t('assessment.studentNamePlaceholder')
+          }}</label>
           <input
             id="rename-student-input"
             ref="renameStudentInput"
@@ -133,7 +157,12 @@
         <p v-if="studentActionError" class="error-message">{{ studentActionError }}</p>
       </div>
       <div class="popup-footer">
-        <button type="button" class="button secondary" :disabled="isUpdatingStudent" @click="closeRenameStudent">
+        <button
+          type="button"
+          class="button secondary"
+          :disabled="isUpdatingStudent"
+          @click="closeRenameStudent"
+        >
           {{ t('common.cancel') }}
         </button>
         <button
@@ -233,7 +262,11 @@ useAssessmentStream({
 const student = computed(() => students.value.find((item) => item.id === studentId.value) ?? null)
 
 const statusLabel = computed(() =>
-  sessionStore.stateLabel(sessionStore.studentStates, student.value?.status, student.value?.status_label),
+  sessionStore.stateLabel(
+    sessionStore.studentStates,
+    student.value?.status,
+    student.value?.status_label,
+  ),
 )
 
 const isActive = computed(
@@ -243,7 +276,7 @@ const isActive = computed(
 )
 
 const studentMenu = computed(() =>
-  (student.value?.menu ?? []).filter((item) => item.key !== 'view')
+  (student.value?.menu ?? []).filter((item) => item.key !== 'view'),
 )
 
 const isUpdatingStudent = ref(false)
@@ -263,10 +296,12 @@ const transcribeStudent = async () => {
   if (!assessment.value?.id || !studentId.value) return
   studentActionError.value = ''
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('POST', '/student_transcribe', {
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('POST', '/student_transcribe', {
       id: assessment.value.id,
       student: studentId.value,
       locale: String(locale.value),
@@ -284,10 +319,12 @@ const correctStudent = async () => {
   if (!assessment.value?.id || !studentId.value) return
   studentActionError.value = ''
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('POST', '/student_correct', {
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('POST', '/student_correct', {
       id: assessment.value.id,
       student: studentId.value,
       locale: String(locale.value),
@@ -330,7 +367,7 @@ const studentFiles = computed(() =>
     if ((file.student ?? '') !== studentId.value) return false
     if (isDebugFile(file) && !sessionStore.debugMode) return false
     return true
-  })
+  }),
 )
 
 const copyFiles = computed(() => studentFiles.value.filter((file) => !isDirectStudentFile(file)))
@@ -381,14 +418,21 @@ const submitRenameStudent = async () => {
   studentActionError.value = ''
   isUpdatingStudent.value = true
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('PUT', '/student', {
-      id: assessment.value.id,
-      student: student.value.id,
-      locale: String(locale.value),
-    }, { name })
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >(
+      'PUT',
+      '/student',
+      {
+        id: assessment.value.id,
+        student: student.value.id,
+        locale: String(locale.value),
+      },
+      { name },
+    )
     sessionStore.applyStateLocales(response)
     if (response?.files) {
       applyUpdate(response.files, response.students)
@@ -407,10 +451,12 @@ const submitDeleteStudent = async () => {
   studentActionError.value = ''
   isUpdatingStudent.value = true
   try {
-    const response = await sessionStore.getWsClient().queryWs<{
-      files?: AssessmentFile[]
-      students?: AssessmentStudent[]
-    } & StateLocales>('DELETE', '/student', {
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('DELETE', '/student', {
       id: assessment.value.id,
       student: student.value.id,
       locale: String(locale.value),

@@ -15,9 +15,7 @@ export async function loadSharedFiles(): Promise<File[]> {
 
     const blob = await response.blob()
     const encodedName = response.headers.get('X-File-Name')
-    const name = encodedName
-      ? decodeURIComponent(encodedName)
-      : `shared-file-${files.length + 1}`
+    const name = encodedName ? decodeURIComponent(encodedName) : `shared-file-${files.length + 1}`
     const type = response.headers.get('Content-Type') || blob.type || 'application/octet-stream'
     files.push(new File([blob], name, { type }))
   }

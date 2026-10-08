@@ -1,11 +1,7 @@
 <template>
-  <a
-    class="s3-file"
-    :href="href"
-    target="_blank"
-    rel="noopener noreferrer"
-    :data-testid="testId"
-  >{{ label }}</a>
+  <a class="s3-file" :href="href" target="_blank" rel="noopener noreferrer" :data-testid="testId">{{
+    label
+  }}</a>
 </template>
 
 <script setup lang="ts">

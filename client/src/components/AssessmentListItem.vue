@@ -24,7 +24,7 @@ const { t } = useI18n()
 const { subjects, load } = useSubjectCatalog()
 
 const subjectLabel = (subject: string) => {
-  const node = subjects.value.find(item => item.subject === subject)
+  const node = subjects.value.find((item) => item.subject === subject)
   if (node?.name) return node.name
   if (isAssessmentSubject(subject)) return t(`assessment.subjects.${subject}`)
   return subject || '—'
@@ -47,7 +47,9 @@ onMounted(() => {
   margin-bottom: 0.75rem;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
   text-decoration: none;
   color: inherit;
 }

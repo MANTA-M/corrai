@@ -6,7 +6,11 @@
           <h1 data-testid="assessments-heading">{{ $t('nav.assessments') }}</h1>
           <p class="muted">{{ $t('assessmentList.subtitle') }}</p>
         </div>
-        <router-link to="/create_assessment" class="create-button" data-testid="assessment-create-button">
+        <router-link
+          to="/create_assessment"
+          class="create-button"
+          data-testid="assessment-create-button"
+        >
           {{ $t('assessment.createNew') }}
         </router-link>
       </div>

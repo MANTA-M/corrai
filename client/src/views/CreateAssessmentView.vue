@@ -46,12 +46,7 @@
             class="upload-list"
             data-testid="assessment-subject-status-list"
           >
-            <li
-              v-for="item in uploadItems"
-              :key="item.id"
-              class="upload-item"
-              :class="item.status"
-            >
+            <li v-for="item in uploadItems" :key="item.id" class="upload-item" :class="item.status">
               <span class="upload-name">{{ item.name }}</span>
               <span class="upload-status">{{ statusLabel(item) }}</span>
             </li>
@@ -64,22 +59,23 @@
             :aria-valuemin="0"
             :aria-valuemax="uploadItems.length"
             :aria-valuenow="uploadProgressCurrent"
-            :aria-label="t('assessment.uploadProgress', {
-              current: uploadProgressCurrent,
-              total: uploadItems.length
-            })"
+            :aria-label="
+              t('assessment.uploadProgress', {
+                current: uploadProgressCurrent,
+                total: uploadItems.length,
+              })
+            "
           >
             <div class="upload-progress-track">
-              <div
-                class="upload-progress-fill"
-                :style="{ width: `${uploadProgressPercent}%` }"
-              />
+              <div class="upload-progress-fill" :style="{ width: `${uploadProgressPercent}%` }" />
             </div>
             <span class="upload-progress-label">
-              {{ t('assessment.uploadProgress', {
-                current: uploadProgressCurrent,
-                total: uploadItems.length
-              }) }}
+              {{
+                t('assessment.uploadProgress', {
+                  current: uploadProgressCurrent,
+                  total: uploadItems.length,
+                })
+              }}
             </span>
           </div>
           <div class="file-picker">
@@ -111,7 +107,9 @@
       <template v-else>
         <div class="header">
           <h1 data-testid="assessment-form-heading">{{ pageTitle }}</h1>
-          <button v-if="isEditMode" class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
+          <button v-if="isEditMode" class="back-button" @click="goBack">
+            {{ t('assessment.back') }}
+          </button>
         </div>
         <div class="content">
           <p class="subtitle">{{ pageSubtitle }}</p>
@@ -125,34 +123,19 @@
                 required
               >
                 <option value="" disabled>{{ t('assessment.subjectPlaceholder') }}</option>
-                <option
-                  v-for="node in subjects"
-                  :key="node.subject"
-                  :value="node.subject"
-                >
+                <option v-for="node in subjects" :key="node.subject" :value="node.subject">
                   {{ node.name }}
                 </option>
               </select>
             </div>
             <div v-if="possibleLevels.length || unknownLevel" class="form-group">
               <label for="assessment-level">{{ t('assessment.level') }}</label>
-              <select
-                id="assessment-level"
-                v-model="form.level"
-                data-testid="assessment-level"
-              >
+              <select id="assessment-level" v-model="form.level" data-testid="assessment-level">
                 <option value="">{{ t('assessment.autoDetect') }}</option>
-                <option
-                  v-if="unknownLevel"
-                  :value="form.level"
-                >
+                <option v-if="unknownLevel" :value="form.level">
                   {{ unknownLevel }}
                 </option>
-                <option
-                  v-for="level in possibleLevels"
-                  :key="level.level"
-                  :value="level.level"
-                >
+                <option v-for="level in possibleLevels" :key="level.level" :value="level.level">
                   {{ level.name }}
                 </option>
               </select>
@@ -249,7 +232,8 @@ const dropzoneStatus = computed(() => {
 })
 const showUploadProgress = computed(() => uploadItems.value.length > 5)
 const uploadProgressCurrent = computed(
-  () => uploadItems.value.filter((item) => item.status === 'done' || item.status === 'error').length
+  () =>
+    uploadItems.value.filter((item) => item.status === 'done' || item.status === 'error').length,
 )
 const uploadProgressPercent = computed(() => {
   if (uploadItems.value.length === 0) return 0
@@ -262,7 +246,7 @@ const form = reactive({
   name: '',
   subject: '',
   level: '',
-  date: ''
+  date: '',
 })
 
 const userCountry = computed(() => sessionStore.country.trim())
@@ -270,13 +254,13 @@ const possibleLevels = computed(() => {
   const subject = form.subject.trim()
   if (!subject) return []
   if (!userCountry.value) {
-    return subjects.value.find(node => node.subject === subject)?.levels ?? []
+    return subjects.value.find((node) => node.subject === subject)?.levels ?? []
   }
   return levelsFor(subject, userCountry.value)
 })
 const unknownLevel = computed(() => {
   const code = form.level.trim()
-  if (!code || possibleLevels.value.some(item => item.level === code)) return ''
+  if (!code || possibleLevels.value.some((item) => item.level === code)) return ''
   return code
 })
 
@@ -285,9 +269,9 @@ watch(
   (subject, previous) => {
     if (!previous || subject === previous) return
     const code = form.level.trim()
-    if (!code || possibleLevels.value.some(item => item.level === code)) return
+    if (!code || possibleLevels.value.some((item) => item.level === code)) return
     form.level = ''
-  }
+  },
 )
 
 function optionalText(value: string): string | null {
@@ -300,10 +284,10 @@ const isEditMode = computed(() => route.name === 'assessment-edit' && !!assessme
 const showSubjectStep = computed(() => !isEditMode.value && step.value === 'subject')
 
 const pageTitle = computed(() =>
-  isEditMode.value ? t('createAssessment.editTitle') : t('createAssessment.title')
+  isEditMode.value ? t('createAssessment.editTitle') : t('createAssessment.title'),
 )
 const pageSubtitle = computed(() =>
-  isEditMode.value ? t('createAssessment.editSubtitle') : t('createAssessment.reviewSubtitle')
+  isEditMode.value ? t('createAssessment.editSubtitle') : t('createAssessment.reviewSubtitle'),
 )
 const submitLabel = computed(() => {
   if (isSubmitting.value) {
@@ -349,12 +333,12 @@ const loadAssessmentForEdit = async (hash: string) => {
     if (seq !== editLoadSeq) return
     if (loaded) {
       formLoaded.value = true
-      const untouched = !cached || (
-        form.name === (cached.name || '') &&
-        form.subject === (cached.subject || '') &&
-        form.level === (cached.level || '') &&
-        form.date === (cached.date || '')
-      )
+      const untouched =
+        !cached ||
+        (form.name === (cached.name || '') &&
+          form.subject === (cached.subject || '') &&
+          form.level === (cached.level || '') &&
+          form.date === (cached.date || ''))
       if (untouched) syncForm(loaded)
     } else if (!cached) {
       error.value = t('assessment.notFoundMessage', { hash })
@@ -456,7 +440,7 @@ const uploadSubjectFiles = async (files: File[]) => {
     id: `${file.name}-${index}-${Date.now()}`,
     name: file.name,
     status: 'pending' as const,
-    kind: 'extra' as const
+    kind: 'extra' as const,
   }))
 
   const wsClient = sessionStore.getWsClient()
@@ -501,7 +485,7 @@ const uploadSubjectFiles = async (files: File[]) => {
         country: analyzedCountry.value,
         level: form.level || null,
         date: form.date,
-        files: []
+        files: [],
       })
       for (const item of uploadItems.value) item.status = 'done'
       step.value = 'details'
@@ -521,7 +505,7 @@ const uploadSubjectFiles = async (files: File[]) => {
           '/file',
           { assessment: draftId.value, locale: String(locale.value), type: 'subject' },
           formData,
-          'form'
+          'form',
         )
         item.status = 'done'
       } catch (err) {
@@ -584,11 +568,13 @@ const createAssessment = async () => {
     const payload = assessmentPayload()
     if (draftId.value) {
       await wsClient.queryWs('PUT', '/assessment', { hash: draftId.value }, payload)
-      const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === draftId.value)
+      const existingIndex = sessionStore.own_assessments.findIndex(
+        (e: Assessment) => e.id === draftId.value,
+      )
       if (existingIndex !== -1) {
         sessionStore.own_assessments[existingIndex] = {
           ...sessionStore.own_assessments[existingIndex],
-          ...payload
+          ...payload,
         }
       }
       await router.push(`/assessment/${draftId.value}`)
@@ -599,7 +585,7 @@ const createAssessment = async () => {
       'POST',
       '/assessment',
       { locale: String(locale.value) },
-      payload
+      payload,
     )
 
     const id = response?.hash
@@ -616,7 +602,7 @@ const createAssessment = async () => {
       country: payload.country,
       level: payload.level,
       date: payload.date,
-      files: []
+      files: [],
     }
     sessionStore.own_assessments.push(createdAssessment)
     await router.push(`/assessment/${id}`)
@@ -637,11 +623,13 @@ const saveAssessment = async () => {
     const payload = assessmentPayload()
     await wsClient.queryWs('PUT', '/assessment', { hash: assessmentId.value }, payload)
 
-    const existingIndex = sessionStore.own_assessments.findIndex((e: Assessment) => e.id === assessmentId.value)
+    const existingIndex = sessionStore.own_assessments.findIndex(
+      (e: Assessment) => e.id === assessmentId.value,
+    )
     if (existingIndex !== -1) {
       sessionStore.own_assessments[existingIndex] = {
         ...sessionStore.own_assessments[existingIndex],
-        ...payload
+        ...payload,
       }
     }
 
@@ -657,11 +645,10 @@ const saveAssessment = async () => {
 const assessmentPayload = () => ({
   name: form.name.trim(),
   subject: form.subject.trim(),
-  country: !isEditMode.value && analyzedCountry.value
-    ? analyzedCountry.value
-    : (userCountry.value || null),
+  country:
+    !isEditMode.value && analyzedCountry.value ? analyzedCountry.value : userCountry.value || null,
   level: optionalText(form.level),
-  date: form.date
+  date: form.date,
 })
 
 const resetCreateForm = () => {
@@ -698,7 +685,7 @@ watch(
       resetCreateForm()
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 </script>
 
@@ -809,7 +796,9 @@ watch(
   text-align: center;
   cursor: pointer;
   background: var(--surface-2);
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .dropzone:hover:not(.dropzone-disabled) {

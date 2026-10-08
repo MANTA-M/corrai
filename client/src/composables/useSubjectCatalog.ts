@@ -28,11 +28,9 @@ export function useSubjectCatalog() {
     const requestLocale = current
     inflight = (async () => {
       try {
-        const response = await sessionStore.getWsClient().queryWs<{ subjects?: SubjectNode[] }>(
-          'GET',
-          '/subject',
-          { locale: requestLocale }
-        )
+        const response = await sessionStore
+          .getWsClient()
+          .queryWs<{ subjects?: SubjectNode[] }>('GET', '/subject', { locale: requestLocale })
         if (String(locale.value) !== requestLocale) return
         subjects.value = response?.subjects ?? []
         loadedLocale = requestLocale
@@ -57,10 +55,9 @@ export function useSubjectCatalog() {
   }
 
   const subjectNode = (subject: string): SubjectNode | undefined =>
-    subjects.value.find(node => node.subject === subject)
+    subjects.value.find((node) => node.subject === subject)
 
-  const subjectName = (subject: string) =>
-    subjectNode(subject)?.name || subject || ''
+  const subjectName = (subject: string) => subjectNode(subject)?.name || subject || ''
 
   const countriesFor = (subject: string): SubjectCountryNode[] =>
     subjectNode(subject)?.countries ?? []
@@ -82,40 +79,51 @@ export function useSubjectCatalog() {
     const node = subjectNode(subject)
     if (!node) return []
     if (country) {
-      const inCountry = node.countries.find(item => item.country === country)
+      const inCountry = node.countries.find((item) => item.country === country)
       return uniqueLevels(node.levels, inCountry?.levels ?? [])
     }
-    return uniqueLevels(node.levels, ...node.countries.map(item => item.levels))
+    return uniqueLevels(node.levels, ...node.countries.map((item) => item.levels))
   }
 
   const countryForLevel = (subject: string, level: string): string | null => {
-    const matches = countriesFor(subject).filter(item =>
-      item.levels.some(entry => entry.level === level)
+    const matches = countriesFor(subject).filter((item) =>
+      item.levels.some((entry) => entry.level === level),
     )
     return matches.length === 1 ? matches[0].country : null
   }
 
   const countryName = (subject: string, country: string | null | undefined) => {
     if (!country) return ''
-    return countriesFor(subject).find(item => item.country === country)?.name || country
+    return countriesFor(subject).find((item) => item.country === country)?.name || country
   }
 
   const levelName = (
     subject: string,
     country: string | null | undefined,
-    level: string | null | undefined
+    level: string | null | undefined,
   ) => {
     if (!level) return ''
     const node = subjectNode(subject)
     const inCountry = country
-      ? node?.countries.find(item => item.country === country)?.levels.find(item => item.level === level)?.name
+      ? node?.countries
+          .find((item) => item.country === country)
+          ?.levels.find((item) => item.level === level)?.name
       : undefined
-    const inSubject = node?.levels.find(item => item.level === level)?.name
+    const inSubject = node?.levels.find((item) => item.level === level)?.name
     const anywhere = node?.countries
-      .flatMap(item => item.levels)
-      .find(item => item.level === level)?.name
+      .flatMap((item) => item.levels)
+      .find((item) => item.level === level)?.name
     return inCountry || inSubject || anywhere || level
   }
 
-  return { subjects, load, subjectName, countryName, levelName, countriesFor, levelsFor, countryForLevel }
+  return {
+    subjects,
+    load,
+    subjectName,
+    countryName,
+    levelName,
+    countriesFor,
+    levelsFor,
+    countryForLevel,
+  }
 }

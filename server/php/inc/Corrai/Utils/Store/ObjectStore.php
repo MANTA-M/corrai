@@ -522,6 +522,15 @@ class ObjectStore
         return self::assessmentStudentPrefix($schoolId, $teacherId, $assessmentId, $studentId) . 'correction.png';
     }
 
+    public static function assessmentStudentCompiledSubmissionKey(
+        string $schoolId,
+        string $teacherId,
+        string $assessmentId,
+        string $studentId
+    ): string {
+        return self::assessmentStudentPrefix($schoolId, $teacherId, $assessmentId, $studentId) . 'compiled_submission.json';
+    }
+
     /**
      * Parse a schools/... node prefix into path segments.
      *

@@ -34,9 +34,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  event.waitUntil(
-    clients.openWindow(event.notification.data?.url || self.registration.scope)
-  )
+  event.waitUntil(clients.openWindow(event.notification.data?.url || self.registration.scope))
 })
 
 function isShareTargetRequest(request) {
@@ -64,7 +62,7 @@ async function handleShareTarget(request) {
 
     await cache.put(
       new URL(`share-target/file/${index}`, self.registration.scope),
-      new Response(entry, { headers })
+      new Response(entry, { headers }),
     )
     index += 1
   }

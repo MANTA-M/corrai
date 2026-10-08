@@ -79,7 +79,7 @@ class NotificationService {
 
     const sessionStore = useSessionStore()
     const client = sessionStore.getWsClient()
-    
+
     try {
       const response = await client.queryWs<{ public_key: string }>('GET', '/keys')
       const publicKey = response.public_key
@@ -99,7 +99,7 @@ class NotificationService {
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
     const rawData = window.atob(base64)
     const outputArray = new Uint8Array(rawData.length)
-    
+
     for (let i = 0; i < rawData.length; ++i) {
       outputArray[i] = rawData.charCodeAt(i)
     }
@@ -127,7 +127,7 @@ class NotificationService {
         await registerServiceWorker()
         console.log('Service worker registered')
       }
-      
+
       // Check if we already have a subscription
       const registration = await navigator.serviceWorker.ready
       let subscription = await registration.pushManager.getSubscription()
@@ -138,15 +138,15 @@ class NotificationService {
       }
 
       // Create new subscription
-      const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      if(!publicKey) {
+      const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+      if (!publicKey) {
         throw new Error('No VAPID public key found')
       }
       const applicationServerKey = this.urlBase64ToUint8Array(publicKey)
-      
+
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey
+        applicationServerKey: applicationServerKey,
       })
 
       this.subscription.value = subscription
@@ -162,7 +162,7 @@ class NotificationService {
    */
   async subscribeAndSend(): Promise<boolean> {
     const sessionStore = useSessionStore()
-    
+
     if (!sessionStore.isAuthenticated) {
       console.error('User is not authenticated')
       return false
@@ -170,7 +170,7 @@ class NotificationService {
 
     try {
       const subscription = await this.subscribe()
-      
+
       if (!subscription) {
         return false
       }
@@ -178,12 +178,12 @@ class NotificationService {
       // Send subscription to backend
       const subscriptionJson = subscription.toJSON()
       const client = sessionStore.getWsClient()
-      
+
       const response = await client.queryWs<{ success: boolean }>(
         'POST',
         `/webpush_sub`,
         null,
-        subscriptionJson
+        subscriptionJson,
       )
 
       return response.success
@@ -201,11 +201,11 @@ class NotificationService {
    */
   async requestPermissionAndSubscribe(): Promise<boolean> {
     const permission = await this.requestPermission()
-    
+
     if (permission === 'granted') {
       return await this.subscribeAndSend()
     }
-    
+
     return false
   }
 
@@ -227,20 +227,20 @@ class NotificationService {
     }
 
     try {
-      this.permissionState.value = "default" as NotificationPermission
+      this.permissionState.value = 'default' as NotificationPermission
 
       console.log('Permission state:', this.permissionState.value)
       console.log('Unsubscribing from push notifications')
-      
+
       // Ensure service worker is registered and ready
       if (!navigator.serviceWorker.controller) {
         console.warn('Service worker not available for unsubscribe')
         return false
       }
-      
+
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.getSubscription()
-      
+
       if (subscription) {
         const success = await subscription.unsubscribe()
         if (success) {
@@ -261,7 +261,7 @@ class NotificationService {
    */
   async unsubscribeAndNotify(): Promise<boolean> {
     const sessionStore = useSessionStore()
-    
+
     if (!sessionStore.isAuthenticated) {
       console.error('User is not authenticated')
       return false
@@ -269,19 +269,19 @@ class NotificationService {
 
     try {
       const unsubscribeSuccess = await this.unsubscribe()
-      
+
       if (!unsubscribeSuccess) {
         return false
       }
 
       // Notify backend to remove subscription
       const client = sessionStore.getWsClient()
-      
+
       const response = await client.queryWs<{ success: boolean }>(
         'DELETE',
         `/webpush_sub`,
         null,
-        null
+        null,
       )
 
       return response.success
@@ -305,4 +305,3 @@ export function useNotificationService(): NotificationService {
   }
   return notificationServiceInstance
 }
-

@@ -37,7 +37,7 @@ try {
 
     $prefix = ObjectStore::assessmentPrefix($assessment->school_id, $assessment->user_id, $assessment->id);
     if ($object !== null && $object !== '') {
-        if (!preg_match('/^(?:subject\/)?[A-Za-z0-9][A-Za-z0-9_.-]*$/', $object)) {
+        if (!preg_match('/^(?:(?:subject|students\/[A-Za-z0-9_-]+)\/)?[A-Za-z0-9][A-Za-z0-9_.-]*$/', $object)) {
             http_response_code(400);
             exit('Invalid object path.');
         }

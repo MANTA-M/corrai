@@ -1,85 +1,75 @@
 <template>
   <div class="init-profile">
     <div class="init-panel">
-    <p class="brand init-brand"><span class="brand-mark" aria-hidden="true">C<span>✓</span></span>corrai</p>
-    <div class="card">
-      <div style="margin-bottom: 24px">
-        <h1 style="text-align: center">{{ $t('initProfile.title') }}</h1>
-        <p class="muted" style="text-align: center">{{ $t('initProfile.subtitle') }}</p>
-      </div>
+      <p class="brand init-brand">
+        <span class="brand-mark" aria-hidden="true">C<span>✓</span></span
+        >corrai
+      </p>
+      <div class="card">
+        <div style="margin-bottom: 24px">
+          <h1 style="text-align: center">{{ $t('initProfile.title') }}</h1>
+          <p class="muted" style="text-align: center">{{ $t('initProfile.subtitle') }}</p>
+        </div>
 
-      <!-- Create or Recover Selection -->
-      <div v-if="!showCreateForm && !showRecoverForm" class="options">
-        <button
-          @click="showCreateForm = true"
-          class="button primary"
-          style="width: 100%; margin-bottom: 16px"
-        >
-          {{ $t('initProfile.createProfile') }}
-        </button>
-        <button
-          @click="showRecoverForm = true"
-          class="button"
-          style="width: 100%"
-        >
-          {{ $t('initProfile.recoverProfile') }}
-        </button>
-      </div>
-
-      <!-- Create Profile Form -->
-      <div v-if="showCreateForm">
-        <form @submit.prevent="handleCreateProfile" style="display: flex; flex-direction: column; gap: 16px">
-          <div>
-            <label for="userName" style="display: block; margin-bottom: 8px">
-              {{ $t('initProfile.userName') }}
-              <span class="muted" style="font-size: 0.875rem"> ({{ $t('initProfile.optional') }})</span>
-            </label>
-            <input
-              id="userName"
-              v-model="form.userName"
-              type="text"
-              class="input"
-              :placeholder="$t('initProfile.userNamePlaceholder')"
-            />
-          </div>
-
-          <div style="display: flex; gap: 12px">
-            <button
-              type="button"
-              @click="showCreateForm = false"
-              class="button"
-              style="flex: 1"
-            >
-              {{ $t('common.cancel') }}
-            </button>
-            <button
-              type="submit"
-              class="button primary"
-              style="flex: 1"
-              :disabled="loading"
-            >
-              {{ loading ? $t('initProfile.creating') : $t('initProfile.create') }}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Recover Profile Form -->
-      <div v-if="showRecoverForm">
-        <p class="muted" style="text-align: center; margin-bottom: 16px">
-          {{ $t('initProfile.recoverDescription') }}
-        </p>
-        <div style="display: flex; gap: 12px">
+        <!-- Create or Recover Selection -->
+        <div v-if="!showCreateForm && !showRecoverForm" class="options">
           <button
-            @click="showRecoverForm = false"
-            class="button"
-            style="flex: 1"
+            @click="showCreateForm = true"
+            class="button primary"
+            style="width: 100%; margin-bottom: 16px"
           >
-            {{ $t('common.back') }}
+            {{ $t('initProfile.createProfile') }}
+          </button>
+          <button @click="showRecoverForm = true" class="button" style="width: 100%">
+            {{ $t('initProfile.recoverProfile') }}
           </button>
         </div>
+
+        <!-- Create Profile Form -->
+        <div v-if="showCreateForm">
+          <form
+            @submit.prevent="handleCreateProfile"
+            style="display: flex; flex-direction: column; gap: 16px"
+          >
+            <div>
+              <label for="userName" style="display: block; margin-bottom: 8px">
+                {{ $t('initProfile.userName') }}
+                <span class="muted" style="font-size: 0.875rem">
+                  ({{ $t('initProfile.optional') }})</span
+                >
+              </label>
+              <input
+                id="userName"
+                v-model="form.userName"
+                type="text"
+                class="input"
+                :placeholder="$t('initProfile.userNamePlaceholder')"
+              />
+            </div>
+
+            <div style="display: flex; gap: 12px">
+              <button type="button" @click="showCreateForm = false" class="button" style="flex: 1">
+                {{ $t('common.cancel') }}
+              </button>
+              <button type="submit" class="button primary" style="flex: 1" :disabled="loading">
+                {{ loading ? $t('initProfile.creating') : $t('initProfile.create') }}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Recover Profile Form -->
+        <div v-if="showRecoverForm">
+          <p class="muted" style="text-align: center; margin-bottom: 16px">
+            {{ $t('initProfile.recoverDescription') }}
+          </p>
+          <div style="display: flex; gap: 12px">
+            <button @click="showRecoverForm = false" class="button" style="flex: 1">
+              {{ $t('common.back') }}
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   </div>
 </template>
@@ -134,7 +124,7 @@ async function createKeyPair(): Promise<CryptoKeyPair> {
         namedCurve: 'P-256',
       },
       true, // extractable
-      ['sign', 'verify']
+      ['sign', 'verify'],
     )
 
     // Export keys to base64 strings for storage
@@ -168,7 +158,7 @@ const handleCreateProfile = async () => {
       'POST',
       '/user',
       undefined,
-      { name: userName }
+      { name: userName },
     )
 
     const userId = response?.user?.id
@@ -219,4 +209,3 @@ const handleCreateProfile = async () => {
   width: 100%;
 }
 </style>
-

@@ -112,6 +112,15 @@ class LawFranceCorrectionGridTest extends TestCase
         $this->assertStringContainsString('Consignes de l\'épreuve', $client->userText());
         $this->assertStringContainsString($compiled, $client->userText());
         $this->assertStringContainsString("école d'avocat", $client->systemContent());
+        $this->assertStringContainsString('references', $client->systemContent());
+        $this->assertStringContainsString('verbatim', $client->systemContent());
+        $this->assertStringContainsString('législatif officiel', $client->systemContent());
+        $this->assertStringContainsString('en vigueur', $client->systemContent());
+        $this->assertStringContainsString('alinéas', $client->systemContent());
+        $schema = $client->schema();
+        $this->assertArrayHasKey('references', $schema['properties'] ?? []);
+        $this->assertContains('references', $schema['required'] ?? []);
+        $this->assertSame(['reference', 'texte'], $schema['properties']['references']['items']['required'] ?? []);
         $this->assertIsArray($stored);
         $this->assertSame($grid, json_decode($stored['body'], true));
         $this->assertStringEndsWith("\n", $stored['body']);
@@ -229,5 +238,13 @@ class RecordingClaudeSonnetClient extends ClaudeSonnetClient
             }
         }
         return '';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function schema(): array
+    {
+        return $this->payload['response_format']['json_schema']['schema'] ?? [];
     }
 }

@@ -1,7 +1,6 @@
-
 export interface Persona {
-  name: string,
-  key: string,
+  name: string
+  key: string
 }
 
 /** Stored assessment subject values. These are pipeline names, not display labels. */
@@ -22,7 +21,14 @@ export function isAssessmentSubject(value: string): value is AssessmentSubject {
   return (ASSESSMENT_SUBJECTS as readonly string[]).includes(value)
 }
 
-export const ASSESSMENT_FILE_TYPES = ['subject', 'solution', 'submission', 'instructions', 'correction', 'debug'] as const
+export const ASSESSMENT_FILE_TYPES = [
+  'subject',
+  'solution',
+  'submission',
+  'instructions',
+  'correction',
+  'debug',
+] as const
 export type AssessmentFileType = (typeof ASSESSMENT_FILE_TYPES)[number]
 
 export const ASSESSMENT_FILE_TYPE_ZONES = [...ASSESSMENT_FILE_TYPES, 'unknown'] as const

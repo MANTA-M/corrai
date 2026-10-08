@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
 use Corrai\Model\BaseAssessment;
 use Corrai\Model\BaseStudent;
+use Corrai\Model\OCRResult;
 use Corrai\Model\S3File;
 use Corrai\Model\School;
 use Corrai\Model\User;
@@ -350,6 +352,153 @@ class StudentCorrectTest extends TestCase
         $assessment->createFile('correction.png', 'png', 'image/png', 'correction', $student->id);
         $assessment->deleteFilesOfType('correction', (string) $student->id);
         $this->assertSame($reply, S3File::from_hash((string) $file->id)->getContents());
+    }
+
+    public function testStoreCompiledSubmissionFile(): void
+    {
+        $school = new School();
+        $school->name = 'Law School Compile';
+        $school->save();
+
+        $teacher = new User();
+        $teacher->school_id = $school->id;
+        $teacher->name = 'Teacher Compile';
+        $teacher->email = 'teacher.compile@example.com';
+        $teacher->setPassword('secret123');
+        $teacher->save();
+
+        $assessment = new LawAssessment();
+        $assessment->school_id = $school->id;
+        $assessment->user_id = $teacher->id;
+        $assessment->name = 'Law Compile Assessment';
+        $assessment->save();
+
+        $student = $assessment->createStudent('Emma');
+        $pages = ['Page 1 content here', 'Page 2 content here'];
+
+        $task = new StudentTask1Correcting();
+        $file = $task->storeCompiledSubmissionFile($student, $pages);
+
+        $this->assertInstanceOf(S3File::class, $file);
+        $this->assertSame('compiled_submission.json', $file->name);
+        $this->assertSame($student->id, $file->student);
+        $this->assertTrue($file->isDirectStudentFile());
+
+        $content = json_decode($file->getContents(), true);
+        $this->assertSame($pages, $content['pages'] ?? null);
+
+        $listed = array_values(array_filter(
+            $assessment->list_files(),
+            fn($item) => ($item['name'] ?? '') === 'compiled_submission.json'
+        ));
+        $this->assertCount(1, $listed);
+        $this->assertSame($file->id, $listed[0]['id']);
+    }
+
+    public function testCompiledSubmissionSavedBeforeCallingLlmDuringStudentCorrection(): void
+    {
+        $school = new School();
+        $school->name = 'Law School LLM Order';
+        $school->save();
+
+        $teacher = new User();
+        $teacher->school_id = $school->id;
+        $teacher->name = 'Teacher LLM Order';
+        $teacher->email = 'teacher.llm.order@example.com';
+        $teacher->setPassword('secret123');
+        $teacher->save();
+
+        $assessment = new LawAssessment();
+        $assessment->school_id = $school->id;
+        $assessment->user_id = $teacher->id;
+        $assessment->name = 'Law LLM Order Assessment';
+        $assessment->save();
+
+        $student = $assessment->createStudent('Felix');
+
+        $store = ObjectStore::getInstance();
+        $subjectCompileKey = ObjectStore::assessmentSubjectCompileKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id
+        );
+        $gridKey = ObjectStore::assessmentSubjectCorrectionGridKey(
+            $assessment->school_id,
+            $assessment->user_id,
+            (string) $assessment->id
+        );
+        $store->putContents($subjectCompileKey, '{"pages":["Sujet de droit civil"]}', 'application/json');
+        $store->putContents($gridKey, '{"parties":[]}', 'application/json');
+
+        $copy1 = $assessment->createFileModel('copie_a.png', 'content a', 'image/png', 'submission', $student->id);
+        $copy2 = $assessment->createFileModel('copie_b.png', 'content b', 'image/png', 'submission', $student->id);
+
+        $ocr1 = OCRResult::from_google(['text' => 'Page A text', 'bounding_boxes' => []]);
+        $ocr2 = OCRResult::from_google(['text' => 'Page B text', 'bounding_boxes' => []]);
+        $store->putContents($copy1->ocrResultKey(), $ocr1->to_json(true), 'application/json');
+        $store->putContents($copy2->ocrResultKey(), $ocr2->to_json(true), 'application/json');
+
+        $compiledAtCallTime = null;
+        $mockClaude = new class($compiledAtCallTime, $student) extends ClaudeSonnetClient {
+            public function __construct(public &$captured, public BaseStudent $targetStudent)
+            {
+                parent::__construct();
+            }
+
+            public function call_text(): string
+            {
+                $key = ObjectStore::assessmentStudentCompiledSubmissionKey(
+                    $this->targetStudent->school_id,
+                    $this->targetStudent->user_id,
+                    $this->targetStudent->assessment_id,
+                    (string) $this->targetStudent->id
+                );
+                $store = ObjectStore::getInstance();
+                if ($store->exists($key)) {
+                    $this->captured = S3File::from_key($key);
+                }
+                return json_encode([
+                    'modificateurs_généraux' => [],
+                    'parties' => [],
+                    'mark' => 16,
+                    'appreciation' => 'Très bonne copie.',
+                    'remarks' => [],
+                ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            }
+        };
+
+        $task = new StudentTask1Correcting($mockClaude);
+        $task->correctStudent($assessment, $student);
+
+        $this->assertNotNull($compiledAtCallTime, 'compiled_submission.json must exist in S3 before the LLM is called');
+        $this->assertSame('compiled_submission.json', $compiledAtCallTime->name);
+        $this->assertSame($student->id, $compiledAtCallTime->student);
+        $this->assertSame(['Page A text', 'Page B text'], json_decode($compiledAtCallTime->getContents(), true)['pages'] ?? null);
+
+        $correctionKey = ObjectStore::assessmentStudentPrefix(
+            $student->school_id,
+            $student->user_id,
+            $student->assessment_id,
+            (string) $student->id
+        ) . 'correction.json';
+        $this->assertTrue($store->exists($correctionKey));
+    }
+
+    public function testCorrectionSchemaIncludesConfidenceScore(): void
+    {
+        $reflection = new \ReflectionClass(StudentTask1Correcting::class);
+        $method = $reflection->getMethod('correctionSchema');
+        $method->setAccessible(true);
+        $schema = $method->invoke(null, 'français');
+
+        $this->assertIsArray($schema);
+        $modCriterion = $schema['properties']['modificateurs_généraux']['items'] ?? [];
+        $this->assertContains('score_de_confiance', $modCriterion['required'] ?? []);
+        $this->assertSame('number', $modCriterion['properties']['score_de_confiance']['type'] ?? null);
+
+        $partCriterion = $schema['properties']['parties']['items']['properties']['questions']['items']['properties']['critères_proposés']['items'] ?? [];
+        $this->assertContains('score_de_confiance', $partCriterion['required'] ?? []);
+        $this->assertSame('number', $partCriterion['properties']['score_de_confiance']['type'] ?? null);
     }
 
     private function installQueue(): void
