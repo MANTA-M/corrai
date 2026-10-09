@@ -95,7 +95,7 @@ class RedisQueue
     }
 
     /**
-     * Enqueue a content path for the Python OCR consumer.
+     * Enqueue a content path for the Python consumer.
      *
      * ``$operation`` is stored but ignored. When OCR finishes, the Python
      * consumer enqueues ``$after_task`` on this same path in the PHP queue.

@@ -52,11 +52,11 @@ The PHP backend will be available at `http://localhost:80`
     - `./server/python/pycorrai` → `/var/corrai/python/pycorrai`
     - `paddle_cache` → `/var/corrai/home` (PaddleX model cache)
     - Nginx config mounted from `docker/php/nginx-default.conf`
-  - Starts after **php-consumer** and **ocr-consumer** so a plain `docker compose up` brings up the full worker stack
+  - Starts after **php-consumer** and **python-consumer** so a plain `docker compose up` brings up the full worker stack
 - **php-consumer**: PHP Redis file-status worker (`server/php/cli/redis_consumer.php`)
   - Consumes `corrai:files`, loads assessment/file attributes from SeaweedFS, dispatches `on_{status}`
   - `restart: unless-stopped`
-- **ocr-consumer**: Python OCR worker (`python -m pycorrai.consumer`)
+- **python-consumer**: Python worker (`python -m pycorrai.consumer`)
   - Consumes `corrai:ocr`, writes OCR results to S3, enqueues work for the PHP consumer
   - `restart: unless-stopped`
 - **redis**: Redis 7

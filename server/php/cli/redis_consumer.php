@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Blocking Redis consumer for file-status tickets.
  *
- * Usage (inside the php / redis-consumer container):
+ * Usage (inside the php / php-consumer container):
  *   php /var/corrai/php/cli/redis_consumer.php
  */
 
@@ -51,7 +51,7 @@ foreach (
 ini_set('error_log', '/dev/stderr');
 
 $queue = RedisQueue::getInstance();
-error_log('Redis consumer started, waiting on ' . RedisQueue::LIST_KEY);
+error_log('PHP consumer started, waiting on ' . RedisQueue::LIST_KEY);
 
 while (true) {
     $ticket = null;

@@ -1,4 +1,4 @@
-"""Unit tests for the OCR Redis consumer."""
+"""Unit tests for the Python Redis consumer."""
 
 from __future__ import annotations
 

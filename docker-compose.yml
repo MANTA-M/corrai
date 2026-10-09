@@ -30,7 +30,7 @@ services:
         condition: service_healthy
       php-consumer:
         condition: service_started
-      ocr-consumer:
+      python-consumer:
         condition: service_started
   php-consumer:
     build:
@@ -58,7 +58,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-  ocr-consumer:
+  python-consumer:
     build:
       context: .
       dockerfile: docker/php/Dockerfile_nginx

@@ -407,7 +407,7 @@ def run_forever(
         get_engine(preload_lang)
         logger.info("OCR models ready for lang=%s", preload_lang)
 
-    logger.info("OCR consumer started, waiting on %s", OCR_LIST_KEY)
+    logger.info("Python consumer started, waiting on %s", OCR_LIST_KEY)
     while True:
         try:
             result = redis.brpop(OCR_LIST_KEY, timeout=BRPOP_TIMEOUT)
@@ -418,7 +418,7 @@ def run_forever(
             )
             continue
         except Exception:
-            logger.exception("OCR consumer error")
+            logger.exception("Python consumer error")
             continue
 
         if result is None:
@@ -436,7 +436,7 @@ def run_forever(
                 after_task=ticket["after_task"],
             )
         except Exception:
-            logger.exception("OCR consumer error")
+            logger.exception("Python consumer error")
 
 
 def main(argv: list[str] | None = None) -> int:

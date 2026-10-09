@@ -20,7 +20,7 @@ Environment=NCHAN_PUBLISH_URL=https://127.0.0.1/corrai_test/internal/pub
 Environment=NCHAN_PUBLISH_HOST=mantam.eu
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=corrai-redis-consumer
+SyslogIdentifier=corrai-php-consumer
 
 [Install]
 WantedBy=multi-user.target

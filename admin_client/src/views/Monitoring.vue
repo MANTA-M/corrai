@@ -52,7 +52,7 @@
 
         <section class="queue-section">
           <div class="section-header">
-            <h2>Python OCR queue</h2>
+            <h2>Python queue</h2>
             <span class="queue-meta">{{ python.key || 'corrai:ocr' }} · {{ python.items.length }} item{{ python.items.length === 1 ? '' : 's' }}</span>
           </div>
           <div class="queue-list python-list">
@@ -68,7 +68,7 @@
               <div>{{ item.name || '—' }}</div>
               <div>{{ item.status || '—' }}</div>
             </div>
-            <p v-if="python.items.length === 0" class="empty-message">Python OCR queue is empty.</p>
+            <p v-if="python.items.length === 0" class="empty-message">Python queue is empty.</p>
           </div>
         </section>
       </div>

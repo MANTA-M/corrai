@@ -3,7 +3,7 @@
 #
 # Queues (LPUSH + BRPOP; the next ticket to consume is the list tail):
 #   corrai:files  PHP file-status consumer
-#   corrai:ocr    Python OCR consumer
+#   corrai:ocr    Python consumer
 #
 # Usage:
 #   bin/watch-redis-queues              # refresh until Ctrl-C
@@ -149,7 +149,7 @@ snapshot() {
   echo
   print_queue "PHP files" "$FILES_KEY"
   echo
-  print_queue "OCR" "$OCR_KEY"
+  print_queue "Python" "$OCR_KEY"
 }
 
 check_redis

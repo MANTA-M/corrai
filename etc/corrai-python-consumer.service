@@ -1,5 +1,5 @@
 [Unit]
-Description=Corrai Python OCR Redis consumer
+Description=Corrai Python Redis consumer
 Documentation=file:///home/maintainer/corrai_test/server/python/pycorrai/pycorrai/consumer.py
 After=network-online.target redis.service
 Wants=network-online.target
@@ -27,7 +27,7 @@ Environment=PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT=0
 Environment=FLAGS_use_mkldnn=0
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=corrai-ocr-consumer
+SyslogIdentifier=corrai-python-consumer
 
 [Install]
 WantedBy=multi-user.target

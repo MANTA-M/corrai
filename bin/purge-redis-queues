@@ -3,7 +3,7 @@
 #
 # Queues:
 #   corrai:files  PHP file-status consumer
-#   corrai:ocr    Python OCR consumer
+#   corrai:ocr    Python consumer
 #
 # Usage:
 #   bin/purge-redis-queues

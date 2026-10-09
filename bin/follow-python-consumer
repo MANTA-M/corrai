@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Follow journal logs of the PHP Redis file-status consumer.
+# Follow journal logs of the Python Redis consumer.
 # Starts empty; only new lines are printed until Ctrl-C.
 #
-#   corrai-php-consumer
+#   corrai-python-consumer
 #
 # Usage:
-#   bin/follow-php-consumer
-#   bin/follow-php-consumer -n 200
-#   bin/follow-php-consumer --since "1 hour ago"
-#   bin/follow-php-consumer --no-follow
+#   bin/follow-python-consumer
+#   bin/follow-python-consumer -n 200
+#   bin/follow-python-consumer --since "1 hour ago"
+#   bin/follow-python-consumer --no-follow
 #
 # Keeps following until Ctrl-C.
 
 set -euo pipefail
 
-UNIT=corrai-php-consumer
+UNIT=corrai-python-consumer
 LINES=""
 SINCE=""
 FOLLOW=1
