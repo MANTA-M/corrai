@@ -466,6 +466,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             MenuLabels::item('edit', $locale, '', MenuLabels::BLUE),
             MenuLabels::item('delete', $locale, '', MenuLabels::DANGER),
             MenuLabels::item('edit_subject', $locale, '', MenuLabels::MUTED),
+            MenuLabels::item('edit_attributes', $locale, '', MenuLabels::MUTED),
             MenuLabels::item('add_copies', $locale, '', MenuLabels::BLUE),
         ];
         if ($this->hasSubmission()) {

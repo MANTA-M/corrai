@@ -269,6 +269,7 @@
             :students="students"
             :empty-text="t('assessment.subjectFilesEmpty')"
             @updated="onFilesUpdated"
+            @changed="reload"
           />
         </section>
 
@@ -298,6 +299,7 @@
             :empty-text="t('assessment.solutionFilesEmpty')"
             allow-text-edit
             @updated="onFilesUpdated"
+            @changed="reload"
             @edit-text="openEditText"
           />
         </section>
@@ -393,7 +395,8 @@ import {
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
-const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
+const { assessment, isLoading, error, assessmentId, files, students, applyUpdate, reload } =
+  useAssessment()
 const {
   subjects,
   load: loadSubjects,

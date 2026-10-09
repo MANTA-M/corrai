@@ -40,6 +40,14 @@
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
       <path d="M14 3v5h5" />
     </template>
+    <template v-else-if="name === 'braces'">
+      <path
+        d="M8 4c-2.2 0-3 1.4-3 3.2V9c0 1.1-.5 1.7-1.8 2.2C4.5 11.7 5 12.3 5 13.4v1.6C5 17.2 5.8 18.6 8 18.6"
+      />
+      <path
+        d="M16 4c2.2 0 3 1.4 3 3.2V9c0 1.1.5 1.7 1.8 2.2-1.3.5-1.8 1.1-1.8 2.2v1.6c0 2.2-.8 3.6-3 3.6"
+      />
+    </template>
     <template v-else-if="name === 'text'">
       <path d="M5 6h14" />
       <path d="M5 12h14" />

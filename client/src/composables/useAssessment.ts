@@ -81,6 +81,15 @@ export function useAssessment() {
     }
   })
 
+  const reload = async () => {
+    const id = assessment.value?.id || assessmentId.value
+    if (!id) return
+    const loaded = await sessionStore.load_assessment(id)
+    if (loaded) {
+      assessment.value = loaded
+    }
+  }
+
   return {
     assessment,
     isLoading,
@@ -89,5 +98,6 @@ export function useAssessment() {
     files,
     students,
     applyUpdate,
+    reload,
   }
 }

@@ -93,6 +93,7 @@
             :students="students"
             :empty-text="t('assessment.copiesEmpty')"
             @updated="onFilesUpdated"
+            @changed="reload"
           />
         </section>
 
@@ -224,6 +225,15 @@
       </div>
     </div>
   </div>
+
+  <AttributesEditorPopup
+    v-if="attributesOpen && assessment?.id && student"
+    :assessment-id="assessment.id"
+    :student-id="student.id"
+    :title="studentName"
+    @close="attributesOpen = false"
+    @saved="reload"
+  />
 </template>
 
 <script setup lang="ts">
@@ -232,6 +242,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
+import AttributesEditorPopup from '@/components/AttributesEditorPopup.vue'
 import S3File from '@/components/S3File.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useAssessmentStream } from '@/composables/useAssessmentStream'
@@ -243,7 +254,8 @@ const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
-const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
+const { assessment, isLoading, error, assessmentId, files, students, applyUpdate, reload } =
+  useAssessment()
 const studentId = computed(() => route.params.studentId as string)
 const streamEnabled = computed(() => Boolean(assessment.value?.id))
 
@@ -338,10 +350,13 @@ const correctStudent = async () => {
   }
 }
 
+const attributesOpen = ref(false)
+
 const onStudentAction = (key: string) => {
   if (key === 'transcribe') void transcribeStudent()
   else if (key === 'correct') void correctStudent()
   else if (key === 'rename') startRenameStudent()
+  else if (key === 'edit_attributes') attributesOpen.value = true
   else if (key === 'delete') startDeleteStudent()
 }
 

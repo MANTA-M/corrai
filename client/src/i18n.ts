@@ -172,6 +172,12 @@ export interface I18nSchema {
     fileHistoryEmpty: string
     fileAnnexes: string
     fileAnnexesEmpty: string
+    editAttributes: string
+    attributesInvalid: string
+    attributesLoadError: string
+    attributesSaveError: string
+    attributesSaving: string
+    attributesSave: string
     editSubject: string
     addCopies: string
     studentsHeading: string
@@ -210,6 +216,8 @@ export interface I18nSchema {
     fileReassignNotFound: string
     fileReassignConfirm: string
     fileReassigning: string
+    fileUnassign: string
+    fileUnassigning: string
     fileEventsTitle: string
     startCorrection: string
     correctionPrice: string

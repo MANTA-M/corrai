@@ -407,6 +407,7 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
             MenuLabels::item('transcribe', $locale, 'text', MenuLabels::BLUE),
             MenuLabels::item('correct', $locale, 'check', MenuLabels::BLUE),
             MenuLabels::item('rename', $locale, 'pencil', MenuLabels::BLUE, 'student_rename'),
+            MenuLabels::item('edit_attributes', $locale, 'braces', MenuLabels::MUTED),
             MenuLabels::item('delete', $locale, 'trash', MenuLabels::DANGER, 'student_delete'),
         ];
     }

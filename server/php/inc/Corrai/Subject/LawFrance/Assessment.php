@@ -57,6 +57,45 @@ class Assessment extends BaseAssessment
     }
 
     /**
+     * True while an unassigned copy has not finished identification.
+     * Crop marks copies transcribed before the student number is read, so status
+     * alone must not start affectation.
+     */
+    public function hasUnassignedSubmissionsAwaitingIdentification(?string $excludeFileId = null): bool
+    {
+        foreach ($this->listFileModels() as $model) {
+            if (!$model instanceof SubmissionFile) {
+                continue;
+            }
+            if ($excludeFileId !== null && $model->id === $excludeFileId) {
+                continue;
+            }
+            $studentId = is_string($model->student) ? trim($model->student) : '';
+            if ($studentId !== '') {
+                continue;
+            }
+            if (!$this->hasIdentifyEvent($model)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function hasIdentifyEvent(SubmissionFile $file): bool
+    {
+        try {
+            foreach ($file->listEvents() as $event) {
+                if (($event['name'] ?? '') === SubmissionTask3Identify::IDENTIFY_EVENT) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
      * Attach each unclassified transcribed copy to the student of the assigned
      * copy whose name comes immediately before it.
      */
@@ -81,6 +120,9 @@ class Assessment extends BaseAssessment
 
         foreach ($unclassified as $submission) {
             if ($submission->status !== 'transcribed') {
+                // #region agent log
+                @file_put_contents('/home/maintainer/corrai_test/.cursor/debug-3c9dba.log', json_encode(['sessionId' => '3c9dba', 'hypothesisId' => 'D', 'location' => 'Assessment.php:allocateSubmission', 'message' => 'abort: unclassified not transcribed', 'data' => ['file' => $submission->name, 'status' => $submission->status, 'unclassified' => array_map(static fn($s) => ['name' => $s->name, 'status' => $s->status], $unclassified)], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+                // #endregion
                 return;
             }
         }
@@ -95,6 +137,9 @@ class Assessment extends BaseAssessment
         }
 
         ksort($nameToStudentId, SORT_STRING);
+        // #region agent log
+        @file_put_contents('/home/maintainer/corrai_test/.cursor/debug-3c9dba.log', json_encode(['sessionId' => '3c9dba', 'hypothesisId' => 'C', 'location' => 'Assessment.php:allocateSubmission', 'message' => 'name map before assign', 'data' => ['nameToStudentId' => $nameToStudentId, 'unclassified' => array_map(static fn($s) => $s->name, $unclassified)], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+        // #endregion
         $studentNames = [];
         foreach ($students as $student) {
             if ($student->id !== null && $student->id !== '') {
@@ -104,6 +149,16 @@ class Assessment extends BaseAssessment
 
         foreach ($unclassified as $submission) {
             $studentId = self::studentIdBeforeName($nameToStudentId, $submission->name);
+            // #region agent log
+            $predecessor = null;
+            foreach ($nameToStudentId as $assignedName => $mappedStudentId) {
+                if (strcmp($assignedName, $submission->name) >= 0) {
+                    break;
+                }
+                $predecessor = ['name' => $assignedName, 'studentId' => $mappedStudentId];
+            }
+            @file_put_contents('/home/maintainer/corrai_test/.cursor/debug-3c9dba.log', json_encode(['sessionId' => '3c9dba', 'hypothesisId' => 'B', 'location' => 'Assessment.php:allocateSubmission', 'message' => 'predecessor decision', 'data' => ['file' => $submission->name, 'studentId' => $studentId, 'predecessor' => $predecessor], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+            // #endregion
             if ($studentId === null) {
                 continue;
             }

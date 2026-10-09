@@ -209,6 +209,7 @@
             :empty-text="t('assessment.unassignedEmpty')"
             cards
             @updated="onFilesUpdated"
+            @changed="reloadAssessment"
           />
         </section>
 
@@ -397,6 +398,15 @@
       </div>
     </div>
   </div>
+
+  <AttributesEditorPopup
+    v-if="attributesTarget && assessment?.id"
+    :assessment-id="assessment.id"
+    :student-id="attributesTarget.studentId"
+    :title="attributesTarget.title"
+    @close="attributesTarget = null"
+    @saved="reloadAssessment"
+  />
 </template>
 
 <script setup lang="ts">
@@ -407,6 +417,7 @@ import { useSessionStore } from '@/stores/session'
 import { toast } from 'vue3-toastify'
 import ActionIcon from '@/components/ActionIcon.vue'
 import AddFilePopup from '@/components/AddFilePopup.vue'
+import AttributesEditorPopup from '@/components/AttributesEditorPopup.vue'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import S3File from '@/components/S3File.vue'
@@ -429,7 +440,8 @@ const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
-const { assessment, isLoading, error, assessmentId, files, students, applyUpdate } = useAssessment()
+const { assessment, isLoading, error, assessmentId, files, students, applyUpdate, reload } =
+  useAssessment()
 const streamEnabled = computed(() => Boolean(assessment.value?.id))
 
 useAssessmentStream({
@@ -532,6 +544,7 @@ const deleteMenuItem = computed(() =>
 
 const pageMenuOrder = [
   'edit_subject',
+  'edit_attributes',
   'add_copies',
   'create_correction_grid',
   'start_correction',
@@ -569,9 +582,21 @@ const textButtonClass = (item: MenuItem) => {
   return 'button secondary'
 }
 
+const attributesTarget = ref<{
+  studentId?: string
+  fileId?: string
+  title: string
+} | null>(null)
+
+const openAssessmentAttributes = () => {
+  if (!assessment.value?.id) return
+  attributesTarget.value = { title: assessment.value.name || t('assessment.editAttributes') }
+}
+
 const onAssessmentAction = (key: string) => {
   if (key === 'delete') void confirmDelete()
   else if (key === 'edit_subject') goSubject()
+  else if (key === 'edit_attributes') openAssessmentAttributes()
   else if (key === 'add_copies') showAddCopies.value = true
   else if (key === 'start_correction') openStartCorrection()
   else if (key === 'test_correction') void launchTestCorrection()
@@ -583,7 +608,9 @@ const onStudentAction = (student: AssessmentStudent, key: string) => {
   else if (key === 'transcribe') void transcribeStudent(student)
   else if (key === 'correct') void correctStudent(student)
   else if (key === 'rename') startRenameStudent(student)
-  else if (key === 'delete') startDeleteStudent(student)
+  else if (key === 'edit_attributes') {
+    attributesTarget.value = { studentId: student.id, title: student.name }
+  } else if (key === 'delete') startDeleteStudent(student)
 }
 
 const formatMark = (mark: number) =>
@@ -661,14 +688,7 @@ const onFilesUpdated = (
   applyUpdate(files, students, stats)
 }
 
-const reloadAssessment = async () => {
-  const id = assessment.value?.id || assessmentId.value
-  if (!id) return
-  const loaded = await sessionStore.load_assessment(id)
-  if (loaded) {
-    assessment.value = loaded
-  }
-}
+const reloadAssessment = () => reload()
 
 const closeAddCopies = async () => {
   showAddCopies.value = false

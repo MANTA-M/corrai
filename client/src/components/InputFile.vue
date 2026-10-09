@@ -33,6 +33,15 @@
             {{ t('assessment.fileHistory') }}
           </button>
         </li>
+        <li>
+          <button
+            type="button"
+            data-testid="file-edit-attributes"
+            @click="onAction('edit_attributes')"
+          >
+            {{ t('assessment.editAttributes') }}
+          </button>
+        </li>
         <li v-if="sessionStore.debugMode" class="file-card-files">
           <button
             type="button"

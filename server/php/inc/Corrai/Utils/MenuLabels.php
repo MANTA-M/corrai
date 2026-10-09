@@ -51,6 +51,16 @@ class MenuLabels
             'ro' => 'Modifică subiectul',
             'de' => 'Thema bearbeiten',
         ],
+        'edit_attributes' => [
+            'en' => 'Attributes',
+            'fr' => 'Attributs',
+            'ru' => 'Атрибуты',
+            'uk' => 'Атрибути',
+            'es' => 'Atributos',
+            'pt' => 'Atributos',
+            'ro' => 'Atribute',
+            'de' => 'Attribute',
+        ],
         'add_copies' => [
             'en' => 'Add copies',
             'fr' => 'Ajouter des copies',

@@ -42,7 +42,10 @@ class StudentCorrectTest extends TestCase
     {
         $student = new LawStudent();
         $menuFr = $student->get_menu('fr');
-        $this->assertSame(['view', 'transcribe', 'correct', 'rename', 'delete'], array_column($menuFr, 'key'));
+        $this->assertSame(
+            ['view', 'transcribe', 'correct', 'rename', 'edit_attributes', 'delete'],
+            array_column($menuFr, 'key')
+        );
         $this->assertSame('Transcription', $menuFr[1]['label']);
         $this->assertSame('text', $menuFr[1]['icon']);
         $this->assertSame('Corriger', $menuFr[2]['label']);

@@ -54,7 +54,7 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
         $this->installQueue();
 
         $submission1 = $this->createSubmission('sub-1', 'transcribing', null);
-        $submission2 = $this->createSubmission('sub-2', 'transcribed', null);
+        $submission2 = $this->identifiedSubmission('sub-2');
 
         $assessment = $this->getMockBuilder(LawAssessment::class)
             ->onlyMethods(['listFileModels', 'save'])
@@ -287,6 +287,66 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
         $this->assertTrue($store->exists($studentPrefix . ObjectStore::CONTENT_FILE));
         $this->assertTrue($store->exists($studentPrefix . ObjectStore::ATTR_FILE));
         $this->assertFalse($store->exists($unclassifiedPrefix . ObjectStore::CONTENT_FILE));
+    }
+
+    public function testTaskDoesNotSetAffectingWhenAnotherCopyIsNotIdentified(): void
+    {
+        $this->installQueue();
+
+        $submission1 = $this->createSubmission('sub-1', 'transcribing', null);
+        $submission2 = $this->createSubmission('sub-2', 'transcribed', null);
+
+        $assessment = $this->getMockBuilder(LawAssessment::class)
+            ->onlyMethods(['listFileModels', 'save'])
+            ->getMock();
+        $assessment->id = 'ass-test-2b';
+        $assessment->status = 'draft';
+
+        $assessment->method('listFileModels')->willReturn([$submission1, $submission2]);
+        $assessment->expects($this->never())->method('save');
+
+        $task = new SubmissionTask3Identify();
+        $task->identifySubmission($submission1, $assessment);
+
+        $this->assertSame('draft', $assessment->status);
+        $this->assertSame([], $this->decodedTickets());
+    }
+
+    public function testNonNumericIdentifierDoesNotCreateAStudent(): void
+    {
+        $file = new Submission();
+        $file->name = 'IMG_3464.webp';
+        $file->student_identifier = 'Kylian';
+        $file->student = null;
+
+        $assessment = $this->getMockBuilder(LawAssessment::class)
+            ->onlyMethods(['findOrCreateStudentByName'])
+            ->getMock();
+        $assessment->expects($this->never())->method('findOrCreateStudentByName');
+
+        $method = new \ReflectionMethod(SubmissionTask3Identify::class, 'assignIdentifiedStudent');
+        $method->setAccessible(true);
+        $method->invoke(new SubmissionTask3Identify(), $file, $assessment);
+
+        $this->assertNull($file->student);
+    }
+
+    private function identifiedSubmission(string $id): Submission
+    {
+        $submission = $this->getMockBuilder(Submission::class)
+            ->onlyMethods(['listEvents'])
+            ->getMock();
+        $submission->id = $id;
+        $submission->name = $id . '.png';
+        $submission->school_id = 'school-1';
+        $submission->user_id = 'user-1';
+        $submission->assessment_id = 'ass-1';
+        $submission->status = 'transcribed';
+        $submission->student = null;
+        $submission->method('listEvents')->willReturn([
+            ['id' => 'event-1', 'timestamp' => 1, 'name' => SubmissionTask3Identify::IDENTIFY_EVENT],
+        ]);
+        return $submission;
     }
 
     private function createSubmission(string $id, string $status, ?string $student): Submission

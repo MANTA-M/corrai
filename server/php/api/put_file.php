@@ -57,10 +57,10 @@ try {
 
     $student = null;
     if (array_key_exists('student', $body)) {
-        if (!is_string($body['student'])) {
-            throw new WSException('student must be a string', 400);
+        if (!is_string($body['student']) && $body['student'] !== null) {
+            throw new WSException('student must be a string or null', 400);
         }
-        $student = $body['student'];
+        $student = $body['student'] === null ? '' : $body['student'];
     }
 
     $newName = null;

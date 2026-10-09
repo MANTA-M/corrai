@@ -261,6 +261,56 @@ class AssessmentLifecycleTest extends TestCase
         $assessment->delete();
     }
 
+    public function testUnassignSubmissionMovesUnderUnclassifiedArea(): void
+    {
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] Unassign Assessment';
+        $assessment->subject = 'Law France';
+        $assessment->date = '2026-04-10';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $tmp = $this->createRandomTempFile('unassign_', '.txt');
+        $filename = basename($tmp);
+        $file = $assessment->createFileFromPath($filename, $tmp, 'text/plain', null, null);
+        $alice = $assessment->createStudent('[Test] Alice');
+
+        // Assign to Alice as submission
+        $assessment->setFileTags($file->id, 'submission', $alice->id);
+        $store = ObjectStore::getInstance();
+        $assignedKey = ObjectStore::assessmentFileAttrKey(
+            $this->user->school_id,
+            $this->user->id,
+            $assessment->id,
+            $file->id,
+            'submission',
+            $alice->id
+        );
+        $this->assertTrue($store->exists($assignedKey));
+
+        // Unassign by passing empty string as student
+        $updatedFiles = $assessment->setFileTags($file->id, null, '');
+        $this->assertCount(1, $updatedFiles);
+        $this->assertNull($updatedFiles[0]['student']);
+        $this->assertNull($updatedFiles[0]['student_name']);
+        $this->assertSame('submission', $updatedFiles[0]['type']);
+
+        $this->assertFalse($store->exists($assignedKey));
+        $unclassifiedKey = ObjectStore::assessmentFileAttrKey(
+            $this->user->school_id,
+            $this->user->id,
+            $assessment->id,
+            $file->id,
+            'submission',
+            null
+        );
+        $this->assertTrue($store->exists($unclassifiedKey));
+
+        $assessment->delete();
+    }
+
     public function testRenameFileUpdatesDisplayNameOnly(): void
     {
         $assessment = new Assessment();

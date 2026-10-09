@@ -159,6 +159,15 @@
       <div class="popup-footer">
         <button
           type="button"
+          class="button secondary popup-footer-left"
+          data-testid="reassign-unassign"
+          :disabled="isUpdating"
+          @click="unassignFile"
+        >
+          {{ isUpdating && isUnassigning ? t('assessment.fileUnassigning') : t('assessment.fileUnassign') }}
+        </button>
+        <button
+          type="button"
           class="button secondary"
           data-testid="reassign-file-cancel"
           :disabled="isUpdating"
@@ -170,10 +179,10 @@
           type="button"
           class="button primary"
           data-testid="reassign-confirm"
-          :disabled="!canConfirmReassign"
+          :disabled="!canConfirmReassign || isUpdating"
           @click="confirmReassign"
         >
-          {{ isUpdating ? t('assessment.fileReassigning') : t('assessment.fileReassignConfirm') }}
+          {{ isUpdating && !isUnassigning ? t('assessment.fileReassigning') : t('assessment.fileReassignConfirm') }}
         </button>
       </div>
     </div>
@@ -185,7 +194,7 @@
     data-testid="file-events-popup"
     @click.self="closeEvents"
   >
-    <div class="popup-content file-action-popup">
+    <div class="popup-content file-action-popup events-popup">
       <div class="popup-header">
         <h2>{{ t('assessment.fileEventsTitle') }}</h2>
         <button
@@ -330,11 +339,21 @@
       </div>
     </div>
   </div>
+
+  <AttributesEditorPopup
+    v-if="attributesFile"
+    :assessment-id="assessmentId"
+    :file-id="attributesFile.id"
+    :title="attributesFile.name"
+    @close="attributesFile = null"
+    @saved="emit('changed')"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AttributesEditorPopup from '@/components/AttributesEditorPopup.vue'
 import InputFile from '@/components/InputFile.vue'
 import MenuIconButton from '@/components/MenuIconButton.vue'
 import S3File from '@/components/S3File.vue'
@@ -362,6 +381,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   updated: [payload: { files: AssessmentFile[]; students?: AssessmentStudent[] } & AssessmentStats]
   editText: [file: AssessmentFile]
+  changed: []
 }>()
 
 const { t, locale } = useI18n()
@@ -370,6 +390,7 @@ const sessionStore = useSessionStore()
 const error = ref('')
 const actionError = ref('')
 const isUpdating = ref(false)
+const isUnassigning = ref(false)
 
 const reassignTarget = ref<AssessmentFile | null>(null)
 const selectedStudentId = ref('')
@@ -551,10 +572,13 @@ const applyUpdatedFiles = (files: AssessmentFile[], students?: AssessmentStudent
   emit('updated', { files, students })
 }
 
+const attributesFile = ref<AssessmentFile | null>(null)
+
 const onFileAction = (file: AssessmentFile, key: string) => {
   if (key === 'reassign') openReassign(file)
   else if (key === 'events') openEvents(file)
   else if (key === 'rename') startRename(file)
+  else if (key === 'edit_attributes') attributesFile.value = file
   else if (key === 'delete') startDelete(file)
 }
 
@@ -690,6 +714,37 @@ const confirmReassign = async () => {
     actionError.value = t('assessment.fileUpdateError')
   } finally {
     isUpdating.value = false
+  }
+}
+
+const unassignFile = async () => {
+  if (!reassignTarget.value) return
+  const file = reassignTarget.value
+  actionError.value = ''
+  error.value = ''
+  isUpdating.value = true
+  isUnassigning.value = true
+  try {
+    const wsClient = sessionStore.getWsClient()
+    const response = await wsClient.queryWs<{
+      files?: AssessmentFile[]
+      students?: AssessmentStudent[]
+    }>(
+      'PUT',
+      '/file',
+      { assessment: props.assessmentId, file: file.id, locale: String(locale.value) },
+      { student: '' },
+    )
+    if (response?.files) {
+      applyUpdatedFiles(response.files, response.students ?? props.students)
+    }
+    reassignTarget.value = null
+  } catch (err) {
+    console.error('Error unassigning file:', err)
+    actionError.value = t('assessment.fileUpdateError')
+  } finally {
+    isUpdating.value = false
+    isUnassigning.value = false
   }
 }
 
@@ -930,6 +985,21 @@ onUnmounted(() => {
   background: var(--hover-bg);
 }
 
+.events-popup {
+  max-height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.events-popup .popup-header {
+  flex-shrink: 0;
+}
+
+.events-popup .popup-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .events-list {
   list-style: none;
   margin: 0;
@@ -939,5 +1009,9 @@ onUnmounted(() => {
 .events-list a {
   display: block;
   padding: 0.4rem 0;
+}
+
+.popup-footer-left {
+  margin-right: auto;
 }
 </style>

@@ -66,30 +66,25 @@ class SubmissionTask3Identify extends PathQueueItemTask
             return;
         }
 
-        if (!$assessment->hasUnassignedTranscribingSubmissions((string) $file->id)) {
-            $assessment->status = 'affecting';
-            try {
-                $assessment->save();
-            } catch (Throwable $e) {
-                error_log('[SubmissionTask3Identify] Assessment save failed: ' . $e->getMessage());
-            }
-            try {
-                $assessment->appendEvent('Affectation queued');
-            } catch (Throwable $e) {
-                // Ignore when event storage is unavailable
-            }
-            if ($assessment->id !== null && $assessment->id !== '') {
-                RedisQueue::getInstance()->enqueueAssessment((string) $assessment->id, AssTask1Affectation::class);
-            }
-        }
-
         if (!$assessment instanceof Assessment) {
             return;
         }
+        if ($assessment->hasUnassignedSubmissionsAwaitingIdentification((string) $file->id)) {
+            return;
+        }
+        $assessment->status = 'affecting';
         try {
-            $assessment->allocateSubmission();
+            $assessment->save();
         } catch (Throwable $e) {
-            error_log(sprintf('[SubmissionTask3Identify] Failed to allocate submissions for assessment %s: %s', (string) $assessment->id, $e->getMessage()));
+            error_log('[SubmissionTask3Identify] Assessment save failed: ' . $e->getMessage());
+        }
+        try {
+            $assessment->appendEvent('Affectation queued');
+        } catch (Throwable $e) {
+            // Ignore when event storage is unavailable
+        }
+        if ($assessment->id !== null && $assessment->id !== '') {
+            RedisQueue::getInstance()->enqueueAssessment((string) $assessment->id, AssTask1Affectation::class);
         }
     }
 
@@ -163,6 +158,9 @@ class SubmissionTask3Identify extends PathQueueItemTask
             }
         }
         $file->qualigraphy_score = $qualigraphyScore;
+        // #region agent log
+        @file_put_contents('/home/maintainer/corrai_test/.cursor/debug-3c9dba.log', json_encode(['sessionId' => '3c9dba', 'hypothesisId' => 'A', 'location' => 'SubmissionTask3Identify.php:writeStudentIdentifier', 'message' => 'llm identifier', 'data' => ['file' => $file->name, 'id' => $id, 'qualigraphy_score' => $qualigraphyScore], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+        // #endregion
     }
 
     /**
@@ -173,10 +171,19 @@ class SubmissionTask3Identify extends PathQueueItemTask
     {
         $assigned = is_string($file->student) && trim($file->student) !== '';
         if ($assigned) {
+            // #region agent log
+            @file_put_contents('/home/maintainer/corrai_test/.cursor/debug-3c9dba.log', json_encode(['sessionId' => '3c9dba', 'hypothesisId' => 'E', 'location' => 'SubmissionTask3Identify.php:assignIdentifiedStudent', 'message' => 'skip assign, student already set', 'data' => ['file' => $file->name, 'student' => $file->student, 'identifier' => $file->student_identifier], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+            // #endregion
             return;
         }
         $name = is_string($file->student_identifier) ? trim($file->student_identifier) : '';
         if ($name === '') {
+            return;
+        }
+        if (preg_match('/^\d+$/', $name) !== 1) {
+            // #region agent log
+            @file_put_contents('/home/maintainer/corrai_test/.cursor/debug-3c9dba.log', json_encode(['sessionId' => '3c9dba', 'runId' => 'post-fix', 'hypothesisId' => 'A', 'location' => 'SubmissionTask3Identify.php:assignIdentifiedStudent', 'message' => 'ignore non-numeric identifier', 'data' => ['file' => $file->name, 'identifier' => $name], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+            // #endregion
             return;
         }
         $student = $assessment->findOrCreateStudentByName($name);

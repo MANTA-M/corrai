@@ -772,6 +772,7 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
         }
         $items[] = MenuLabels::item('events', $locale, 'list', MenuLabels::MUTED);
         $items[] = MenuLabels::item('rename', $locale, 'pencil', MenuLabels::BLUE);
+        $items[] = MenuLabels::item('edit_attributes', $locale, 'braces', MenuLabels::MUTED);
         $items[] = MenuLabels::item('delete', $locale, 'trash', MenuLabels::DANGER, 'file_delete');
         return $items;
     }

@@ -29,14 +29,15 @@ class MenuTest extends TestCase
         $this->assertSame('Dictée CM2 France', $french['label']);
         $frenchMenu = $assessment->get_menu('fr');
         $this->assertSame(
-            ['edit', 'delete', 'edit_subject', 'add_copies'],
+            ['edit', 'delete', 'edit_subject', 'edit_attributes', 'add_copies'],
             array_column($frenchMenu, 'key')
         );
         $this->assertSame('', $frenchMenu[0]['icon']);
         $this->assertSame('Modifier', $frenchMenu[0]['label']);
         $this->assertSame('Supprimer l\'évaluation', $frenchMenu[1]['label']);
         $this->assertSame('#c93b45', $frenchMenu[1]['color']);
-        $this->assertSame('Ajouter des copies', $frenchMenu[3]['label']);
+        $this->assertSame('Attributs', $frenchMenu[3]['label']);
+        $this->assertSame('Ajouter des copies', $frenchMenu[4]['label']);
 
         $english = $assessment->to_output('en-US');
         $this->assertSame('Dictation CM2 France', $english['label']);
@@ -47,15 +48,20 @@ class MenuTest extends TestCase
     {
         $student = new Student();
         $menu = $student->get_menu('fr');
-        $this->assertSame(['view', 'transcribe', 'correct', 'rename', 'delete'], array_column($menu, 'key'));
+        $this->assertSame(
+            ['view', 'transcribe', 'correct', 'rename', 'edit_attributes', 'delete'],
+            array_column($menu, 'key')
+        );
         $this->assertSame('Voir l\'élève', $menu[0]['label']);
         $this->assertSame('eye', $menu[0]['icon']);
         $this->assertSame('Transcription', $menu[1]['label']);
         $this->assertSame('text', $menu[1]['icon']);
         $this->assertSame('Corriger', $menu[2]['label']);
         $this->assertSame('check', $menu[2]['icon']);
-        $this->assertSame('Supprimer', $menu[4]['label']);
-        $this->assertSame('#c93b45', $menu[4]['color']);
+        $this->assertSame('Attributs', $menu[4]['label']);
+        $this->assertSame('braces', $menu[4]['icon']);
+        $this->assertSame('Supprimer', $menu[5]['label']);
+        $this->assertSame('#c93b45', $menu[5]['color']);
     }
 
     public function testUnknownLocaleUsesFrenchLabels(): void
@@ -75,11 +81,11 @@ class MenuTest extends TestCase
         $output = $submission->to_output(null, 'fr');
         $this->assertSame('Copie', $output['label']);
         $this->assertSame(
-            ['view', 'reassign', 'events', 'rename', 'delete'],
+            ['view', 'reassign', 'events', 'rename', 'edit_attributes', 'delete'],
             array_column($output['menu'], 'key')
         );
         $this->assertSame('eye', $output['menu'][0]['icon']);
-        $this->assertSame('Supprimer', $output['menu'][4]['label']);
+        $this->assertSame('Supprimer', $output['menu'][5]['label']);
 
         $submission->status = 'stored';
         $this->assertSame('Stocké', $submission->get_status_label('fr'));
@@ -111,14 +117,14 @@ class MenuTest extends TestCase
         $this->assertSame('Ada', $subjectOutput['student_name']);
         $this->assertSame('Aufgabenstellung', $subjectOutput['label']);
         $keys = array_column($subjectOutput['menu'], 'key');
-        $this->assertSame(['view', 'events', 'rename', 'delete'], $keys);
+        $this->assertSame(['view', 'events', 'rename', 'edit_attributes', 'delete'], $keys);
         $this->assertSame('Löschen', $subjectOutput['menu'][array_key_last($subjectOutput['menu'])]['label']);
 
         $instructions = new InstructionFile();
         $instructions->name = 'instructions.md';
         $instructions->content_type = 'text/markdown';
         $instructionKeys = array_column($instructions->get_menu('en'), 'key');
-        $this->assertSame(['view', 'events', 'rename', 'delete'], $instructionKeys);
+        $this->assertSame(['view', 'events', 'rename', 'edit_attributes', 'delete'], $instructionKeys);
         $instructionOutputFr = $instructions->to_output(null, 'fr');
         $this->assertSame('Consignes particulières', $instructionOutputFr['label']);
     }
