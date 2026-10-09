@@ -165,18 +165,25 @@ class MenuTest extends TestCase
             'id' => 'sub1',
             'name' => 'sujet.pdf',
             'student_identifier' => 'ID-42',
+            'qualigraphy_score' => 8,
         ]);
         $this->assertFalse(property_exists($subject, 'student_identifier'));
+        $this->assertFalse(property_exists($subject, 'qualigraphy_score'));
         $this->assertArrayNotHasKey('student_identifier', $subject->attributePayload());
+        $this->assertArrayNotHasKey('qualigraphy_score', $subject->attributePayload());
 
         $submission = SubmissionFile::from_array([
             'id' => 'copy1',
             'name' => 'copie.png',
             'student_identifier' => 'ID-42',
+            'qualigraphy_score' => 8,
         ]);
         $this->assertTrue(property_exists($submission, 'student_identifier'));
+        $this->assertTrue(property_exists($submission, 'qualigraphy_score'));
         $this->assertSame('ID-42', $submission->student_identifier);
+        $this->assertSame(8, $submission->qualigraphy_score);
         $this->assertSame('ID-42', $submission->attributePayload()['student_identifier']);
+        $this->assertSame(8, $submission->attributePayload()['qualigraphy_score']);
     }
 
     public function testInterfacesConformance(): void

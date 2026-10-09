@@ -126,11 +126,14 @@ class StudentTask1Correcting extends PathQueueItemTask
         $request->set_system_content(
             "Vous êtes un professeur chargé de corriger les copies d'une école d'avocat.\n"
             . "Appliquez strictement la grille de correction. Reproduisez les mêmes modificateurs généraux, "
-            . "les mêmes parties, les mêmes questions et les mêmes critères, dans le même ordre, "
-            . "avec les mêmes libellés et les mêmes modificateurs.\n"
-            . "Pour chaque critère, indiquez s'il est retenu et donnez un score de confiance de 0 à 1. Les points obtenus d'une question sont la somme "
-            . "des modificateurs positifs retenus, sans dépasser le barème de la question, après déduction "
-            . "des modificateurs négatifs retenus. La note sur 20 intègre les modificateurs généraux retenus.\n"
+            . "les mêmes parties et les mêmes questions, dans le même ordre, avec les mêmes libellés.\n"
+            . "Pour chaque modificateur général, indiquez s'il est retenu et donnez un score de confiance de 0 à 1.\n"
+            . "Pour chaque question, évaluez les critères : pour chaque critère, indiquez sa description, sa pondération "
+            . "(nombre flottant avec 2 décimales entre 0 et 1), sa note (nombre avec au maximum une décimale), "
+            . "son score de confiance (flottant de 0 à 1) et un commentaire. "
+            . "Les points obtenus d'une question sont déterminés à partir de ces critères sans dépasser "
+            . "le barème de la question. La note sur 20 intègre les modificateurs généraux retenus.\n"
+            . "Ne prenez pas en compte les fautes d'orthographe vraisemblablement dues à des erreurs d'OCR.\n"
             . "L'appréciation et les remarques sont rédigées en " . $languageName . ".\n"
             . "\n# Instructions\n"
             . $instructionText
@@ -153,20 +156,20 @@ class StudentTask1Correcting extends PathQueueItemTask
 
     /**
      * Même arborescence que la grille : modificateurs généraux, parties, questions
-     * et critères proposés. Chaque critère est complété par son application à la copie.
+     * et notes sur les critères.
      *
      * @return array<string, mixed>
      */
     private static function correctionSchema(string $languageName): array
     {
-        $criterion = [
+        $modifier = [
             'type' => 'object',
             'additionalProperties' => false,
             'required' => ['critère', 'modificateur', 'retenu', 'score_de_confiance', 'commentaire'],
             'properties' => [
                 'critère' => [
                     'type' => 'string',
-                    'description' => 'Libellé identique au critère de la grille.',
+                    'description' => 'Libellé identique au modificateur général de la grille.',
                 ],
                 'modificateur' => [
                     'type' => 'integer',
@@ -187,6 +190,34 @@ class StudentTask1Correcting extends PathQueueItemTask
             ],
         ];
 
+        $criterion = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['description', 'ponderation', 'note', 'score_de_confiance', 'commentaire'],
+            'properties' => [
+                'description' => [
+                    'type' => 'string',
+                    'description' => 'Description du critère évalué.',
+                ],
+                'ponderation' => [
+                    'type' => 'number',
+                    'description' => 'Pondération du critère : nombre flottant avec 2 décimales entre 0 et 1.',
+                ],
+                'note' => [
+                    'type' => 'number',
+                    'description' => 'Note attribuée à ce critère : nombre avec au maximum une décimale.',
+                ],
+                'score_de_confiance' => [
+                    'type' => 'number',
+                    'description' => 'Score de confiance de 0 à 1 quant à l\'évaluation de ce critère.',
+                ],
+                'commentaire' => [
+                    'type' => 'string',
+                    'description' => 'Commentaire ou justification de la note, en ' . $languageName . '.',
+                ],
+            ],
+        ];
+
         return [
             'type' => 'object',
             'additionalProperties' => false,
@@ -195,7 +226,7 @@ class StudentTask1Correcting extends PathQueueItemTask
                 'modificateurs_généraux' => [
                     'type' => 'array',
                     'description' => 'Mêmes modificateurs que la grille, dans le même ordre.',
-                    'items' => $criterion,
+                    'items' => $modifier,
                 ],
                 'parties' => [
                     'type' => 'array',
@@ -214,23 +245,23 @@ class StudentTask1Correcting extends PathQueueItemTask
                                 'items' => [
                                     'type' => 'object',
                                     'additionalProperties' => false,
-                                    'required' => ['titre', 'points', 'points_obtenus', 'critères_proposés'],
+                                    'required' => ['titre', 'points', 'points_obtenus', 'critères'],
                                     'properties' => [
                                         'titre' => [
                                             'type' => 'string',
                                             'description' => 'Titre de la question, identique à la grille.',
                                         ],
                                         'points' => [
-                                            'type' => 'integer',
+                                            'type' => 'number',
                                             'description' => 'Barème de la question, identique à la grille.',
                                         ],
                                         'points_obtenus' => [
-                                            'type' => 'integer',
+                                            'type' => 'number',
                                             'description' => 'Points retenus pour cette question, entre 0 et le barème.',
                                         ],
-                                        'critères_proposés' => [
+                                        'critères' => [
                                             'type' => 'array',
-                                            'description' => 'Mêmes critères que la grille, dans le même ordre.',
+                                            'description' => 'Notes sur les différents critères de la question.',
                                             'items' => $criterion,
                                         ],
                                     ],

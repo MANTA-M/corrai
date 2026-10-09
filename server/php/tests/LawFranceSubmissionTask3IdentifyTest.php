@@ -238,6 +238,7 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
 
         $client = new IdentifyCapturingGemini();
         $client->id = '17';
+        $client->qualigraphy_score = 7.5;
         $task = new SubmissionTask3Identify($client);
         $task->process_task((object) [
             'path' => $file->contentKey(),
@@ -252,10 +253,13 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
         $this->assertSame(['copie.png'], $client->fileNames());
         $schema = $client->responseFormat();
         $this->assertSame('student_identifier', $schema['json_schema']['name'] ?? null);
+        $this->assertArrayHasKey('qualigraphy_score', $schema['json_schema']['schema']['properties'] ?? []);
 
         $reloaded = $assessment->getFile((string) $file->id);
         $this->assertInstanceOf(Submission::class, $reloaded);
         $this->assertSame('17', $reloaded->student_identifier);
+        $this->assertSame(7.5, $reloaded->qualigraphy_score);
+        $this->assertSame(7.5, $reloaded->attributePayload()['qualigraphy_score']);
         $this->assertSame('transcribed', $reloaded->status);
 
         $students = $assessment->listStudentModels();
@@ -331,6 +335,7 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
 class IdentifyCapturingGemini extends GeminiFlashLiteClient
 {
     public ?string $id = null;
+    public int|float|null $qualigraphy_score = null;
 
     private string $promptText = '';
 
@@ -372,6 +377,6 @@ class IdentifyCapturingGemini extends GeminiFlashLiteClient
 
     public function call(): array
     {
-        return ['response' => ['id' => $this->id]];
+        return ['response' => ['id' => $this->id, 'qualigraphy_score' => $this->qualigraphy_score]];
     }
 }

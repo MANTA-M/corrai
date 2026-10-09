@@ -57,9 +57,6 @@ class LawFranceCorrectionGridTest extends TestCase
                             'points' => 10,
                             'contenu' => 'Faits du cas.',
                             'questions_posées' => ['La responsabilité est-elle engagée ?'],
-                            'critères_proposés' => [
-                                ['critère' => 'Qualification exacte', 'modificateur' => 10],
-                            ],
                         ],
                     ],
                     'nota_bene' => ['Citer les articles utiles.'],
@@ -121,6 +118,10 @@ class LawFranceCorrectionGridTest extends TestCase
         $this->assertArrayHasKey('references', $schema['properties'] ?? []);
         $this->assertContains('references', $schema['required'] ?? []);
         $this->assertSame(['reference', 'texte'], $schema['properties']['references']['items']['required'] ?? []);
+        $questionProperties = $schema['properties']['parties']['items']['properties']['questions']['items']['properties'] ?? [];
+        $this->assertArrayNotHasKey('critères_proposés', $questionProperties);
+        $this->assertArrayHasKey('points', $questionProperties);
+        $this->assertArrayHasKey('questions_posées', $questionProperties);
         $this->assertIsArray($stored);
         $this->assertSame($grid, json_decode($stored['body'], true));
         $this->assertStringEndsWith("\n", $stored['body']);

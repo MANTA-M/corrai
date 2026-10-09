@@ -79,6 +79,10 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
         if ($file instanceof SubmissionFile) {
             $identifier = $data['student_identifier'] ?? null;
             $file->student_identifier = is_string($identifier) ? $identifier : null;
+            $qualigraphyScore = $data['qualigraphy_score'] ?? null;
+            $file->qualigraphy_score = (is_int($qualigraphyScore) || is_float($qualigraphyScore))
+                ? $qualigraphyScore
+                : (is_numeric($qualigraphyScore) ? (float) $qualigraphyScore : null);
         }
         $status = (string) ($data['status'] ?? '');
         $file->status = $status === 'loaded' ? 'stored' : $status;
@@ -151,6 +155,7 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
         ];
         if ($this instanceof SubmissionFile) {
             $payload['student_identifier'] = $this->student_identifier;
+            $payload['qualigraphy_score'] = $this->qualigraphy_score;
         }
         return $payload;
     }
@@ -190,6 +195,7 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
         ];
         if ($this instanceof SubmissionFile) {
             $state['student_identifier'] = $this->student_identifier;
+            $state['qualigraphy_score'] = $this->qualigraphy_score;
         }
         return $state;
     }

@@ -108,8 +108,8 @@ class SubmissionTask3Identify extends PathQueueItemTask
         try {
             $client = $this->geminiClient();
             $client->set_system_content(
-                'You identify a student on an exam paper. '
-                . 'Respond only with a JSON object {"id": string or null}.'
+                'You identify a student on an exam paper and evaluate handwriting/calligraphy quality. '
+                . 'Respond only with a JSON object {"id": string or null, "qualigraphy_score": number or null}.'
             );
             $client->set_json_response('student_identifier', [
                 'type' => 'object',
@@ -120,13 +120,22 @@ class SubmissionTask3Identify extends PathQueueItemTask
                             ['type' => 'null'],
                         ],
                     ],
+                    'qualigraphy_score' => [
+                        'anyOf' => [
+                            ['type' => 'number'],
+                            ['type' => 'null'],
+                        ],
+                    ],
                 ],
-                'required' => ['id'],
+                'required' => ['id', 'qualigraphy_score'],
                 'additionalProperties' => false,
             ]);
             $client->add_text("Assessment instructions:\n" . $instruction);
             $client->add_file($copyPath, $file->name);
-            $client->add_text('The attached image is the exam paper. Find the student identification if it exists. If it does not exist, id is null.');
+            $client->add_text(
+                'The attached image is the exam paper. Find the student identification if it exists. If it does not exist, id is null. '
+                . 'Also evaluate the handwriting/calligraphy quality and provide a qualigraphy_score (a number from 0 to 10, or null if unreadable or not applicable).'
+            );
 
             $result = $client->call();
         } finally {
@@ -144,6 +153,16 @@ class SubmissionTask3Identify extends PathQueueItemTask
             throw new \Exception('Student identification id must be a string or null');
         }
         $file->student_identifier = $id;
+
+        $qualigraphyScore = $response['qualigraphy_score'] ?? null;
+        if ($qualigraphyScore !== null && !is_int($qualigraphyScore) && !is_float($qualigraphyScore)) {
+            if (is_numeric($qualigraphyScore)) {
+                $qualigraphyScore = (float) $qualigraphyScore;
+            } else {
+                throw new \Exception('Qualigraphy score must be a number or null');
+            }
+        }
+        $file->qualigraphy_score = $qualigraphyScore;
     }
 
     /**

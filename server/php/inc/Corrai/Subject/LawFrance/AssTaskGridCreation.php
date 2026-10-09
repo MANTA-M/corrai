@@ -114,9 +114,7 @@ class AssTaskGridCreation extends QueueItemTask
     private static function correctionGridSystemPrompt(): string
     {
         return "Tu es un correcteur dans une école d'avocat en France. Extrait du sujet et des instructions une grille de correction.\n"
-            . "N'extrait du sujet que les informations utiles à la correction. Ignore les informations purement organisationnelles. "
-            . "Pour chaque question, propose des critères permettant de donner ou d'enlever des points dans le cadre d'une correction classique. "
-            . "Il doit être toujours possible d'avoir 100% des points accordés à la question.\n"
+            . "N'extrait du sujet que les informations utiles à la correction. Ignore les informations purement organisationnelles.\n"
             . "Toutes les instructions utiles présentes dans le fichier d'instructions se retrouveront de manière synthétique dans le tableau \"instructions_générales\" du JSON.\n"
             . "Le contenu du sujet sera réparti sans redites entre les instructions générales et les parties.\n"
             . "Dans la section \"references\", mets le texte verbatim de chaque article cité dans le sujet et recherché sur un site législatif officiel français et en vigueur, en incluant l'ensemble des alinéas (en identifiant/numérotant distinctement chaque alinéa).\n"
@@ -189,21 +187,17 @@ class AssTaskGridCreation extends QueueItemTask
                                 'items' => [
                                     'type' => 'object',
                                     'additionalProperties' => false,
-                                    'required' => ['titre', 'points', 'contenu', 'questions_posées', 'critères_proposés'],
+                                    'required' => ['titre', 'points', 'contenu', 'questions_posées'],
                                     'properties' => [
                                         'titre' => ['type' => 'string'],
                                         'points' => [
                                             'type' => 'integer',
-                                            'description' => 'Barème de la question. Les critères positifs doivent pouvoir l\'atteindre en entier.',
+                                            'description' => 'Barème de la question.',
                                         ],
                                         'contenu' => ['type' => 'string'],
                                         'questions_posées' => [
                                             'type' => 'array',
                                             'items' => ['type' => 'string'],
-                                        ],
-                                        'critères_proposés' => [
-                                            'type' => 'array',
-                                            'items' => $criterion,
                                         ],
                                     ],
                                 ],

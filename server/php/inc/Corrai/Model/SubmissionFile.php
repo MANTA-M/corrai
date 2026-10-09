@@ -19,6 +19,11 @@ class SubmissionFile extends InputFile
     public ?string $student_identifier = null;
 
     /**
+     * Calligraphy score evaluated on the copy. Null when none was evaluated.
+     */
+    public int|float|null $qualigraphy_score = null;
+
+    /**
      * Subject material stays with the assessment. Copies can move between students.
      */
     public function canReassign(): bool

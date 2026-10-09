@@ -496,9 +496,18 @@ class StudentCorrectTest extends TestCase
         $this->assertContains('score_de_confiance', $modCriterion['required'] ?? []);
         $this->assertSame('number', $modCriterion['properties']['score_de_confiance']['type'] ?? null);
 
-        $partCriterion = $schema['properties']['parties']['items']['properties']['questions']['items']['properties']['critères_proposés']['items'] ?? [];
-        $this->assertContains('score_de_confiance', $partCriterion['required'] ?? []);
+        $questionProperties = $schema['properties']['parties']['items']['properties']['questions']['items']['properties'] ?? [];
+        $this->assertArrayNotHasKey('critères_proposés', $questionProperties);
+        $this->assertArrayNotHasKey('aspects', $questionProperties);
+        $this->assertArrayHasKey('critères', $questionProperties);
+
+        $partCriterion = $questionProperties['critères']['items'] ?? [];
+        $this->assertSame(['description', 'ponderation', 'note', 'score_de_confiance', 'commentaire'], $partCriterion['required'] ?? []);
+        $this->assertSame('string', $partCriterion['properties']['description']['type'] ?? null);
+        $this->assertSame('number', $partCriterion['properties']['ponderation']['type'] ?? null);
+        $this->assertSame('number', $partCriterion['properties']['note']['type'] ?? null);
         $this->assertSame('number', $partCriterion['properties']['score_de_confiance']['type'] ?? null);
+        $this->assertSame('string', $partCriterion['properties']['commentaire']['type'] ?? null);
     }
 
     private function installQueue(): void
