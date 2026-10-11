@@ -211,6 +211,16 @@ class MenuLabels
             'ro' => 'Transcriere',
             'de' => 'Transkription',
         ],
+        'gemini_ocr' => [
+            'en' => 'Gemini OCR',
+            'fr' => 'Gemini OCR',
+            'ru' => 'Gemini OCR',
+            'uk' => 'Gemini OCR',
+            'es' => 'Gemini OCR',
+            'pt' => 'Gemini OCR',
+            'ro' => 'Gemini OCR',
+            'de' => 'Gemini OCR',
+        ],
         'file_type_subject' => [
             'en' => 'Subject',
             'fr' => 'Sujet',

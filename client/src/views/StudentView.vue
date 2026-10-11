@@ -327,6 +327,29 @@ const transcribeStudent = async () => {
   }
 }
 
+const geminiOcrStudent = async () => {
+  if (!assessment.value?.id || !studentId.value) return
+  studentActionError.value = ''
+  try {
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales
+    >('POST', '/student_gemini_ocr', {
+      id: assessment.value.id,
+      student: studentId.value,
+      locale: String(locale.value),
+    })
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students)
+    }
+  } catch (err) {
+    console.error('Error running Gemini OCR for student:', err)
+  }
+}
+
 const correctStudent = async () => {
   if (!assessment.value?.id || !studentId.value) return
   studentActionError.value = ''
@@ -354,6 +377,7 @@ const attributesOpen = ref(false)
 
 const onStudentAction = (key: string) => {
   if (key === 'transcribe') void transcribeStudent()
+  else if (key === 'gemini_ocr') void geminiOcrStudent()
   else if (key === 'correct') void correctStudent()
   else if (key === 'rename') startRenameStudent()
   else if (key === 'edit_attributes') attributesOpen.value = true

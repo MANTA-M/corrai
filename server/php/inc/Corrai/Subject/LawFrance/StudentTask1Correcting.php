@@ -87,12 +87,7 @@ class StudentTask1Correcting extends PathQueueItemTask
             return strcmp($a->name, $b->name);
         });
 
-        $submission = [];
-        foreach ($files as $file) {
-            $submission[] = $this->ocrText($file);
-        }
-
-        $this->storeCompiledSubmissionFile($student, $submission);
+        $submission = $this->resolveCompiledSubmissionPages($student, $files);
 
         $languageName = $assessment->correctionLanguageName();
         $reply = $this->correct(
@@ -363,6 +358,40 @@ class StudentTask1Correcting extends PathQueueItemTask
             throw new WSException('Correction grid is missing', 400);
         }
         return S3File::at($key)->getContents();
+    }
+
+    /**
+     * Use an existing compiled_submission.json when present; otherwise build it from OCR files.
+     *
+     * @param list<SubmissionFile> $files
+     * @return list<string>
+     */
+    private function resolveCompiledSubmissionPages(BaseStudent $student, array $files): array
+    {
+        $key = $student->compiledSubmissionKey();
+        $store = ObjectStore::getInstance();
+        if ($store->exists($key)) {
+            $decoded = json_decode(S3File::at($key)->getContents(), true);
+            $pages = is_array($decoded) ? ($decoded['pages'] ?? null) : null;
+            if (!is_array($pages)) {
+                throw new WSException('Compiled submission pages are missing', 400);
+            }
+            $submission = [];
+            foreach ($pages as $page) {
+                if (!is_string($page)) {
+                    throw new WSException('Compiled submission page must be a string', 400);
+                }
+                $submission[] = $page;
+            }
+            return $submission;
+        }
+
+        $submission = [];
+        foreach ($files as $file) {
+            $submission[] = $this->ocrText($file);
+        }
+        $this->storeCompiledSubmissionFile($student, $submission);
+        return $submission;
     }
 
     /**

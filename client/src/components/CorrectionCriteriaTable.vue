@@ -157,6 +157,8 @@ const formatConfidence = (value: number | undefined) => {
 
 .col-comment {
   min-width: 250px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .criterion-name {
@@ -224,6 +226,9 @@ const formatConfidence = (value: number | undefined) => {
   margin: 0;
   font-size: 0.88rem;
   color: var(--text, #111c38);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .text-muted {
@@ -236,5 +241,37 @@ const formatConfidence = (value: number | undefined) => {
 
 .is-not-applied {
   opacity: 0.9;
+}
+
+@media print {
+  .criteria-table-wrapper {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .criteria-table th {
+    background: transparent;
+    white-space: normal;
+  }
+
+  .badge-modifier,
+  .status-pill,
+  .confidence-tag {
+    background: transparent !important;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .is-applied {
+    background: transparent;
+  }
+
+  .col-comment,
+  .criterion-comment {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
 }
 </style>

@@ -4,7 +4,6 @@
       <thead>
         <tr>
           <th class="col-criterion">Critère d'évaluation</th>
-          <th class="col-numeric col-ponderation">Pondération</th>
           <th class="col-numeric col-note">Note</th>
           <th class="col-numeric col-confidence">Confiance</th>
           <th class="col-comment">Commentaire du correcteur</th>
@@ -15,13 +14,10 @@
           <td class="col-criterion">
             <span class="criterion-title">
               {{ criterion.description || criterion.critère || `Critère ${index + 1}` }}
+              <span v-if="criterion.ponderation != null" class="ponderation-inline">
+                ({{ formatPonderation(criterion.ponderation) }})
+              </span>
             </span>
-          </td>
-          <td class="col-numeric col-ponderation">
-            <span v-if="criterion.ponderation != null" class="badge-ponderation">
-              {{ formatPonderation(criterion.ponderation) }}
-            </span>
-            <span v-else class="text-muted">—</span>
           </td>
           <td class="col-numeric col-note">
             <span
@@ -166,10 +162,6 @@ const confidenceClass = (score: number) => {
   min-width: 180px;
 }
 
-.col-ponderation {
-  width: 110px;
-}
-
 .col-note {
   width: 90px;
 }
@@ -180,6 +172,8 @@ const confidenceClass = (score: number) => {
 
 .col-comment {
   min-width: 260px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .criterion-title {
@@ -187,14 +181,10 @@ const confidenceClass = (score: number) => {
   color: var(--text, #111c38);
 }
 
-.badge-ponderation {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  background: var(--surface-2, #f1f5f9);
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.85rem;
+.ponderation-inline {
+  font-weight: 500;
   color: var(--muted, #5d6680);
+  white-space: nowrap;
 }
 
 .badge-note {
@@ -269,9 +259,40 @@ const confidenceClass = (score: number) => {
   font-size: 0.9rem;
   color: var(--text, #111c38);
   line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .text-muted {
   color: var(--muted, #5d6680);
+}
+
+@media print {
+  .question-criteria-wrapper {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .question-criteria-table th {
+    background: transparent;
+    white-space: normal;
+  }
+
+  .badge-note,
+  .confidence-pill {
+    background: transparent !important;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .criterion-row,
+  .col-comment,
+  .criterion-comment {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
 }
 </style>

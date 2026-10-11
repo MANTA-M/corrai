@@ -1791,22 +1791,40 @@ const formatSolutionHtml = (text: string): string => {
 
   .content-card,
   .question-card,
-  .summary-card {
-    box-shadow: none !important;
-    border: 1px solid #cbd5e1 !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
+  .summary-card,
   .part-card {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
     break-inside: auto;
     page-break-inside: auto;
   }
 
   .question-card {
-    break-inside: avoid;
-    page-break-inside: avoid;
     margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #cbd5e1 !important;
+  }
+
+  .asked-questions-box,
+  .solution-box,
+  .grid-notes {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .criteria-container,
+  .col-comment,
+  .criterion-comment {
+    break-inside: auto;
+    page-break-inside: auto;
+    orphans: 3;
+    widows: 3;
   }
 
   body {
