@@ -199,6 +199,7 @@ const es: I18nSchema = {
     correctionGridSuccess: 'Creación de la rúbrica iniciada',
     correctionGridError: 'No se pudo crear la rúbrica de corrección',
     correctionGridMissing: 'La rúbrica de corrección aún no está disponible.',
+    correctionGridUpdatedAt: 'Última actualización: {date}',
     studentCorrectionMissing: 'La corrección aún no está disponible.',
     compiledSubmission: 'Entrega compilada',
     compiledSubmissionMissing: 'La entrega compilada aún no está disponible.',

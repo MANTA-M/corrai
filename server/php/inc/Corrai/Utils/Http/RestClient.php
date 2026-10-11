@@ -46,20 +46,24 @@ class RestClient
      * @return array{string, string|null} [contentType, payload or null]
      */
     private function buildPayload($postData): array
-    {                   
+    {
         return ['application/json', $postData !== null ? json_encode($postData) : null];
     }
 
     /**
-     * Create a query
+     * Build a configured cURL handle for a request.
+     * responseHeaders is an object so HEADERFUNCTION mutations stay visible to the caller.
      *
-     * @return string|null Response body or null on empty
+     * @return array{curl: \CurlHandle, responseHeaders: \stdClass}
      */
-    public function Query(string $path, string $method = 'GET', $headers = null, $postData = null): ?string
+    private function createCurlHandle(string $path, string $method = 'GET', $headers = null, $postData = null): array
     {
         [$defaultContentType, $payload] = $this->buildPayload($postData);
 
-        $curl = curl_init();
+        /** @var \stdClass&object{headers: array<string, list<string>>} $responseHeaders */
+        $responseHeaders = new \stdClass();
+        $responseHeaders->headers = [];
+
         $opts = [
             CURLOPT_URL => $this->baseUrl . $path,
             CURLOPT_RETURNTRANSFER => true,
@@ -108,22 +112,32 @@ class RestClient
             $opts[CURLOPT_POSTFIELDS] = $payload;
         }
 
-        $responseHeaders = [];
-        $opts[CURLOPT_HEADERFUNCTION] = function ($ch, $header) use (&$responseHeaders) {
+        $opts[CURLOPT_HEADERFUNCTION] = function ($ch, $header) use ($responseHeaders) {
             $len = strlen($header);
             $parts = explode(':', $header, 2);
             if (count($parts) >= 2) {
-                $responseHeaders[strtolower(trim($parts[0]))][] = trim($parts[1]);
+                $responseHeaders->headers[strtolower(trim($parts[0]))][] = trim($parts[1]);
             }
             return $len;
         };
 
+        $curl = curl_init();
         curl_setopt_array($curl, $opts);
-        $then = (int) round(microtime(true) * 1000);
-        $response = curl_exec($curl);
-        $duration = (int) round(microtime(true) * 1000) - $then;
-        self::$timer += $duration;
 
+        return [
+            'curl' => $curl,
+            'responseHeaders' => $responseHeaders,
+        ];
+    }
+
+    /**
+     * Process a completed cURL response: update timer/code, log, optionally throw.
+     *
+     * @param array<string, list<string>> $responseHeaders
+     * @return string|null Response body or null on empty
+     */
+    private function finalizeResponse($curl, $response, array $responseHeaders, bool $throwOnError): ?string
+    {
         $responseCode = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
         $this->lastResponseCode = $responseCode;
         $contentType = $responseHeaders['content-type'][0] ?? '';
@@ -136,10 +150,107 @@ class RestClient
 
         if ($responseCode < 200 || $responseCode > 299) {
             $errorMessage = $this->extractErrorMessage($response, $contentType, $curl);
-            throw new Exception($errorMessage, $responseCode);
+            if ($throwOnError) {
+                throw new Exception($errorMessage, $responseCode);
+            }
+            error_log('[RestClient] ' . $errorMessage);
         }
 
         return $response !== false ? $response : null;
+    }
+
+    /**
+     * Create a query
+     *
+     * @return string|null Response body or null on empty
+     */
+    public function Query(string $path, string $method = 'GET', $headers = null, $postData = null): ?string
+    {
+        $bundle = $this->createCurlHandle($path, $method, $headers, $postData);
+        $curl = $bundle['curl'];
+
+        $then = (int) round(microtime(true) * 1000);
+        $response = curl_exec($curl);
+        $duration = (int) round(microtime(true) * 1000) - $then;
+        self::$timer += $duration;
+
+        try {
+            return $this->finalizeResponse($curl, $response, $bundle['responseHeaders']->headers, true);
+        } finally {
+            curl_close($curl);
+        }
+    }
+
+    /**
+     * Run multiple queries in parallel via curl_multi.
+     * The callback is invoked as each request completes (including HTTP errors).
+     *
+     * @param list<array{path: string, method?: string, headers?: ?array, postData?: mixed}> $requests
+     * @param callable(array $params, ?string $response, int $httpCode): void $onResponse
+     */
+    public function QueryMulti(array $requests, callable $onResponse): void
+    {
+        if ($requests === []) {
+            return;
+        }
+
+        $multi = curl_multi_init();
+        /** @var array<int, array{params: array, curl: \CurlHandle, responseHeaders: \stdClass}> $pending */
+        $pending = [];
+
+        foreach ($requests as $params) {
+            $path = $params['path'] ?? '';
+            $method = $params['method'] ?? 'GET';
+            $headers = $params['headers'] ?? null;
+            $postData = $params['postData'] ?? null;
+
+            $bundle = $this->createCurlHandle($path, $method, $headers, $postData);
+            curl_multi_add_handle($multi, $bundle['curl']);
+            $pending[spl_object_id($bundle['curl'])] = [
+                'params' => $params,
+                'curl' => $bundle['curl'],
+                'responseHeaders' => $bundle['responseHeaders'],
+            ];
+        }
+
+        $active = null;
+        do {
+            $status = curl_multi_exec($multi, $active);
+            if ($active) {
+                curl_multi_select($multi);
+            }
+
+            while ($info = curl_multi_info_read($multi)) {
+                $curl = $info['handle'];
+                $id = spl_object_id($curl);
+                if (!isset($pending[$id])) {
+                    continue;
+                }
+
+                $entry = $pending[$id];
+                unset($pending[$id]);
+
+                $duration = (int) round((float) curl_getinfo($curl, CURLINFO_TOTAL_TIME) * 1000);
+                self::$timer += $duration;
+
+                $response = curl_multi_getcontent($curl);
+                $body = $this->finalizeResponse($curl, $response, $entry['responseHeaders']->headers, false);
+                $httpCode = $this->lastResponseCode;
+
+                $onResponse($entry['params'], $body, $httpCode);
+
+                curl_multi_remove_handle($multi, $curl);
+                curl_close($curl);
+            }
+        } while ($active && $status === CURLM_OK);
+
+        // Clean up any remaining handles (e.g. after unexpected multi status)
+        foreach ($pending as $entry) {
+            curl_multi_remove_handle($multi, $entry['curl']);
+            curl_close($entry['curl']);
+        }
+
+        curl_multi_close($multi);
     }
 
     protected function shouldLog(): bool

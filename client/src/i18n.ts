@@ -228,6 +228,7 @@ export interface I18nSchema {
     correctionGridSuccess: string
     correctionGridError: string
     correctionGridMissing: string
+    correctionGridUpdatedAt: string
     studentCorrectionMissing: string
     compiledSubmission: string
     compiledSubmissionMissing: string

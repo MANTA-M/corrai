@@ -19,6 +19,7 @@ use Exception;
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/content
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/compile_subject
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/list.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/content
@@ -495,6 +496,14 @@ class ObjectStore
         return self::assessmentPrefix($schoolId, $teacherId, $assessmentId) . 'students/';
     }
 
+    /**
+     * Index of students for an assessment: id, name, mark only.
+     */
+    public static function assessmentStudentsListKey(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentStudentsPrefix($schoolId, $teacherId, $assessmentId) . 'list.json';
+    }
+
     public static function assessmentStudentPrefix(
         string $schoolId,
         string $teacherId,
@@ -866,9 +875,9 @@ class ObjectStore
     }
 
     /**
-     * Fetch an object. Returns Body, ContentType, ContentLength, ETag.
+     * Fetch an object. Returns Body, ContentType, ContentLength, ETag, LastModified.
      *
-     * @return array{Body: mixed, ContentType: string, ContentLength: int, ETag: string|null}
+     * @return array{Body: mixed, ContentType: string, ContentLength: int, ETag: string|null, LastModified: int|null}
      */
     public function get(string $key): array
     {
@@ -884,13 +893,14 @@ class ObjectStore
             'ContentType' => $result['ContentType'] ?? 'application/octet-stream',
             'ContentLength' => (int) ($result['ContentLength'] ?? 0),
             'ETag' => self::normalizeEtag($result['ETag'] ?? null),
+            'LastModified' => self::lastModifiedTimestamp($result['LastModified'] ?? null),
         ];
     }
 
     /**
      * Head an object for ETag / size without reading the body.
      *
-     * @return array{ETag: string|null, ContentLength: int, ContentType: string, Metadata: array<string, mixed>}
+     * @return array{ETag: string|null, ContentLength: int, ContentType: string, Metadata: array<string, mixed>, LastModified: int|null}
      */
     public function head(string $key): array
     {
@@ -906,7 +916,24 @@ class ObjectStore
             'ContentLength' => (int) ($result['ContentLength'] ?? 0),
             'ContentType' => (string) ($result['ContentType'] ?? 'application/octet-stream'),
             'Metadata' => is_array($result['Metadata'] ?? null) ? $result['Metadata'] : [],
+            'LastModified' => self::lastModifiedTimestamp($result['LastModified'] ?? null),
         ];
+    }
+
+    /**
+     * Normalize S3 LastModified to a unix timestamp, or null if unavailable.
+     */
+    private static function lastModifiedTimestamp(mixed $lastModified): ?int
+    {
+        if ($lastModified instanceof \DateTimeInterface) {
+            $timestamp = $lastModified->getTimestamp();
+            return $timestamp > 0 ? $timestamp : null;
+        }
+        if (is_string($lastModified) && $lastModified !== '') {
+            $timestamp = strtotime($lastModified);
+            return ($timestamp !== false && $timestamp > 0) ? $timestamp : null;
+        }
+        return null;
     }
 
     /**

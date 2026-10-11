@@ -200,6 +200,7 @@ const fr: I18nSchema = {
     correctionGridSuccess: 'Création de la grille lancée',
     correctionGridError: 'Échec de la création de la grille de correction',
     correctionGridMissing: "La grille de correction n'est pas encore disponible.",
+    correctionGridUpdatedAt: 'Dernière mise à jour : {date}',
     studentCorrectionMissing: "La correction n'est pas encore disponible.",
     compiledSubmission: 'Copie compilée',
     compiledSubmissionMissing: "La copie compilée n'est pas encore disponible.",

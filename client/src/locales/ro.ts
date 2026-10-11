@@ -199,6 +199,7 @@ const ro: I18nSchema = {
     correctionGridSuccess: 'Crearea grilei a fost lansată',
     correctionGridError: 'Crearea grilei de corectare a eșuat',
     correctionGridMissing: 'Grila de corectare nu este încă disponibilă.',
+    correctionGridUpdatedAt: 'Ultima actualizare: {date}',
     studentCorrectionMissing: 'Corectarea nu este încă disponibilă.',
     compiledSubmission: 'Lucrare compilată',
     compiledSubmissionMissing: 'Lucrarea compilată nu este încă disponibilă.',

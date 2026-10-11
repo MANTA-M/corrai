@@ -82,6 +82,9 @@ try {
     if ($contentLength > 0) {
         header('Content-Length: ' . $contentLength);
     }
+    if (!empty($stored['LastModified'])) {
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int) $stored['LastModified']) . ' GMT');
+    }
     header('Cache-Control: private, max-age=60');
 
     $body = $stored['Body'];

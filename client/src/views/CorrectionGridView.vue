@@ -84,6 +84,14 @@
         <p v-if="assessment?.name" class="document-subtitle">
           Évaluation : <strong>{{ assessment.name }}</strong>
         </p>
+
+        <p
+          v-if="formattedUpdatedAt"
+          class="document-updated"
+          data-testid="correction-grid-updated-at"
+        >
+          {{ t('assessment.correctionGridUpdatedAt', { date: formattedUpdatedAt }) }}
+        </p>
       </header>
 
       <p v-if="documentError" class="error-message" data-testid="correction-grid-error">
@@ -593,6 +601,7 @@ const studentId = computed(() =>
 const documentData = ref<CorrectionDocument | null>(null)
 const documentError = ref('')
 const documentLoading = ref(false)
+const documentUpdatedAt = ref<Date | null>(null)
 
 const student = computed(() => students.value.find((item) => item.id === studentId.value) ?? null)
 
@@ -610,6 +619,14 @@ const pageTitle = computed(() => {
   if (isStudent.value && student.value?.name) return `${title} — ${student.value.name}`
   if (assessment.value?.name) return `${title} — ${assessment.value.name}`
   return title
+})
+
+const formattedUpdatedAt = computed(() => {
+  if (!documentUpdatedAt.value || Number.isNaN(documentUpdatedAt.value.getTime())) return ''
+  return new Intl.DateTimeFormat(String(locale.value || 'fr'), {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(documentUpdatedAt.value)
 })
 
 const instructions = computed(() => strings(documentData.value?.instructions_générales))
@@ -755,6 +772,7 @@ const loadDocument = async () => {
   const current = ++requestId
   documentLoading.value = true
   documentError.value = ''
+  documentUpdatedAt.value = null
   try {
     const url = isStudent.value
       ? correctionFileId.value
@@ -781,11 +799,17 @@ const loadDocument = async () => {
         : t('assessment.correctionGridMissing')
       return
     }
+    const lastModified = response.headers.get('Last-Modified')
+    if (lastModified) {
+      const date = new Date(lastModified)
+      documentUpdatedAt.value = Number.isNaN(date.getTime()) ? null : date
+    }
     documentData.value = await readJson(response)
   } catch (err) {
     if (current !== requestId) return
     console.error('Error loading correction document:', err)
     documentData.value = null
+    documentUpdatedAt.value = null
     documentError.value = isStudent.value
       ? t('assessment.studentCorrectionMissing')
       : t('assessment.correctionGridMissing')
@@ -989,6 +1013,12 @@ const formatSolutionHtml = (text: string): string => {
 
 .document-subtitle strong {
   color: var(--text, #111c38);
+}
+
+.document-updated {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted, #5d6680);
 }
 
 /* Document body */

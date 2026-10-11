@@ -191,12 +191,64 @@ class Vision extends LlmClient
             throw new InvalidArgumentException('OCR file is required');
         }
 
-        $this->token = $this->accessToken();
+        $this->authorize();
         $mime = $this->inline['mime'] ?? $this->remoteMime ?? 'application/octet-stream';
         if ($this->isDocument($mime)) {
             return $this->annotateDocument($mime);
         }
         return $this->annotateImage();
+    }
+
+    /**
+     * Load a bearer token into $this->token for Query / QueryMulti.
+     */
+    public function authorize(): void
+    {
+        $this->token = $this->accessToken();
+    }
+
+    /**
+     * True for PDF and TIFF (files:annotate). Other images use images:annotate.
+     */
+    public static function isDocumentMime(string $mime): bool
+    {
+        $mime = strtolower(trim(explode(';', $mime, 2)[0]));
+        return $mime === 'application/pdf' || $mime === 'image/tiff';
+    }
+
+    /**
+     * POST body for a single images:annotate request (inline bytes).
+     *
+     * @return array{requests: list<array<string, mixed>>}
+     */
+    public function buildImagesAnnotatePostData(string $bytes, ?string $language = null): array
+    {
+        $request = [
+            'image' => ['content' => base64_encode($bytes)],
+            'features' => [['type' => self::FEATURE]],
+        ];
+        if ($language !== null && $language !== '') {
+            $request['imageContext'] = ['languageHints' => [$language]];
+        }
+        return ['requests' => [$request]];
+    }
+
+    /**
+     * Parse an images:annotate JSON body into the same shape as process().
+     *
+     * @return array{text: string, bounding_boxes: list<array<string, mixed>>, usage: null}
+     */
+    public function outputFromImagesAnnotateBody(string $body): array
+    {
+        $response = JsonUtils::decodeArray($body);
+        if (!is_array($response)) {
+            throw new \Exception('Empty OCR response');
+        }
+        $annotation = $response['responses'][0] ?? null;
+        if (!is_array($annotation)) {
+            throw new \Exception('Empty OCR response');
+        }
+        return $this->outputFromAnnotations([$annotation]);
     }
 
     protected function accessToken(): string
@@ -655,7 +707,7 @@ class Vision extends LlmClient
 
     private function isDocument(string $mime): bool
     {
-        return $mime === 'application/pdf' || $mime === 'image/tiff';
+        return self::isDocumentMime($mime);
     }
 
     private function rejectHeavyFile(?InputFile $file): void

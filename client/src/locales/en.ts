@@ -199,6 +199,7 @@ const en: I18nSchema = {
     correctionGridSuccess: 'Correction grid creation started',
     correctionGridError: 'Failed to create the correction grid',
     correctionGridMissing: 'The correction grid is not available yet.',
+    correctionGridUpdatedAt: 'Last updated: {date}',
     studentCorrectionMissing: 'The correction is not available yet.',
     compiledSubmission: 'Compiled submission',
     compiledSubmissionMissing: 'The compiled submission is not available yet.',

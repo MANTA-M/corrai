@@ -8,6 +8,7 @@ use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Store\StoreConflictException;
+use Corrai\Utils\Store\StudentList;
 use Corrai\Utils\Http\WSException;
 
 /**
@@ -205,13 +206,26 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
 
         $store = ObjectStore::getInstance();
         $existed = $store->exists($this->attrKey());
-        $previousMark = $existed ? self::markFromPayload($store->getJson($this->attrKey())['data'] ?? []) : null;
+        $previousMark = null;
+        $previousName = null;
+        if ($existed) {
+            $existingData = $store->getJson($this->attrKey())['data'] ?? [];
+            $previousMark = self::markFromPayload($existingData);
+            $previousName = (string) ($existingData['name'] ?? $existingData['student'] ?? '');
+        }
 
         $attempts = $retry ? 5 : 1;
         for ($i = 0; $i < $attempts; $i++) {
             try {
                 $this->etag = $store->putJson($this->attrKey(), $payload, $this->etag);
                 $store->setIdPointer($this->id, $this->prefix());
+                if (
+                    !$existed
+                    || $previousName !== $this->name
+                    || self::markCreatedOrChanged($existed, $previousMark, $this->mark)
+                ) {
+                    StudentList::upsert($this);
+                }
                 if ($notifyMarkChange && ($this->mark !== null || self::markCreatedOrChanged($existed, $previousMark, $this->mark))) {
                     $this->notifyAssessmentOfMarkChange();
                 }
@@ -222,7 +236,9 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
                 }
                 $loaded = $store->getJson($this->attrKey());
                 $this->etag = $loaded['etag'];
-                $previousMark = self::markFromPayload($loaded['data'] ?? []);
+                $existingData = $loaded['data'] ?? [];
+                $previousMark = self::markFromPayload($existingData);
+                $previousName = (string) ($existingData['name'] ?? $existingData['student'] ?? '');
                 $existed = true;
             }
         }
@@ -331,6 +347,7 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
         $store = ObjectStore::getInstance();
         $store->deletePrefix($this->prefix());
         $store->deleteIdPointer($this->id);
+        StudentList::remove($this);
     }
 
     /**

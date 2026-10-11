@@ -211,6 +211,8 @@ class LawFranceSubmissionPipelineTest extends TestCase
         $this->assertTrue(class_exists(SubmissionTask3Identify::class));
         $this->assertTrue(class_exists(\LawFrance\AssTask1Affectation::class));
         $this->assertTrue(class_exists(AssTask1Affectation::class));
+        $this->assertTrue(class_exists(\LawFrance\AssTask1Transcript::class));
+        $this->assertTrue(class_exists(\Corrai\Subject\LawFrance\AssTask1Transcript::class));
         $this->assertTrue(class_exists(\LawFrance\SubmissionTask3Thumbnail::class));
         $this->assertTrue(class_exists(\LawFrance\SubmissionTask4Thumbnail::class));
         $this->assertTrue(class_exists(SubmissionTask4Thumbnail::class));

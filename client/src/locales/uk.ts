@@ -199,6 +199,7 @@ const uk: I18nSchema = {
     correctionGridSuccess: 'Створення сітки оцінювання запущено',
     correctionGridError: 'Не вдалося створити сітку оцінювання',
     correctionGridMissing: 'Сітка оцінювання ще недоступна.',
+    correctionGridUpdatedAt: 'Останнє оновлення: {date}',
     studentCorrectionMissing: 'Перевірка ще недоступна.',
     compiledSubmission: 'Скомпільована робота',
     compiledSubmissionMissing: 'Скомпільована робота ще недоступна.',

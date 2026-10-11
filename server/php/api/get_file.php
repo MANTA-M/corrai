@@ -102,6 +102,9 @@ try {
     if ($contentLength > 0) {
         header('Content-Length: ' . $contentLength);
     }
+    if (!empty($object['LastModified'])) {
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int) $object['LastModified']) . ' GMT');
+    }
     header('Cache-Control: private, max-age=60');
 
     $body = $object['Body'];

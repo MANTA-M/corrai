@@ -3,6 +3,7 @@
 namespace Corrai\Subject\LawFrance;
 
 use Corrai\Clients\Google\Vision;
+use Corrai\Clients\Mindee\MindeeOCR;
 use Corrai\Model\OCRResult;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
@@ -70,13 +71,13 @@ class SubmissionTask1Ocr extends PathQueueItemTask
                 $client = $this->createMindeeClient();
                 $client->set_file($copyPath, $file->name, $file);
                 $client->set_language(self::OCR_LANG);
-                $result = OCRResult::from_mindee($client->process());
+                $result = OCRResult::from_google($client->process());
             } else {
                 $client = $this->createVisionClient();
                 $client->set_file($copyPath, $file->name, $file);
                 $client->set_language(self::OCR_LANG);
                 $result = OCRResult::from_google($client->process());
-            }  
+            }
 
             $store->putContents(
                 $file->ocrResultKey(),
@@ -103,6 +104,11 @@ class SubmissionTask1Ocr extends PathQueueItemTask
     protected function createVisionClient(): Vision
     {
         return $this->visionClient ?? new Vision();
+    }
+
+    protected function createMindeeClient(): MindeeOCR
+    {
+        return new MindeeOCR();
     }
 }
 

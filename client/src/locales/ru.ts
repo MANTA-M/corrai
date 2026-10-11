@@ -199,6 +199,7 @@ const ru: I18nSchema = {
     correctionGridSuccess: 'Создание сетки оценивания запущено',
     correctionGridError: 'Не удалось создать сетку оценивания',
     correctionGridMissing: 'Сетка оценивания ещё недоступна.',
+    correctionGridUpdatedAt: 'Последнее обновление: {date}',
     studentCorrectionMissing: 'Проверка ещё недоступна.',
     compiledSubmission: 'Скомпилированная работа',
     compiledSubmissionMissing: 'Скомпилированная работа пока недоступна.',

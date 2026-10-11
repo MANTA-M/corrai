@@ -3,11 +3,13 @@
 namespace Corrai\Subject\LawFrance;
 
 use Corrai\Model\BaseAssessment;
+use Corrai\Model\InputFile;
 use Corrai\Model\SubjectFile;
 use Corrai\Model\SubmissionFile;
 use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Http\WSException;
 use Corrai\Utils\MenuLabels;
+use Corrai\Utils\Store\ObjectStore;
 
 class Assessment extends BaseAssessment
 {
@@ -53,6 +55,74 @@ class Assessment extends BaseAssessment
         foreach ($ids as $fileId) {
             $this->correctSubmission($fileId);
         }
+        return $this->list_files();
+    }
+
+    /**
+     * Mark unclassified copies as transcribing and queue parallel OCR.
+     *
+     * @param string[]|null $onlyFileIds Optional subset of file IDs to correct
+     * @return array Updated file list
+     */
+    public function correctUnclassifiedFiles(?array $onlyFileIds = null): array
+    {
+        if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
+            throw new WSException('Assessment id, school_id and user_id are required', 400);
+        }
+
+        $fallback = $this->submissionClass();
+        if (!InputFile::isFileClass($fallback)) {
+            $fallback = SubmissionFile::class;
+        }
+
+        $store = ObjectStore::getInstance();
+        $prefix = ObjectStore::assessmentUnclassifiedFilesPrefix($this->school_id, $this->user_id, $this->id);
+        $allowed = $onlyFileIds !== null ? array_flip($onlyFileIds) : null;
+        $queued = false;
+        foreach ($store->listChildPrefixes($prefix) as $fileId) {
+            if ($allowed !== null && !isset($allowed[$fileId])) {
+                continue;
+            }
+            $attrKey = $prefix . $fileId . '/' . ObjectStore::ATTR_FILE;
+            if (!$store->exists($attrKey)) {
+                continue;
+            }
+
+            $loaded = $store->getJson($attrKey);
+            $data = $loaded['data'];
+            $storedClass = InputFile::classFromPayload($data);
+            $class = $storedClass ?? $fallback;
+            $file = $class::from_array($data);
+            $file->id = $fileId;
+            $file->school_id = $this->school_id;
+            $file->user_id = $this->user_id;
+            $file->assessment_id = $this->id;
+            $file->etag = $loaded['etag'];
+
+            if ($storedClass === null) {
+                $file->saveAttributes();
+            }
+
+            if ($store->exists($file->ocrResultKey())) {
+                continue;
+            }
+
+            try {
+                $file->appendEvent('Correction started');
+            } catch (\Throwable) {
+            }
+            $file->status = 'transcribing';
+            try {
+                $file->saveAttributes();
+            } catch (\Throwable) {
+            }
+            $queued = true;
+        }
+
+        if ($queued) {
+            RedisQueue::getInstance()->enqueueAssessment($this->id, AssTask1Transcript::class);
+        }
+
         return $this->list_files();
     }
 

@@ -38,7 +38,15 @@ class TaskRotateAndCrop extends PathQueueItemTask
             error_log(sprintf('[TaskRotateAndCrop] Failed to load file from path %s: %s', $s3_path, $e->getMessage()));
             return;
         }
+        $this->apply($file);
+    }
 
+    /**
+     * Rotate and crop a file that already has ocr_result.json, then complete().
+     */
+    public function apply(InputFile $file): void
+    {
+        $s3_path = $file->contentKey();
         $store = ObjectStore::getInstance();
         $ocrKey = $file->ocrResultKey();
         if (!$store->exists($ocrKey)) {
@@ -75,6 +83,7 @@ class TaskRotateAndCrop extends PathQueueItemTask
         }
 
         $type = self::outputType($bytes);
+        $image = null;
         try {
             [$image, $decodedByGd] = self::decode($bytes);
         } catch (Throwable $e) {

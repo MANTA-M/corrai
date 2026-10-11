@@ -200,6 +200,7 @@ const de: I18nSchema = {
     correctionGridSuccess: 'Erstellung des Korrekturrasters gestartet',
     correctionGridError: 'Korrekturraster konnte nicht erstellt werden',
     correctionGridMissing: 'Das Korrekturraster ist noch nicht verfügbar.',
+    correctionGridUpdatedAt: 'Zuletzt aktualisiert: {date}',
     studentCorrectionMissing: 'Die Korrektur ist noch nicht verfügbar.',
     compiledSubmission: 'Kompilierte Abgabe',
     compiledSubmissionMissing: 'Die kompilierte Abgabe ist noch nicht verfügbar.',
