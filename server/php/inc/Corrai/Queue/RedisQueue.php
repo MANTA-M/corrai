@@ -99,18 +99,40 @@ class RedisQueue
      *
      * ``$operation`` is stored but ignored. When OCR finishes, the Python
      * consumer enqueues ``$after_task`` on this same path in the PHP queue.
+     * ``$engine`` selects the OCR backend: ``paddle`` or ``doctr``.
      */
-    public function enqueueOcr(string $contentPath, string $operation, string $after_task = '', string $lang = 'fr'): void
-    {
+    public function enqueueOcr(
+        string $contentPath,
+        string $operation,
+        string $after_task = '',
+        string $lang = 'fr',
+        string $engine = 'paddle'
+    ): void {
+        if ($engine !== 'paddle' && $engine !== 'doctr') {
+            throw new InvalidArgumentException(
+                'OCR engine must be paddle or doctr, got: ' . $engine
+            );
+        }
         $payload = json_encode(
-            ['path' => $contentPath, 'operation' => $operation, 'after_task' => $after_task, 'lang' => $lang],
+            [
+                'path' => $contentPath,
+                'operation' => $operation,
+                'after_task' => $after_task,
+                'lang' => $lang,
+                'engine' => $engine,
+            ],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
         if ($payload === false) {
             throw new RedisException('Failed to encode OCR queue ticket');
         }
         $this->client->lPush(self::OCR_LIST_KEY, $payload);
-        error_log('Enqueued OCR ticket path=' . $contentPath . ' lang=' . $lang . ' on ' . self::OCR_LIST_KEY);
+        error_log(
+            'Enqueued OCR ticket path=' . $contentPath
+            . ' lang=' . $lang
+            . ' engine=' . $engine
+            . ' on ' . self::OCR_LIST_KEY
+        );
     }
 
     /**

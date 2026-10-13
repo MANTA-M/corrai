@@ -382,6 +382,7 @@ import MenuIconButton from '@/components/MenuIconButton.vue'
 import { useAssessment } from '@/composables/useAssessment'
 import { useSubjectCatalog } from '@/composables/useSubjectCatalog'
 import { educationLevelName } from '@/data/levels'
+import { useAssessmentStore } from '@/stores/assessment'
 import { useSessionStore } from '@/stores/session'
 import { toast } from 'vue3-toastify'
 import {
@@ -395,8 +396,9 @@ import {
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
+const assessmentStore = useAssessmentStore()
 const { assessment, isLoading, error, assessmentId, files, students, applyUpdate, reload } =
-  useAssessment()
+  useAssessment({ files: 'subject', students: false })
 const {
   subjects,
   load: loadSubjects,
@@ -762,16 +764,7 @@ const saveField = async () => {
         : field === 'country'
           ? { country: value || null }
           : { [field]: value }
-    assessment.value = { ...assessment.value, ...patch }
-    const index = sessionStore.own_assessments.findIndex(
-      (item: Assessment) => item.id === assessment.value?.id,
-    )
-    if (index !== -1) {
-      sessionStore.own_assessments[index] = {
-        ...sessionStore.own_assessments[index],
-        ...patch,
-      }
-    }
+    assessmentStore.patchAssessment(patch)
     editing.value = null
   } catch (err) {
     console.error('Error saving assessment field:', err)

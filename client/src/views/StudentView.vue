@@ -238,25 +238,32 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import AttributesEditorPopup from '@/components/AttributesEditorPopup.vue'
 import S3File from '@/components/S3File.vue'
-import { useAssessment } from '@/composables/useAssessment'
+import { useStudent } from '@/composables/useStudent'
 import { useAssessmentStream } from '@/composables/useAssessmentStream'
 import { applyStudentStream } from '@/utils/assessmentStream'
 import type { AssessmentFile, AssessmentStudent, MenuItem, StateLocales } from '@/types/types'
 import { isDebugFile, isDirectStudentFile } from '@/utils/assessmentFiles'
 
-const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const sessionStore = useSessionStore()
-const { assessment, isLoading, error, assessmentId, files, students, applyUpdate, reload } =
-  useAssessment()
-const studentId = computed(() => route.params.studentId as string)
+const {
+  assessment,
+  isLoading,
+  error,
+  assessmentId,
+  studentId,
+  files,
+  students,
+  applyUpdate,
+  reload,
+} = useStudent()
 const streamEnabled = computed(() => Boolean(assessment.value?.id))
 
 useAssessmentStream({

@@ -214,6 +214,66 @@ class AssessmentLifecycleTest extends TestCase
         $assessment->delete();
     }
 
+    public function testListSubjectFilesSkipsStudentCopies(): void
+    {
+        $assessment = new Assessment();
+        $assessment->school_id = $this->user->school_id;
+        $assessment->user_id = $this->user->id;
+        $assessment->name = '[Test] Subject Files Scope';
+        $assessment->subject = 'Physics';
+        $assessment->date = '2026-05-01';
+        $assessment->id = HashId::create();
+        $assessment->save();
+
+        $subjectTmp = $this->createRandomTempFile('subject_', '.pdf');
+        $subject = $assessment->createFileFromPath(
+            basename($subjectTmp),
+            $subjectTmp,
+            'application/pdf',
+            'subject',
+            null
+        );
+        $assessment->createFile(
+            'solution.txt',
+            "answer key\n",
+            'text/plain; charset=utf-8',
+            'solution',
+            null
+        );
+        $assessment->createFile(
+            'instructions.md',
+            "Do the exercise.\n",
+            'text/markdown; charset=utf-8',
+            'instructions',
+            null
+        );
+
+        $alice = $assessment->createStudent('[Test] Alice');
+        $copyTmp = $this->createRandomTempFile('copy_', '.pdf');
+        $assessment->createFileFromPath(
+            basename($copyTmp),
+            $copyTmp,
+            'application/pdf',
+            'submission',
+            $alice->id
+        );
+
+        $all = $assessment->list_files();
+        $this->assertGreaterThanOrEqual(4, count($all));
+
+        $subjectFiles = $assessment->list_subject_files();
+        $types = array_column($subjectFiles, 'type');
+        sort($types);
+        $this->assertSame(['instructions', 'solution', 'subject'], $types);
+        $ids = array_column($subjectFiles, 'id');
+        $this->assertContains($subject->id, $ids);
+        foreach ($subjectFiles as $file) {
+            $this->assertNotSame('submission', $file['type']);
+        }
+
+        $assessment->delete();
+    }
+
     public function testFileTagsTypeAndStudent(): void
     {
         $assessment = new Assessment();

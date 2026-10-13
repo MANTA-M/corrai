@@ -1,92 +1,86 @@
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useSessionStore } from '@/stores/session'
-import type { Assessment, AssessmentFile, AssessmentStats, AssessmentStudent } from '@/types/types'
+import { type LoadAssessmentOptions } from '@/stores/session'
+import { useAssessmentStore } from '@/stores/assessment'
+import type { AssessmentFile, AssessmentStats, AssessmentStudent } from '@/types/types'
 
-export function useAssessment() {
+const SUBJECT_FILE_TYPES = new Set(['subject', 'solution', 'instructions'])
+
+export function useAssessment(options?: LoadAssessmentOptions) {
   const route = useRoute()
   const { t } = useI18n()
-  const sessionStore = useSessionStore()
-
-  const assessment = ref<Assessment | null>(null)
-  const isLoading = ref(true)
-  const error = ref('')
+  const assessmentStore = useAssessmentStore()
+  const { assessment, error } = storeToRefs(assessmentStore)
 
   const assessmentId = computed(() => route.params.id as string)
-  const files = computed(() => assessment.value?.files ?? [])
-  const students = computed(() => assessment.value?.students ?? [])
+
+  /** Loading until the store holds this route's assessment (or a fetch finishes). */
+  const isLoading = computed(
+    () =>
+      assessmentStore.isLoading ||
+      (Boolean(assessmentId.value) && assessment.value?.id !== assessmentId.value),
+  )
+
+  const files = computed(() => {
+    const all = assessment.value?.files ?? []
+    if (options?.files === 'subject') {
+      return all.filter((file) => SUBJECT_FILE_TYPES.has(file.type ?? ''))
+    }
+    return all
+  })
+
+  const students = computed(() => {
+    if (options?.students === false) return []
+    return assessment.value?.students ?? []
+  })
 
   const applyUpdate = (
     nextFiles: AssessmentFile[],
     nextStudents?: AssessmentStudent[],
     stats?: AssessmentStats,
   ) => {
-    if (!assessment.value) return
-    const studentsValue = nextStudents ?? assessment.value.students ?? []
-    const nextStats = stats ?? {}
-    assessment.value = {
-      ...assessment.value,
-      ...nextStats,
-      files: nextFiles,
-      students: studentsValue,
+    if (options?.files === 'subject') {
+      assessmentStore.applySubjectFilesUpdate(nextFiles, nextStudents, stats)
+      return
     }
-    const id = assessment.value.id
-    if (!id) return
-    const index = sessionStore.own_assessments.findIndex((item: Assessment) => item.id === id)
-    if (index !== -1) {
-      sessionStore.own_assessments[index] = {
-        ...sessionStore.own_assessments[index],
-        ...nextStats,
-        files: nextFiles,
-        students: studentsValue,
-      }
-    }
+    assessmentStore.applyUpdate(nextFiles, nextStudents, stats)
   }
 
   const loadAssessment = async (hash: string) => {
-    isLoading.value = true
-    error.value = ''
+    assessmentStore.error = ''
     try {
-      const cached = sessionStore.get_assessment(hash)
-      if (cached) {
-        assessment.value = cached
+      const loaded = await assessmentStore.ensureAssessment(hash, options)
+      if (!loaded) {
+        assessmentStore.error = t('assessment.notFoundMessage', { hash })
       }
-      const loaded = await sessionStore.load_assessment(hash)
-      if (loaded) {
-        assessment.value = loaded
-      } else if (!cached) {
-        assessment.value = null
-        error.value = t('assessment.notFoundMessage', { hash })
-      }
-    } catch (err) {
-      console.error('Error loading assessment:', err)
+    } catch {
       if (!assessment.value) {
-        error.value = t('assessment.error')
+        assessmentStore.error = t('assessment.error')
       }
-    } finally {
-      isLoading.value = false
     }
   }
 
   onMounted(() => {
     if (assessmentId.value) {
-      loadAssessment(assessmentId.value)
+      void loadAssessment(assessmentId.value)
     }
   })
 
   watch(assessmentId, (newId) => {
     if (newId) {
-      loadAssessment(newId)
+      void loadAssessment(newId)
     }
   })
 
   const reload = async () => {
     const id = assessment.value?.id || assessmentId.value
     if (!id) return
-    const loaded = await sessionStore.load_assessment(id)
-    if (loaded) {
-      assessment.value = loaded
+    try {
+      await assessmentStore.reload(options)
+    } catch {
+      // keep previous assessment on failure
     }
   }
 

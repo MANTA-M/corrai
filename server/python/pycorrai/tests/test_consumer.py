@@ -35,14 +35,29 @@ class ParseTicketTest(unittest.TestCase):
     def test_json_path(self) -> None:
         self.assertEqual(
             parse_ticket('{"path": "schools/a/files/b/content"}'),
-            {"path": "schools/a/files/b/content", "lang": "fr", "after_task": ""},
+            {
+                "path": "schools/a/files/b/content",
+                "lang": "fr",
+                "engine": "paddle",
+                "after_task": "",
+            },
         )
 
     def test_json_path_with_lang(self) -> None:
         self.assertEqual(
             parse_ticket('{"path": "x/content", "lang": "en"}'),
-            {"path": "x/content", "lang": "en", "after_task": ""},
+            {"path": "x/content", "lang": "en", "engine": "paddle", "after_task": ""},
         )
+
+    def test_json_path_with_doctr_engine(self) -> None:
+        self.assertEqual(
+            parse_ticket('{"path": "x/content", "engine": "doctr"}'),
+            {"path": "x/content", "lang": "fr", "engine": "doctr", "after_task": ""},
+        )
+
+    def test_json_rejects_unknown_engine(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_ticket('{"path": "x/content", "engine": "tesseract"}')
 
     def test_json_ignores_operation_and_keeps_after_task(self) -> None:
         self.assertEqual(
@@ -52,6 +67,7 @@ class ParseTicketTest(unittest.TestCase):
             {
                 "path": "x/content",
                 "lang": "fr",
+                "engine": "paddle",
                 "after_task": "Corrai\\Subject\\Dictation\\Task1Correcting",
             },
         )
@@ -59,13 +75,23 @@ class ParseTicketTest(unittest.TestCase):
     def test_bare_path(self) -> None:
         self.assertEqual(
             parse_ticket(CONTENT_PATH),
-            {"path": CONTENT_PATH, "lang": "fr", "after_task": ""},
+            {
+                "path": CONTENT_PATH,
+                "lang": "fr",
+                "engine": "paddle",
+                "after_task": "",
+            },
         )
 
     def test_bytes_and_leading_slash(self) -> None:
         self.assertEqual(
             parse_ticket(b"/schools/a/content"),
-            {"path": "schools/a/content", "lang": "fr", "after_task": ""},
+            {
+                "path": "schools/a/content",
+                "lang": "fr",
+                "engine": "paddle",
+                "after_task": "",
+            },
         )
 
     def test_empty_rejected(self) -> None:
@@ -179,7 +205,7 @@ class TreatTest(unittest.TestCase):
                 "fr",
                 store,
                 redis,
-                recognize=lambda data, lang: words,
+                recognize=lambda data, lang, engine="paddle": words,
                 after_task=r"Corrai\Subject\Dictation\Task1Correcting",
                 publish=lambda path, status: published.append((path, status)),
             )
@@ -252,7 +278,9 @@ class TreatTest(unittest.TestCase):
                 "fr",
                 store,
                 redis,
-                recognize=lambda data, lang: [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}],
+                recognize=lambda data, lang, engine="paddle": [
+                    {"text": "hi", "page": 0, "box": [0, 0, 1, 1]}
+                ],
                 publish=lambda path, status: None,
             )
 
@@ -285,7 +313,7 @@ class TreatTest(unittest.TestCase):
                 "fr",
                 store,
                 redis,
-                recognize=lambda data, lang: [],
+                recognize=lambda data, lang, engine="paddle": [],
                 after_task="SomeTask",
                 publish=lambda path, status: None,
             )
@@ -309,7 +337,7 @@ class TreatTest(unittest.TestCase):
                 "fr",
                 store,
                 redis,
-                recognize=lambda data, lang: [],
+                recognize=lambda data, lang, engine="paddle": [],
             )
 
         client.put_object.assert_not_called()
@@ -390,14 +418,14 @@ class S3ClientTest(unittest.TestCase):
 
 class EngineCacheTest(unittest.TestCase):
     def test_get_engine_reuses_instance_per_lang(self) -> None:
-        import pycorrai.cli as cli
+        import pycorrai.ocr.paddle_backend as paddle_backend
 
         fake = MagicMock(name="engine")
-        with patch.dict(cli._engines, {}, clear=True), patch(
+        with patch.dict(paddle_backend._engines, {}, clear=True), patch(
             "paddleocr.PaddleOCR", return_value=fake
         ) as ctor:
-            first = cli.get_engine("fr")
-            second = cli.get_engine("fr")
+            first = paddle_backend.get_engine("fr")
+            second = paddle_backend.get_engine("fr")
             self.assertIs(first, second)
             self.assertIs(first, fake)
             ctor.assert_called_once()

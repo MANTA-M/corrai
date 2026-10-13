@@ -204,15 +204,18 @@ class AssessmentEventFeed
      */
     public static function studentSnapshot(BaseAssessment $assessment, string $studentId, ?string $locale): array
     {
-        $student = null;
-        foreach ($assessment->list_students($locale) as $item) {
-            if (($item['id'] ?? '') === $studentId) {
-                $student = $item;
-                break;
-            }
+        try {
+            $student = $assessment->getStudent($studentId)->to_output($locale);
+            $files = $assessment->list_student_files($studentId, $locale);
+        } catch (\Throwable $e) {
+            return self::studentPayload([], null, $studentId);
         }
 
-        return self::studentPayload($assessment->list_files($locale), $student, $studentId);
+        return [
+            'scope' => 'student',
+            'student' => $student,
+            'files' => $files,
+        ];
     }
 
     /**

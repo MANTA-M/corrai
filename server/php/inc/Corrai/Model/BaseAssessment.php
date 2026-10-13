@@ -783,6 +783,63 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
     }
 
     /**
+     * Files stored under a single student prefix (copies + direct student objects).
+     *
+     * @return array<int, InputFile|S3File>
+     */
+    public function listStudentFileModels(string $studentId): array
+    {
+        $studentId = trim($studentId);
+        if (
+            $studentId === ''
+            || empty($this->id)
+            || $this->school_id === ''
+            || $this->user_id === ''
+        ) {
+            return [];
+        }
+
+        $store = ObjectStore::getInstance();
+        $studentPrefix = ObjectStore::assessmentStudentPrefix(
+            $this->school_id,
+            $this->user_id,
+            $this->id,
+            $studentId
+        );
+        $files = [];
+        $seen = [];
+
+        foreach ($store->listChildPrefixes($studentPrefix) as $fileId) {
+            if (isset($seen[$fileId])) {
+                continue;
+            }
+            try {
+                $files[] = InputFile::from_hash($fileId);
+                $seen[$fileId] = true;
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+
+        foreach ($store->listImmediateFiles($studentPrefix) as $name) {
+            if ($name === ObjectStore::ATTR_FILE) {
+                continue;
+            }
+            try {
+                $directFile = S3File::from_key($studentPrefix . $name);
+                if ($directFile->id !== null && !isset($seen[$directFile->id])) {
+                    $files[] = $directFile;
+                    $seen[$directFile->id] = true;
+                }
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
      * Bare object ids under blobs/.
      *
      * @return string[]
@@ -884,6 +941,80 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             if ($studentId !== null && isset($names[$studentId])) {
                 $studentName = $names[$studentId];
             }
+            $out[] = $file->to_output($studentName, $locale);
+        }
+        return $out;
+    }
+
+    /**
+     * Subject-page files only (subject / solution / instructions).
+     *
+     * Skips student copies under students/ and unclassified submissions.
+     *
+     * @return array Array of file output arrays
+     */
+    public function list_subject_files(?string $locale = null): array
+    {
+        if (empty($this->id) || $this->school_id === '' || $this->user_id === '') {
+            return [];
+        }
+
+        $locale = MenuLabels::locale($locale);
+        $allowed = ['subject', 'solution', 'instructions'];
+        $out = [];
+        $seen = [];
+        $store = ObjectStore::getInstance();
+        $areas = [
+            ObjectStore::assessmentSubjectFilesPrefix($this->school_id, $this->user_id, $this->id),
+            ObjectStore::assessmentFilesPrefix($this->school_id, $this->user_id, $this->id),
+        ];
+        foreach ($areas as $prefix) {
+            foreach ($store->listChildPrefixes($prefix) as $fileId) {
+                if (isset($seen[$fileId])) {
+                    continue;
+                }
+                try {
+                    $file = InputFile::from_hash($fileId);
+                    $seen[$fileId] = true;
+                    if (!in_array($file->role(), $allowed, true)) {
+                        continue;
+                    }
+                    $out[] = $file->to_output(null, $locale);
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        }
+        foreach ($this->blobFileIds() as $fileId) {
+            if (isset($seen[$fileId])) {
+                continue;
+            }
+            try {
+                $file = S3File::from_hash($fileId);
+                $seen[$fileId] = true;
+                if (!in_array($file->type, $allowed, true)) {
+                    continue;
+                }
+                $out[] = $file->to_output(null, $locale);
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * List only the files belonging to one student (without scanning the whole assessment).
+     *
+     * @return array Array of file output arrays
+     */
+    public function list_student_files(string $studentId, ?string $locale = null): array
+    {
+        $locale = MenuLabels::locale($locale);
+        $student = $this->getStudent($studentId);
+        $studentName = $student->name;
+        $out = [];
+        foreach ($this->listStudentFileModels($studentId) as $file) {
             $out[] = $file->to_output($studentName, $locale);
         }
         return $out;

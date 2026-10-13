@@ -24,8 +24,27 @@ try {
     $output = $assessment->to_output($locale);
     $output['menu'] = $assessment->get_menu(MenuLabels::locale($locale));
     Request::add_output("assessment", $output);
-    Request::add_output("files", $assessment->list_files($locale));
-    Request::add_output("students", $assessment->list_students($locale));
+
+    $includeStudents = Request::getBooleanParam('students');
+    if ($includeStudents === null) {
+        $includeStudents = true;
+    }
+
+    $filesParam = Request::getStringParam('files');
+    if ($filesParam === null) {
+        Request::add_output("files", $assessment->list_files($locale));
+    } else {
+        $normalized = strtolower(trim($filesParam));
+        if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+            Request::add_output("files", []);
+        } elseif ($normalized === 'subject') {
+            Request::add_output("files", $assessment->list_subject_files($locale));
+        } else {
+            Request::add_output("files", $assessment->list_files($locale));
+        }
+    }
+
+    Request::add_output("students", $includeStudents ? $assessment->list_students($locale) : []);
 } catch (\Throwable $th) {
     Request::handle_throwable($th);
 }

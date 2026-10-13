@@ -90,6 +90,14 @@ function normalizeAssessment(raw: ServerAssessment): Assessment {
   }
 }
 
+/** Options for a partial GET /assessment (subject page skips copies & students). */
+export type LoadAssessmentOptions = {
+  /** Include students list (default true). */
+  students?: boolean
+  /** File payload: all, subject-area only, or none (default 'all'). */
+  files?: 'all' | 'subject' | false
+}
+
 export const useSessionStore = defineStore(
   'session',
   () => {
@@ -309,8 +317,26 @@ export const useSessionStore = defineStore(
       }
     }
 
-    async function load_assessment(hash: string): Promise<Assessment | null> {
+    async function load_assessment(
+      hash: string,
+      options?: LoadAssessmentOptions,
+    ): Promise<Assessment | null> {
       try {
+        const includeStudents = options?.students !== false
+        const filesMode = options?.files ?? 'all'
+        const params: Record<string, string | boolean> = {
+          hash,
+          locale: locale.value,
+        }
+        if (!includeStudents) {
+          params.students = false
+        }
+        if (filesMode === false) {
+          params.files = false
+        } else if (filesMode === 'subject') {
+          params.files = 'subject'
+        }
+
         const wsClient = getWsClient()
         const response = await wsClient.queryWs<
           {
@@ -318,7 +344,7 @@ export const useSessionStore = defineStore(
             files?: Assessment['files']
             students?: Assessment['students']
           } & StateLocales
-        >('GET', '/assessment', { hash, locale: locale.value })
+        >('GET', '/assessment', params)
 
         applyStateLocales(response)
 
@@ -334,7 +360,15 @@ export const useSessionStore = defineStore(
         })
         const existingIndex = own_assessments.value.findIndex((e) => e.id === assessment.id)
         if (existingIndex !== -1) {
-          own_assessments.value[existingIndex] = assessment
+          const existing = own_assessments.value[existingIndex]
+          // Partial loads must not wipe a fuller cache used by other pages.
+          own_assessments.value[existingIndex] = {
+            ...assessment,
+            files: filesMode === 'all' ? assessment.files : (existing.files ?? assessment.files),
+            students: includeStudents
+              ? assessment.students
+              : (existing.students ?? assessment.students),
+          }
         } else {
           own_assessments.value.push(assessment)
         }

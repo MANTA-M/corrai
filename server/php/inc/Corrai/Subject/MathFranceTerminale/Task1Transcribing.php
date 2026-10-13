@@ -1,0 +1,62 @@
+<?php
+
+namespace Corrai\Subject\Math;
+
+use Corrai\Clients\Openrouter\ClaudeSonnetClient;
+use Corrai\Clients\Openrouter\LlmClientFactory;
+use Corrai\Model\BaseAssessment;
+use Corrai\Model\SubmissionFile;
+use Corrai\Model\Task\PathQueueItemTask;
+use Corrai\Queue\RedisQueue;
+use Corrai\Utils\Store\ObjectStore;
+use Corrai\Utils\Http\WSException;
+use Throwable;
+
+class Task1Transcribing extends PathQueueItemTask
+{
+    protected function process(object $queue_item_data, string $s3_path): void
+    {
+        $file = $this->loadFile($s3_path);
+        if ($file instanceof SubmissionFile) {
+            $this->transcribeSubmission($file);
+        }
+    }
+
+    public function transcribeSubmission(SubmissionFile $file): void
+    {
+
+        $copyPath = null;
+        try {
+            $store = ObjectStore::getInstance();
+            $copyPath = $store->downloadToTemp($file->contentKey());
+            $transcription = $this->transcribe($copyPath, $file->name);
+            $store->putContents(
+                $file->foundErrorsKey(),
+                $transcription,
+                'text/plain; charset=utf-8'
+            );
+            $file->status = 'transcribed';
+            $file->saveAttributes();
+            $file->appendEvent('Transcription written');
+            RedisQueue::getInstance()->enqueueFile($file->id, Task2Correcting::class);
+        } catch (Throwable $th) {
+            $this->failCorrection($file, $th);
+        } finally {
+            if ($copyPath !== null) {
+                @unlink($copyPath);
+            }
+        }
+    }
+    private function transcribe(string $tmpPath, string $filename): string
+    {
+        $request = new ClaudeSonnetClient();
+        $request->set_system_content(
+            'You are a careful transcription assistant. '
+            . 'Transcribe the submitted assessment paper into LaTeX. '
+            . 'Return only the LaTeX transcription with no extra commentary.'
+        );
+        $request->add_file($tmpPath, $filename);
+        $request->add_text('Transcribe this submission into LaTeX.');
+        return $request->call_text();
+    }
+}

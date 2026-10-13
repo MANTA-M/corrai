@@ -291,8 +291,8 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
         }
         $assessment = $this->getAssessment();
         $files = [];
-        foreach ($assessment->listFileModels() as $file) {
-            if ($file instanceof SubmissionFile && $file->student === $this->id) {
+        foreach ($assessment->listStudentFileModels($this->id) as $file) {
+            if ($file instanceof SubmissionFile) {
                 $files[] = $file;
             }
         }

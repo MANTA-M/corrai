@@ -19,7 +19,7 @@ from botocore.client import Config
 from redis import Redis
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from pycorrai.cli import get_engine, recognize_bytes
+from pycorrai.ocr.dispatch import DEFAULT_ENGINE, ENGINES, recognize_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ OCR_LIST_KEY = "corrai:ocr"
 PHP_LIST_KEY = "corrai:files"
 SCHEMA = 1
 DEFAULT_LANG = "fr"
+DEFAULT_OCR_ENGINE = DEFAULT_ENGINE
 BRPOP_TIMEOUT = 5
 # redis-py 8 defaults socket_timeout to 5s. That races an equal BRPOP and
 # raises TimeoutError before Redis can return nil. Keep the read deadline
@@ -43,10 +44,11 @@ def env(key: str, default: str = "") -> str:
 
 
 def parse_ticket(raw: str | bytes) -> dict[str, str]:
-    """Decode a queue ticket into path, language, and optional follow-up task.
+    """Decode a queue ticket into path, language, engine, and optional follow-up.
 
-    Accepts JSON ``{"path": "..."}`` (optional ``lang`` and ``after_task``) or a
-    bare path string. ``operation`` is ignored.
+    Accepts JSON ``{"path": "..."}`` (optional ``lang``, ``engine``,
+    ``after_task``) or a bare path string. ``operation`` is ignored.
+    ``engine`` defaults to ``paddle`` and must be ``paddle`` or ``doctr``.
     """
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8")
@@ -56,6 +58,7 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
 
     path: str
     lang = DEFAULT_LANG
+    engine = DEFAULT_OCR_ENGINE
     after_task = ""
 
     if text.startswith("{"):
@@ -69,6 +72,9 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
         ticket_lang = decoded.get("lang")
         if isinstance(ticket_lang, str) and ticket_lang.strip() != "":
             lang = ticket_lang.strip()
+        ticket_engine = decoded.get("engine")
+        if isinstance(ticket_engine, str) and ticket_engine.strip() != "":
+            engine = ticket_engine.strip().lower()
         ticket_after = decoded.get("after_task")
         if isinstance(ticket_after, str):
             after_task = ticket_after.strip()
@@ -78,8 +84,10 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
     path = path.lstrip("/")
     if path == "":
         raise ValueError("OCR ticket path is empty")
+    if engine not in ENGINES:
+        raise ValueError(f"OCR engine must be paddle or doctr, got: {engine}")
 
-    return {"path": path, "lang": lang, "after_task": after_task}
+    return {"path": path, "lang": lang, "engine": engine, "after_task": after_task}
 
 
 def file_prefix(content_path: str) -> str:
@@ -334,11 +342,12 @@ def treat(
     redis: Redis,
     recognize=recognize_bytes,
     after_task: str = "",
+    engine: str = DEFAULT_OCR_ENGINE,
     publish=publish_assessment_status,
 ) -> None:
     """OCR one file path and, when set, enqueue ``after_task`` for PHP."""
     start_time = time.perf_counter()
-    logger.info("OCR starting for %s lang=%s", content_path, lang)
+    logger.info("OCR starting for %s lang=%s engine=%s", content_path, lang, engine)
     attr_key = attributes_key(content_path)
     store.get_json(attr_key)
     try:
@@ -348,7 +357,7 @@ def treat(
         if not content:
             raise ValueError(f"Empty content at {content_path}")
 
-        words = recognize(content, lang)
+        words = recognize(content, lang, engine)
         store.put_bytes(
             ocr_json_key(content_path),
             format_ocr_json(words),
@@ -396,17 +405,12 @@ def run_forever(
     store: ObjectStore | None = None,
     redis: Redis | None = None,
     recognize=recognize_bytes,
-    preload_lang: str | None = DEFAULT_LANG,
 ) -> None:
     store = store if store is not None else ObjectStore()
     redis = redis if redis is not None else make_redis_client()
 
-    # Load PaddleOCR models once into this process so tickets reuse them.
-    if preload_lang is not None and recognize is recognize_bytes:
-        logger.info("Loading OCR models for lang=%s", preload_lang)
-        get_engine(preload_lang)
-        logger.info("OCR models ready for lang=%s", preload_lang)
-
+    # OCR models are loaded lazily on the first ticket for each engine so this
+    # process does not pull both Paddle and docTR stacks at startup.
     logger.info("Python consumer started, waiting on %s", OCR_LIST_KEY)
     while True:
         try:
@@ -426,7 +430,11 @@ def run_forever(
         try:
             _key, raw = result
             ticket = parse_ticket(raw)
-            logger.info("Treating OCR ticket %s", ticket["path"])
+            logger.info(
+                "Treating OCR ticket %s engine=%s",
+                ticket["path"],
+                ticket["engine"],
+            )
             treat(
                 ticket["path"],
                 ticket["lang"],
@@ -434,6 +442,7 @@ def run_forever(
                 redis,
                 recognize=recognize,
                 after_task=ticket["after_task"],
+                engine=ticket["engine"],
             )
         except Exception:
             logger.exception("Python consumer error")
