@@ -60,6 +60,37 @@ class RedisQueueTest extends TestCase
         $this->assertSame([], $queue->listTickets(RedisQueue::OCR_LIST_KEY));
     }
 
+    public function testEnqueuePythonAssessmentTask(): void
+    {
+        $captured = null;
+        $redis = $this->getMockBuilder(Redis::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['lPush', 'connect'])
+            ->getMock();
+        $redis->expects($this->once())
+            ->method('lPush')
+            ->with(
+                RedisQueue::OCR_LIST_KEY,
+                $this->callback(function (string $payload) use (&$captured): bool {
+                    $captured = $payload;
+                    return true;
+                })
+            )
+            ->willReturn(1);
+
+        $queue = new RedisQueue($redis);
+        $queue->enqueuePythonAssessmentTask('ass-1', 'create_correction_grid');
+
+        $decoded = json_decode((string) $captured, true);
+        $this->assertSame(
+            [
+                'assessment_id' => 'ass-1',
+                'task' => 'create_correction_grid',
+            ],
+            $decoded
+        );
+    }
+
     public function testEnqueueOcrIncludesEngineInPayload(): void
     {
         $captured = null;

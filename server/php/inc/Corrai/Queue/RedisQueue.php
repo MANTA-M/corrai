@@ -95,6 +95,33 @@ class RedisQueue
     }
 
     /**
+     * Enqueue an assessment task for the Python consumer (``corrai:ocr``).
+     *
+     * Ticket shape: ``{"assessment_id": "...", "task": "create_correction_grid"}``.
+     */
+    public function enqueuePythonAssessmentTask(string $assessmentId, string $task): void
+    {
+        $assessmentId = trim($assessmentId);
+        $task = trim($task);
+        if ($assessmentId === '' || $task === '') {
+            throw new InvalidArgumentException('assessment_id and task are required');
+        }
+        $payload = json_encode(
+            ['assessment_id' => $assessmentId, 'task' => $task],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        if ($payload === false) {
+            throw new RedisException('Failed to encode Python assessment queue ticket');
+        }
+        $this->client->lPush(self::OCR_LIST_KEY, $payload);
+        error_log(
+            'Enqueued Python task=' . $task
+            . ' assessment=' . $assessmentId
+            . ' on ' . self::OCR_LIST_KEY
+        );
+    }
+
+    /**
      * Enqueue a content path for the Python consumer.
      *
      * ``$operation`` is stored but ignored. When OCR finishes, the Python

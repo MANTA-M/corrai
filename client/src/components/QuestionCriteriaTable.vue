@@ -14,8 +14,8 @@
           <td class="col-criterion">
             <span class="criterion-title">
               {{ criterion.description || criterion.critère || `Critère ${index + 1}` }}
-              <span v-if="criterion.ponderation != null" class="ponderation-inline">
-                ({{ formatPonderation(criterion.ponderation) }})
+              <span v-if="criterionMax(criterion) != null" class="ponderation-inline">
+                (max {{ formatNumber(criterionMax(criterion)) }})
               </span>
             </span>
           </td>
@@ -28,7 +28,12 @@
                 'badge-note-positive': criterion.note > 0,
               }"
             >
-              {{ formatNumber(criterion.note) }}
+              <template v-if="criterionMax(criterion) != null">
+                {{ formatNumber(criterion.note) }} / {{ formatNumber(criterionMax(criterion)) }}
+              </template>
+              <template v-else>
+                {{ formatNumber(criterion.note) }}
+              </template>
             </span>
             <span
               v-else-if="criterion.modificateur != null"
@@ -55,8 +60,11 @@
             <span v-else class="text-muted">—</span>
           </td>
           <td class="col-comment">
-            <p v-if="criterion.commentaire" class="criterion-comment">
-              {{ criterion.commentaire }}
+            <p
+              v-if="criterion.justification || criterion.commentaire"
+              class="criterion-comment"
+            >
+              {{ criterion.justification || criterion.commentaire }}
             </p>
             <span v-else class="text-muted">—</span>
           </td>
@@ -69,12 +77,15 @@
 <script setup lang="ts">
 export interface QuestionCriterion {
   description?: string
-  ponderation?: number
+  max?: number
   note?: number
   score_de_confiance?: number
-  commentaire?: string
+  justification?: string
   // Rétrocompatibilité
+  ponderation?: number
+  commentaire?: string
   critère?: string
+  point?: number
   modificateur?: number
   retenu?: boolean
 }
@@ -83,10 +94,10 @@ defineProps<{
   criteria: QuestionCriterion[]
 }>()
 
-const formatPonderation = (value: number | undefined) => {
-  if (value == null || Number.isNaN(value)) return '—'
-  const percent = Math.round(value * 100)
-  return `${percent} %`
+const criterionMax = (criterion: QuestionCriterion): number | undefined => {
+  if (criterion.max != null) return criterion.max
+  if (criterion.point != null) return criterion.point
+  return undefined
 }
 
 const formatNumber = (value: number | undefined) => {

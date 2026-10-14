@@ -2002,7 +2002,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
         $store = ObjectStore::getInstance();
         $parts = [];
         foreach ($this->listFileModels() as $file) {
-            if (!$file instanceof InstructionFile) {
+            if ($this->fileRole($file) !== 'instructions') {
                 continue;
             }
             $parts[] = $file->name . ":\n" . $store->getContents($file->contentKey());
@@ -2058,7 +2058,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
     /**
      * Creates the assessment's instruction file from the template file if one exists.
      */
-    public function createInstructionFileFromTemplate(?string $locale = null): ?InputFile
+    public function createInstructionFileFromTemplate(?string $locale = null): InputFile|S3File|null
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
             return null;
@@ -2070,7 +2070,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
         }
 
         foreach ($this->listFileModels() as $file) {
-            if ($file instanceof InstructionFile) {
+            if ($this->fileRole($file) === 'instructions') {
                 return $file;
             }
         }

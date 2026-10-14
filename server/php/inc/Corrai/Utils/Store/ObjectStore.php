@@ -18,7 +18,7 @@ use Exception;
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/events/<eventId>.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/<fileId>/content
- *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/compile_subject
+ *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/subject/compiled_subject.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/list.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/attributes.json
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/students/<studentId>/<fileId>/attributes.json
@@ -29,12 +29,12 @@ use Exception;
  *   schools/<schoolId>/teachers/<teacherId>/assessments/<assessmentId>/blobs/<fileId>
  *   _id/{hash}  — pointer to a node prefix, or to a blobs/<fileId> object
  *
- * Input files keep a directory: subject material and instructions under subject/,
- * student copies under students/<studentId>/<fileId>/, copies not yet assigned
- * under unclassified/. Solution, correction, debug and files with no role are a
- * single object under blobs/. The legacy files/<fileId>/ prefix is still recognized
- * so older objects stay readable. Older solution, correction and debug directories
- * stay readable too.
+ * Input files keep a directory: subject material under subject/, student copies
+ * under students/<studentId>/<fileId>/, copies not yet assigned under
+ * unclassified/. Instructions, solution, correction, debug and files with no
+ * role are a single object under blobs/. The legacy files/<fileId>/ prefix is
+ * still recognized so older objects stay readable. Older solution, correction,
+ * debug and instruction directories stay readable too.
  *
  * Legacy CSV keys (school.csv, user.csv, exam.csv, files.csv) remain for migration only.
  */
@@ -312,6 +312,22 @@ class ObjectStore
      */
     public static function assessmentSubjectCompileKey(string $schoolId, string $teacherId, string $assessmentId): string
     {
+        return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . 'compiled_subject.json';
+    }
+
+    /**
+     * Previous name ``compile_subject.json`` (renamed by Python ``compile_subject``).
+     */
+    public static function assessmentSubjectCompileLegacyJsonKey(string $schoolId, string $teacherId, string $assessmentId): string
+    {
+        return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . 'compile_subject.json';
+    }
+
+    /**
+     * Oldest compile key without ``.json`` (renamed by Python ``compile_subject``).
+     */
+    public static function assessmentSubjectCompileLegacyKey(string $schoolId, string $teacherId, string $assessmentId): string
+    {
         return self::assessmentSubjectFilesPrefix($schoolId, $teacherId, $assessmentId) . 'compile_subject';
     }
 
@@ -335,9 +351,9 @@ class ObjectStore
      * Where a file lives given its type and optional student assignment.
      *
      * A student id stores the copy under that student. Subject material
-     * (subject and instructions, plus legacy solution directories) lives under
+     * (subject, plus legacy solution/instructions directories) lives under
      * subject/. A submission that has no student yet stays under unclassified/.
-     * New solution, correction and debug objects use assessmentBlobKey().
+     * New instructions, solution, correction and debug objects use assessmentBlobKey().
      *
      * @return 'student'|'subject'|'unclassified'
      */

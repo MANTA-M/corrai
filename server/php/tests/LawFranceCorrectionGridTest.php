@@ -15,7 +15,7 @@ use Redis;
 
 class LawFranceCorrectionGridTest extends TestCase
 {
-    /** @var list<string> */
+    /** @var list<array{key: string, payload: string}> */
     private array $queued = [];
 
     protected function tearDown(): void
@@ -25,7 +25,7 @@ class LawFranceCorrectionGridTest extends TestCase
         parent::tearDown();
     }
 
-    public function testCreateCorrectionGridEnqueuesTheTask(): void
+    public function testCreateCorrectionGridEnqueuesThePythonTask(): void
     {
         $this->installQueue();
 
@@ -34,10 +34,10 @@ class LawFranceCorrectionGridTest extends TestCase
         $assessment->create_correction_grid();
 
         $this->assertCount(1, $this->queued);
-        $ticket = json_decode($this->queued[0], true);
+        $this->assertSame(RedisQueue::OCR_LIST_KEY, $this->queued[0]['key']);
+        $ticket = json_decode($this->queued[0]['payload'], true);
         $this->assertSame('ass-1', $ticket['assessment_id'] ?? null);
-        $this->assertSame(AssTaskGridCreation::class, $ticket['task'] ?? null);
-        $this->assertTrue(class_exists(\LawFrance\AssTaskGridCreation::class));
+        $this->assertSame('create_correction_grid', $ticket['task'] ?? null);
     }
 
     public function testTaskWritesTheGridAndMovesTheStatus(): void
@@ -122,6 +122,12 @@ class LawFranceCorrectionGridTest extends TestCase
         $this->assertArrayNotHasKey('critères_proposés', $questionProperties);
         $this->assertArrayHasKey('points', $questionProperties);
         $this->assertArrayHasKey('questions_posées', $questionProperties);
+        $this->assertArrayHasKey('critère', $questionProperties);
+        $this->assertContains('critère', $schema['properties']['parties']['items']['properties']['questions']['items']['required'] ?? []);
+        $questionCriterion = $questionProperties['critère']['items'] ?? [];
+        $this->assertSame(['critère', 'point'], $questionCriterion['required'] ?? []);
+        $this->assertSame('string', $questionCriterion['properties']['critère']['type'] ?? null);
+        $this->assertSame('number', $questionCriterion['properties']['point']['type'] ?? null);
         $this->assertIsArray($stored);
         $this->assertSame($grid, json_decode($stored['body'], true));
         $this->assertStringEndsWith("\n", $stored['body']);
@@ -200,7 +206,7 @@ class LawFranceCorrectionGridTest extends TestCase
             ->onlyMethods(['lPush', 'brPop', 'connect'])
             ->getMock();
         $redis->method('lPush')->willReturnCallback(function (string $key, string $payload): int {
-            $this->queued[] = $payload;
+            $this->queued[] = ['key' => $key, 'payload' => $payload];
             return 1;
         });
         RedisQueue::setInstance(new RedisQueue($redis));

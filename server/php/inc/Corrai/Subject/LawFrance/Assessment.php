@@ -257,14 +257,17 @@ class Assessment extends BaseAssessment
     }
 
     /**
-     * Queue generation of the French correction grid.
+     * Queue generation of the French correction grid on the Python consumer.
      */
     public function create_correction_grid(): void
     {
         if ($this->id === null || $this->id === '') {
             throw new WSException('Assessment is incomplete', 400);
         }
-        RedisQueue::getInstance()->enqueueAssessment($this->id, AssTaskGridCreation::class);
+        RedisQueue::getInstance()->enqueuePythonAssessmentTask(
+            $this->id,
+            'create_correction_grid'
+        );
     }
 
     /**

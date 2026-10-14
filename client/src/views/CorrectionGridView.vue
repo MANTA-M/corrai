@@ -393,6 +393,15 @@
                 ></div>
               </div>
 
+              <!-- Critères d'évaluation de la question (grille sujet) -->
+              <div
+                v-if="!isStudent && question.critère && question.critère.length"
+                class="criteria-container"
+              >
+                <span class="box-label">Critères d'évaluation :</span>
+                <QuestionCriteriaTable :criteria="question.critère" />
+              </div>
+
               <!-- Critères d'évaluation de la question (Étudiant) -->
               <div v-if="isStudent" class="criteria-container">
                 <div v-if="question.critères && question.critères.length">
@@ -557,6 +566,7 @@ interface Question {
   points?: number
   contenu?: string
   questions_posées?: string[]
+  critère?: QuestionCriterion[]
   points_obtenus?: number
   critères?: QuestionCriterion[]
   critères_proposés?: CorrectionCriterion[]

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import secrets
 import ssl
 import sys
@@ -14,33 +13,30 @@ import urllib.request
 from typing import Any
 from urllib.parse import quote
 
-import boto3
-from botocore.client import Config
 from redis import Redis
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
+from pycorrai.config import ensure_env_loaded, env
 from pycorrai.ocr.dispatch import DEFAULT_ENGINE, ENGINES, recognize_bytes
+from pycorrai.store.metadata_cache import (
+    assessment_key as metadata_cache_assessment_key,
+    invalidate_for_path,
+)
+from pycorrai.store.object_store import (
+    BRPOP_TIMEOUT,
+    SCHEMA,
+    SOCKET_TIMEOUT,
+    ObjectStore,
+    make_redis_client,
+    make_s3_client,
+)
 
 logger = logging.getLogger(__name__)
 
 OCR_LIST_KEY = "corrai:ocr"
 PHP_LIST_KEY = "corrai:files"
-SCHEMA = 1
 DEFAULT_LANG = "fr"
 DEFAULT_OCR_ENGINE = DEFAULT_ENGINE
-BRPOP_TIMEOUT = 5
-# redis-py 8 defaults socket_timeout to 5s. That races an equal BRPOP and
-# raises TimeoutError before Redis can return nil. Keep the read deadline
-# strictly longer than the block, with room for the reply to arrive.
-SOCKET_CONNECT_TIMEOUT = 5
-SOCKET_TIMEOUT = BRPOP_TIMEOUT + 10
-
-
-def env(key: str, default: str = "") -> str:
-    value = os.environ.get(key)
-    if value is None or value == "":
-        return default
-    return value
 
 
 def parse_ticket(raw: str | bytes) -> dict[str, str]:
@@ -88,6 +84,72 @@ def parse_ticket(raw: str | bytes) -> dict[str, str]:
         raise ValueError(f"OCR engine must be paddle or doctr, got: {engine}")
 
     return {"path": path, "lang": lang, "engine": engine, "after_task": after_task}
+
+
+def parse_queue_message(raw: str | bytes) -> dict[str, str]:
+    """Decode a Python-queue ticket: assessment task or OCR path ticket."""
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    text = raw.strip()
+    if not text:
+        raise ValueError("Empty queue ticket")
+
+    if text.startswith("{"):
+        decoded = json.loads(text)
+        if not isinstance(decoded, dict):
+            raise ValueError(f"Invalid queue ticket JSON: {text}")
+        task = decoded.get("task")
+        assessment_id = decoded.get("assessment_id")
+        if (
+            isinstance(task, str)
+            and task.strip() != ""
+            and isinstance(assessment_id, str)
+            and assessment_id.strip() != ""
+        ):
+            return {
+                "kind": "task",
+                "task": task.strip(),
+                "assessment_id": assessment_id.strip(),
+            }
+
+    ticket = parse_ticket(raw)
+    return {"kind": "ocr", **ticket}
+
+
+def enqueue_assessment_task(
+    assessment_id: str,
+    task: str,
+    redis: Redis | None = None,
+) -> None:
+    """Push an assessment task ticket on the Python Redis queue."""
+    assessment_id = assessment_id.strip()
+    task = task.strip()
+    if assessment_id == "" or task == "":
+        raise ValueError("assessment_id and task are required")
+    client = redis if redis is not None else make_redis_client()
+    payload = json.dumps(
+        {"assessment_id": assessment_id, "task": task},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    client.lpush(OCR_LIST_KEY, payload)
+    logger.info(
+        "Enqueued Python task=%s assessment=%s on %s",
+        task,
+        assessment_id,
+        OCR_LIST_KEY,
+    )
+
+
+def treat_assessment_task(task: str, assessment_id: str) -> None:
+    """Run a Python assessment task ticket."""
+    from pycorrai.model.assessment import Assessment
+
+    if task == "create_correction_grid":
+        assessment = Assessment.from_hash(assessment_id)
+        assessment.create_correction_grid()
+        return
+    raise ValueError(f"Unknown Python assessment task: {task}")
 
 
 def file_prefix(content_path: str) -> str:
@@ -142,7 +204,9 @@ def school_teacher_assessment_from_path(content_path: str) -> tuple[str, str, st
         teacher_idx = parts.index("teachers")
         assessment_idx = parts.index("assessments")
     except ValueError as exc:
-        raise ValueError(f"Path is not under schools/teachers/assessments: {content_path}") from exc
+        raise ValueError(
+            f"Path is not under schools/teachers/assessments: {content_path}"
+        ) from exc
     if (
         school_idx + 1 >= len(parts)
         or teacher_idx + 1 >= len(parts)
@@ -155,28 +219,9 @@ def school_teacher_assessment_from_path(content_path: str) -> tuple[str, str, st
     return parts[school_idx + 1], parts[teacher_idx + 1], parts[assessment_idx + 1]
 
 
-def metadata_cache_assessment_key(school_id: str, teacher_id: str, assessment_id: str) -> str:
-    return f"corrai:meta:v1:{school_id}:{teacher_id}:a:{assessment_id}"
-
-
-def metadata_cache_gen_key(school_id: str, teacher_id: str, assessment_id: str) -> str:
-    return metadata_cache_assessment_key(school_id, teacher_id, assessment_id) + ":gen"
-
-
 def invalidate_metadata_cache(redis: Redis, content_path: str) -> None:
     """Drop the PHP metadata cache entry for the assessment owning ``content_path``."""
-    try:
-        school_id, teacher_id, assessment_id = school_teacher_assessment_from_path(content_path)
-    except ValueError:
-        logger.warning("Cannot invalidate metadata cache for path %s", content_path)
-        return
-    key = metadata_cache_assessment_key(school_id, teacher_id, assessment_id)
-    gen_key = metadata_cache_gen_key(school_id, teacher_id, assessment_id)
-    try:
-        redis.incr(gen_key)
-        redis.delete(key)
-    except Exception:
-        logger.exception("Failed to invalidate metadata cache key %s", key)
+    invalidate_for_path(redis, content_path)
 
 
 def file_id_from_path(content_path: str) -> str:
@@ -204,117 +249,6 @@ def event_body(name: str, timestamp: int | None = None) -> dict[str, Any]:
     }
 
 
-def make_s3_client():
-    endpoint = env("S3_ENDPOINT", "http://seaweedfs:8333")
-    region = env("S3_REGION", "us-east-1")
-    access_key = env("S3_ACCESS_KEY")
-    secret_key = env("S3_SECRET_KEY")
-    if access_key == "" or secret_key == "":
-        raise RuntimeError("S3_ACCESS_KEY and S3_SECRET_KEY must be configured")
-
-    connect_timeout = float(env("S3_CONNECT_TIMEOUT", "2"))
-    timeout = float(env("S3_TIMEOUT", "10"))
-    retries = int(env("S3_RETRIES", "3"))
-
-    config_kwargs = {
-        "s3": {"addressing_style": "path"},
-        "connect_timeout": connect_timeout,
-        "read_timeout": timeout,
-        "retries": {"max_attempts": retries, "mode": "standard"},
-    }
-
-    # Newer botocore defaults to always sending checksums; SeaweedFS rejects them.
-    # Older botocore has no such knobs, so fall back to path-style only.
-    try:
-        config = Config(
-            request_checksum_calculation="when_required",
-            response_checksum_validation="when_required",
-            **config_kwargs,
-        )
-    except TypeError:
-        config = Config(**config_kwargs)
-
-    return boto3.client(
-        "s3",
-        endpoint_url=endpoint,
-        region_name=region,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        config=config,
-    )
-
-
-def make_redis_client() -> Redis:
-    host = env("REDIS_HOST", "127.0.0.1")
-    port = int(env("REDIS_PORT", "6379"))
-    return Redis(
-        host=host,
-        port=port,
-        decode_responses=True,
-        socket_connect_timeout=SOCKET_CONNECT_TIMEOUT,
-        socket_timeout=SOCKET_TIMEOUT,
-    )
-
-
-class ObjectStore:
-    """Thin S3 wrapper matching PHP ObjectStore behaviour used by the consumer."""
-
-    def __init__(self, client=None, bucket: str | None = None):
-        self.client = client if client is not None else make_s3_client()
-        self.bucket = bucket if bucket is not None else env("S3_BUCKET", "corrai")
-
-    def get_bytes(self, key: str) -> bytes:
-        start = time.monotonic()
-        try:
-            response = self.client.get_object(Bucket=self.bucket, Key=key)
-            body = response["Body"].read()
-            return body if isinstance(body, bytes) else bytes(body)
-        finally:
-            elapsed_ms = (time.monotonic() - start) * 1000
-            threshold_ms = float(env("S3_SLOW_THRESHOLD_MS", "500"))
-            if elapsed_ms > threshold_ms:
-                logger.warning(
-                    "S3 slow request (GetObject): key=%s duration=%.1f ms",
-                    key,
-                    elapsed_ms,
-                )
-
-    def get_json(self, key: str) -> dict[str, Any]:
-        raw = self.get_bytes(key)
-        data = json.loads(raw.decode("utf-8"))
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid JSON object at {key}")
-        return data
-
-    def put_bytes(self, key: str, body: bytes | str, content_type: str) -> None:
-        if isinstance(body, str):
-            body = body.encode("utf-8")
-        start = time.monotonic()
-        try:
-            self.client.put_object(
-                Bucket=self.bucket,
-                Key=key,
-                Body=body,
-                ContentType=content_type,
-            )
-        finally:
-            elapsed_ms = (time.monotonic() - start) * 1000
-            threshold_ms = float(env("S3_SLOW_THRESHOLD_MS", "500"))
-            if elapsed_ms > threshold_ms:
-                logger.warning(
-                    "S3 slow request (PutObject): key=%s duration=%.1f ms",
-                    key,
-                    elapsed_ms,
-                )
-
-    def put_json(self, key: str, data: dict[str, Any]) -> None:
-        payload = dict(data)
-        if "schema" not in payload:
-            payload["schema"] = SCHEMA
-        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        self.put_bytes(key, body, "application/json")
-
-
 def publish_assessment_status(content_path: str, status: str) -> None:
     """POST the new file status to the assessment Nchan channel.
 
@@ -336,7 +270,9 @@ def publish_assessment_status(content_path: str, status: str) -> None:
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode("utf-8")
-    base = env("NCHAN_PUBLISH_URL", "https://127.0.0.1/corrai_test/internal/pub").rstrip("/")
+    base = env("NCHAN_PUBLISH_URL", "https://127.0.0.1/corrai_test/internal/pub").rstrip(
+        "/"
+    )
     channel = quote(f"assessment:{assessment_id}", safe="")
     request = urllib.request.Request(
         f"{base}/{channel}",
@@ -476,7 +412,15 @@ def run_forever(
             continue
         try:
             _key, raw = result
-            ticket = parse_ticket(raw)
+            ticket = parse_queue_message(raw)
+            if ticket.get("kind") == "task":
+                logger.info(
+                    "Treating task ticket task=%s assessment=%s",
+                    ticket["task"],
+                    ticket["assessment_id"],
+                )
+                treat_assessment_task(ticket["task"], ticket["assessment_id"])
+                continue
             logger.info(
                 "Treating OCR ticket %s engine=%s",
                 ticket["path"],
@@ -497,6 +441,7 @@ def run_forever(
 
 def main(argv: list[str] | None = None) -> int:
     del argv  # CLI takes no arguments; reserved for future flags.
+    ensure_env_loaded()
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",

@@ -3,7 +3,8 @@
 namespace Corrai\Model;
 
 /**
- * Subject instructions that are not given to students. No correction pipeline.
+ * Legacy subject instructions stored as an InputFile directory.
+ * New instructions are bare S3 blobs (type "instructions").
  */
 class InstructionFile extends InputFile
 {

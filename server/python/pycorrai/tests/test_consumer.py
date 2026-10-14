@@ -13,6 +13,7 @@ from pycorrai.consumer import (
     ObjectStore,
     assessment_id_from_path,
     attributes_key,
+    enqueue_assessment_task,
     event_body,
     event_key,
     file_id_from_path,
@@ -23,11 +24,13 @@ from pycorrai.consumer import (
     make_s3_client,
     metadata_cache_assessment_key,
     ocr_json_key,
+    parse_queue_message,
     parse_ticket,
     php_task_ticket,
     publish_assessment_status,
     school_teacher_assessment_from_path,
     treat,
+    treat_assessment_task,
 )
 
 
@@ -104,6 +107,52 @@ class ParseTicketTest(unittest.TestCase):
     def test_json_without_path_rejected(self) -> None:
         with self.assertRaises(ValueError):
             parse_ticket('{"lang": "fr"}')
+
+
+class ParseQueueMessageTest(unittest.TestCase):
+    def test_assessment_task_ticket(self) -> None:
+        self.assertEqual(
+            parse_queue_message(
+                '{"assessment_id": "a1", "task": "create_correction_grid"}'
+            ),
+            {
+                "kind": "task",
+                "task": "create_correction_grid",
+                "assessment_id": "a1",
+            },
+        )
+
+    def test_ocr_ticket_still_works(self) -> None:
+        self.assertEqual(
+            parse_queue_message('{"path": "x/content", "engine": "doctr"}'),
+            {
+                "kind": "ocr",
+                "path": "x/content",
+                "lang": "fr",
+                "engine": "doctr",
+                "after_task": "",
+            },
+        )
+
+    def test_enqueue_assessment_task(self) -> None:
+        redis = MagicMock()
+        enqueue_assessment_task("a1", "create_correction_grid", redis=redis)
+        redis.lpush.assert_called_once()
+        key, payload = redis.lpush.call_args.args
+        self.assertEqual(key, "corrai:ocr")
+        self.assertEqual(
+            json.loads(payload),
+            {"assessment_id": "a1", "task": "create_correction_grid"},
+        )
+
+    def test_treat_assessment_task_dispatches_grid(self) -> None:
+        assessment = MagicMock()
+        with patch(
+            "pycorrai.model.assessment.Assessment.from_hash",
+            return_value=assessment,
+        ):
+            treat_assessment_task("create_correction_grid", "a1")
+        assessment.create_correction_grid.assert_called_once_with()
 
 
 class KeyDerivationTest(unittest.TestCase):
@@ -420,7 +469,7 @@ class RedisClientTest(unittest.TestCase):
         self.assertGreater(SOCKET_TIMEOUT, BRPOP_TIMEOUT)
 
     def test_make_redis_client_sets_timeouts(self) -> None:
-        with patch("pycorrai.consumer.Redis") as redis_cls:
+        with patch("pycorrai.store.object_store.Redis") as redis_cls:
             make_redis_client()
         kwargs = redis_cls.call_args.kwargs
         self.assertGreater(kwargs["socket_timeout"], BRPOP_TIMEOUT)
@@ -430,7 +479,7 @@ class RedisClientTest(unittest.TestCase):
 class S3ClientTest(unittest.TestCase):
     @patch.dict("os.environ", {"S3_ACCESS_KEY": "test_key", "S3_SECRET_KEY": "test_secret"})
     def test_make_s3_client_sets_timeouts_and_retries(self) -> None:
-        with patch("pycorrai.consumer.boto3.client") as boto_client:
+        with patch("pycorrai.store.object_store.boto3.client") as boto_client:
             make_s3_client()
         kwargs = boto_client.call_args.kwargs
         config = kwargs["config"]

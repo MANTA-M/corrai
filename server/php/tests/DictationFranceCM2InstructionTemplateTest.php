@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Corrai\Tests;
 
+use Corrai\Model\InputFile;
 use Corrai\Model\School;
+use Corrai\Model\S3File;
 use Corrai\Model\User;
 use Corrai\Queue\RedisQueue;
 use Corrai\Subject\DictationFranceCM2\Assessment;
@@ -121,13 +123,15 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
 
         try {
             $files = $assessment->listFileModels();
-            $instructionFiles = array_values(array_filter($files, fn($f) => $f->role() === 'instructions'));
+            $instructionFiles = array_values(array_filter($files, fn($f) => $this->fileRole($f) === 'instructions'));
 
             $this->assertCount(1, $instructionFiles);
             $instructionFile = $instructionFiles[0];
 
+            $this->assertInstanceOf(S3File::class, $instructionFile);
             $this->assertSame('instructions.md', $instructionFile->name);
-            $this->assertSame('instructions', $instructionFile->role());
+            $this->assertSame('instructions', $instructionFile->type);
+            $this->assertStringContainsString('/blobs/', $instructionFile->key);
 
             $store = ObjectStore::getInstance();
             $content = $store->getContents($instructionFile->contentKey());
@@ -140,7 +144,7 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
             $assessment->save();
 
             $filesAfter = $assessment->listFileModels();
-            $instructionFilesAfter = array_values(array_filter($filesAfter, fn($f) => $f->role() === 'instructions'));
+            $instructionFilesAfter = array_values(array_filter($filesAfter, fn($f) => $this->fileRole($f) === 'instructions'));
             $this->assertCount(1, $instructionFilesAfter);
             $this->assertSame($instructionFile->id, $instructionFilesAfter[0]->id);
         } finally {
@@ -160,7 +164,7 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
         $assessment->save();
 
         // Update instruction file content
-        $instructionFiles = array_values(array_filter($assessment->listFileModels(), fn($f) => $f->role() === 'instructions'));
+        $instructionFiles = array_values(array_filter($assessment->listFileModels(), fn($f) => $this->fileRole($f) === 'instructions'));
         $this->assertCount(1, $instructionFiles);
         $file = $instructionFiles[0];
 
@@ -202,12 +206,18 @@ class DictationFranceCM2InstructionTemplateTest extends TestCase
 
         try {
             $files = $assessment->listFileModels();
-            $instructionFiles = array_values(array_filter($files, fn($f) => $f->role() === 'instructions'));
+            $instructionFiles = array_values(array_filter($files, fn($f) => $this->fileRole($f) === 'instructions'));
             $this->assertCount(1, $instructionFiles);
+            $this->assertInstanceOf(S3File::class, $instructionFiles[0]);
             $this->assertSame('instructions.md', $instructionFiles[0]->name);
-            $this->assertSame('instructions', $instructionFiles[0]->role());
+            $this->assertSame('instructions', $instructionFiles[0]->type);
         } finally {
             $assessment->delete();
         }
+    }
+
+    private function fileRole(InputFile|S3File $file): string
+    {
+        return $file instanceof InputFile ? $file->role() : $file->type;
     }
 }

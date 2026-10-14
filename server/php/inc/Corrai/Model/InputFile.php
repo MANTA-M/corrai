@@ -15,8 +15,8 @@ use Corrai\Utils\Http\WSException;
  *
  * Layout under the file id: content and attributes.json are S3File objects,
  * and events/ holds one JSON S3File per event.
- * Subject pipelines subclass SubmissionFile; subject material and instructions
- * use SubjectFile and InstructionFile.
+ * Subject pipelines subclass SubmissionFile; subject material uses SubjectFile.
+ * Legacy instruction directories still hydrate as InstructionFile.
  */
 abstract class InputFile implements HasStatusInterface, HasI18nInterface
 {

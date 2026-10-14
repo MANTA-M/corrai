@@ -12,8 +12,9 @@ use Corrai\Utils\Store\ObjectStore;
  * One S3 object.
  *
  * Used as the bytes of an InputFile (content, attributes.json, event JSON)
- * and as a bare assessment file (solution, correction, debug, or a file that
- * has no role yet). A bare file has no directory, no attributes.json and no events.
+ * and as a bare assessment file (instructions, solution, correction, debug, or a
+ * file that has no role yet). A bare file has no directory, no attributes.json
+ * and no events.
  */
 class S3File
 {
@@ -48,7 +49,7 @@ class S3File
      */
     public static function storesAsBlob(string $type): bool
     {
-        return !in_array($type, ['submission', 'subject', 'instructions'], true);
+        return !in_array($type, ['submission', 'subject'], true);
     }
 
     public static function at(string $key): self

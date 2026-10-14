@@ -505,12 +505,12 @@ class StudentCorrectTest extends TestCase
         $this->assertArrayHasKey('critères', $questionProperties);
 
         $partCriterion = $questionProperties['critères']['items'] ?? [];
-        $this->assertSame(['description', 'ponderation', 'note', 'score_de_confiance', 'commentaire'], $partCriterion['required'] ?? []);
+        $this->assertSame(['description', 'max', 'note', 'score_de_confiance', 'justification'], $partCriterion['required'] ?? []);
         $this->assertSame('string', $partCriterion['properties']['description']['type'] ?? null);
-        $this->assertSame('number', $partCriterion['properties']['ponderation']['type'] ?? null);
+        $this->assertSame('number', $partCriterion['properties']['max']['type'] ?? null);
         $this->assertSame('number', $partCriterion['properties']['note']['type'] ?? null);
         $this->assertSame('number', $partCriterion['properties']['score_de_confiance']['type'] ?? null);
-        $this->assertSame('string', $partCriterion['properties']['commentaire']['type'] ?? null);
+        $this->assertSame('string', $partCriterion['properties']['justification']['type'] ?? null);
     }
 
     private function installQueue(): void

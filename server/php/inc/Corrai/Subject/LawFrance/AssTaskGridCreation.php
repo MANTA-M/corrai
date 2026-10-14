@@ -117,6 +117,7 @@ class AssTaskGridCreation extends QueueItemTask
             . "N'extrait du sujet que les informations utiles à la correction. Ignore les informations purement organisationnelles.\n"
             . "Toutes les instructions utiles présentes dans le fichier d'instructions se retrouveront de manière synthétique dans le tableau \"instructions_générales\" du JSON.\n"
             . "Le contenu du sujet sera réparti sans redites entre les instructions générales et les parties.\n"
+            . "Pour chaque question, renseigne le tableau \"critère\" : chaque entrée contient un libellé \"critère\" et un \"point\" (points maximum attribuables pour ce critère). La somme des points des critères d'une question doit correspondre au barème \"points\" de la question.\n"
             . "Dans la section \"references\", mets le texte verbatim de chaque article cité dans le sujet et recherché sur un site législatif officiel français et en vigueur, en incluant l'ensemble des alinéas (en identifiant/numérotant distinctement chaque alinéa).\n"
             . "Tout doit être en Français.\n";
     }
@@ -138,6 +139,22 @@ class AssTaskGridCreation extends QueueItemTask
                 'modificateur' => [
                     'type' => 'integer',
                     'description' => 'Points ajoutés si le nombre est positif, retirés s\'il est négatif.',
+                ],
+            ],
+        ];
+
+        $questionCriterion = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'required' => ['critère', 'point'],
+            'properties' => [
+                'critère' => [
+                    'type' => 'string',
+                    'description' => 'Libellé du critère d\'évaluation de la question.',
+                ],
+                'point' => [
+                    'type' => 'number',
+                    'description' => 'Points maximum attribuables pour ce critère.',
                 ],
             ],
         ];
@@ -187,7 +204,7 @@ class AssTaskGridCreation extends QueueItemTask
                                 'items' => [
                                     'type' => 'object',
                                     'additionalProperties' => false,
-                                    'required' => ['titre', 'points', 'contenu', 'questions_posées'],
+                                    'required' => ['titre', 'points', 'contenu', 'questions_posées', 'critère'],
                                     'properties' => [
                                         'titre' => ['type' => 'string'],
                                         'points' => [
@@ -198,6 +215,11 @@ class AssTaskGridCreation extends QueueItemTask
                                         'questions_posées' => [
                                             'type' => 'array',
                                             'items' => ['type' => 'string'],
+                                        ],
+                                        'critère' => [
+                                            'type' => 'array',
+                                            'description' => 'Critères d\'évaluation de la question, avec leur barème.',
+                                            'items' => $questionCriterion,
                                         ],
                                     ],
                                 ],

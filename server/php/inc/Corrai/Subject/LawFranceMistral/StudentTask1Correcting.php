@@ -123,9 +123,9 @@ class StudentTask1Correcting extends PathQueueItemTask
             . "Appliquez strictement la grille de correction. Reproduisez les mêmes modificateurs généraux, "
             . "les mêmes parties et les mêmes questions, dans le même ordre, avec les mêmes libellés.\n"
             . "Pour chaque modificateur général, indiquez s'il est retenu et donnez un score de confiance de 0 à 1.\n"
-            . "Pour chaque question, évaluez les critères : pour chaque critère, indiquez sa description, sa pondération "
-            . "(nombre flottant avec 2 décimales entre 0 et 1), sa note (nombre avec au maximum une décimale), "
-            . "son score de confiance (flottant de 0 à 1) et un commentaire. "
+            . "Pour chaque question, évaluez les critères de la grille : pour chaque critère, indiquez sa description "
+            . "(identique au libellé « critère » de la grille), son max (identique au champ « point » de la grille), "
+            . "sa note (entre 0 et max), son score de confiance (flottant de 0 à 1) et une justification. "
             . "Les points obtenus d'une question sont déterminés à partir de ces critères sans dépasser "
             . "le barème de la question. La note sur 20 intègre les modificateurs généraux retenus.\n"
             . "Ne prenez pas en compte les fautes d'orthographe vraisemblablement dues à des erreurs d'OCR.\n"
@@ -188,15 +188,15 @@ class StudentTask1Correcting extends PathQueueItemTask
         $criterion = [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['description', 'ponderation', 'note', 'score_de_confiance', 'commentaire'],
+            'required' => ['description', 'max', 'note', 'score_de_confiance', 'justification'],
             'properties' => [
                 'description' => [
                     'type' => 'string',
                     'description' => 'Description du critère évalué.',
                 ],
-                'ponderation' => [
+                'max' => [
                     'type' => 'number',
-                    'description' => 'Pondération du critère : nombre flottant avec 2 décimales entre 0 et 1.',
+                    'description' => 'Points maximum du critère, identiques au champ « point » de la grille.',
                 ],
                 'note' => [
                     'type' => 'number',
@@ -206,9 +206,9 @@ class StudentTask1Correcting extends PathQueueItemTask
                     'type' => 'number',
                     'description' => 'Score de confiance de 0 à 1 quant à l\'évaluation de ce critère.',
                 ],
-                'commentaire' => [
+                'justification' => [
                     'type' => 'string',
-                    'description' => 'Commentaire ou justification de la note, en ' . $languageName . '.',
+                    'description' => 'Justification de la note, en ' . $languageName . '.',
                 ],
             ],
         ];
