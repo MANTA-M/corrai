@@ -46,9 +46,7 @@ class RedisConsumer
      */
     public static function treatAssessmentTask(string $assessmentId, string $taskClass): void
     {
-        if (str_starts_with($taskClass, 'LawFrance\\')) {
-            $taskClass = 'Corrai\\Subject\\' . $taskClass;
-        }
+        $taskClass = self::resolveTaskClass($taskClass);
         if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
             throw new Exception("Unknown task class $taskClass");
         }
@@ -74,9 +72,7 @@ class RedisConsumer
      */
     public static function treatStudentTask(string $studentId, string $taskClass): void
     {
-        if (str_starts_with($taskClass, 'LawFrance\\')) {
-            $taskClass = 'Corrai\\Subject\\' . $taskClass;
-        }
+        $taskClass = self::resolveTaskClass($taskClass);
         if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
             throw new Exception("Unknown task class $taskClass");
         }
@@ -111,9 +107,7 @@ class RedisConsumer
      */
     public static function treatPathTask(string $path, string $taskClass, ?string $fileId = null): void
     {
-        if (str_starts_with($taskClass, 'LawFrance\\')) {
-            $taskClass = 'Corrai\\Subject\\' . $taskClass;
-        }
+        $taskClass = self::resolveTaskClass($taskClass);
         if (!str_starts_with($taskClass, 'Corrai\\') || !class_exists($taskClass)) {
             throw new Exception("Unknown task class $taskClass");
         }
@@ -187,5 +181,18 @@ class RedisConsumer
             $file->id ?? '',
             $status
         ));
+    }
+
+    /**
+     * Map short LawFrance* task aliases to Corrai\Subject\...
+     */
+    private static function resolveTaskClass(string $taskClass): string
+    {
+        foreach (['LawFranceMistral\\', 'LawFranceGemini\\', 'LawFrance\\'] as $aliasPrefix) {
+            if (str_starts_with($taskClass, $aliasPrefix)) {
+                return 'Corrai\\Subject\\' . $taskClass;
+            }
+        }
+        return $taskClass;
     }
 }

@@ -331,6 +331,46 @@ class LawFranceSubmissionTask3IdentifyTest extends TestCase
         $this->assertNull($file->student);
     }
 
+    public function testWebpIsConvertedToJpegBeforeGemini(): void
+    {
+        if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+            $this->markTestSkipped('GD with WebP required');
+        }
+
+        $image = imagecreatetruecolor(24, 12);
+        $path = tempnam(sys_get_temp_dir(), 'law_id_webp_');
+        $this->assertNotFalse($path);
+        imagewebp($image, $path);
+        imagedestroy($image);
+
+        $method = new \ReflectionMethod(SubmissionTask3Identify::class, 'imageForGemini');
+        $method->setAccessible(true);
+        [$imagePath, $imageName, $convertedPath] = $method->invoke(null, $path, 'IMG_3453.webp');
+
+        $this->assertSame('IMG_3453.jpg', $imageName);
+        $this->assertNotNull($convertedPath);
+        $this->assertNotSame($path, $imagePath);
+        $info = @getimagesize($imagePath);
+        $this->assertNotFalse($info);
+        $this->assertSame(IMAGETYPE_JPEG, $info[2]);
+
+        @unlink($path);
+        if ($convertedPath !== null) {
+            @unlink($convertedPath);
+        }
+    }
+
+    public function testPngIsSentToGeminiWithoutConversion(): void
+    {
+        $method = new \ReflectionMethod(SubmissionTask3Identify::class, 'imageForGemini');
+        $method->setAccessible(true);
+        [$imagePath, $imageName, $convertedPath] = $method->invoke(null, '/tmp/copie.png', 'copie.png');
+
+        $this->assertSame('/tmp/copie.png', $imagePath);
+        $this->assertSame('copie.png', $imageName);
+        $this->assertNull($convertedPath);
+    }
+
     private function identifiedSubmission(string $id): Submission
     {
         $submission = $this->getMockBuilder(Submission::class)

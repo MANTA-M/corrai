@@ -7,6 +7,7 @@ use Corrai\Model\BaseAssessment;
 use Corrai\Model\SubmissionFile;
 use Corrai\Model\Task\PathQueueItemTask;
 use Corrai\Queue\RedisQueue;
+use Corrai\Utils\Image\FirstPageImage;
 use Corrai\Utils\Store\ObjectStore;
 use Throwable;
 
@@ -93,6 +94,7 @@ class SubmissionTask3Identify extends PathQueueItemTask
         $instruction = $assessment->instructionFilesText();
         $store = ObjectStore::getInstance();
         $copyPath = null;
+        $convertedPath = null;
         try {
             $copyPath = $store->downloadToTemp($file->contentKey());
         } catch (Throwable $e) {
@@ -101,6 +103,8 @@ class SubmissionTask3Identify extends PathQueueItemTask
         }
 
         try {
+            // Gemini rejects webp/heic/tiff; convert those to JPEG. PNG/JPEG/GIF stay as-is.
+            [$imagePath, $imageName, $convertedPath] = self::imageForGemini($copyPath, $file->name);
             $client = $this->geminiClient();
             $client->set_system_content(
                 'You identify a student on an exam paper and evaluate handwriting/calligraphy quality. '
@@ -126,7 +130,7 @@ class SubmissionTask3Identify extends PathQueueItemTask
                 'additionalProperties' => false,
             ]);
             $client->add_text("Assessment instructions:\n" . $instruction);
-            $client->add_file($copyPath, $file->name);
+            $client->add_file($imagePath, $imageName);
             $client->add_text(
                 'The attached image is the exam paper. Find the student identification if it exists. If it does not exist, id is null. '
                 . 'Also evaluate the handwriting/calligraphy quality and provide a qualigraphy_score (a number from 0 to 10, or null if unreadable or not applicable).'
@@ -134,8 +138,10 @@ class SubmissionTask3Identify extends PathQueueItemTask
 
             $result = $client->call();
         } finally {
-            if ($copyPath !== null && is_file($copyPath)) {
-                @unlink($copyPath);
+            foreach ([$copyPath, $convertedPath] as $path) {
+                if ($path !== null && is_file($path)) {
+                    @unlink($path);
+                }
             }
         }
         $response = $result['response'] ?? null;
@@ -193,6 +199,24 @@ class SubmissionTask3Identify extends PathQueueItemTask
     protected function geminiClient(): GeminiFlashLiteClient
     {
         return $this->gemini ?? new GeminiFlashLiteClient();
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: ?string} path, filename for Gemini, optional converted temp to delete
+     */
+    private static function imageForGemini(string $copyPath, string $filename): array
+    {
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'], true)) {
+            return [$copyPath, $filename, null];
+        }
+
+        $jpegPath = FirstPageImage::jpegFile($copyPath, $filename);
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        if (!is_string($base) || $base === '') {
+            $base = 'page';
+        }
+        return [$jpegPath, $base . '.jpg', $jpegPath];
     }
 }
 

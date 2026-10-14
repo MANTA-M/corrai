@@ -3,10 +3,12 @@
 // Basic PSR-4 autoloader
 spl_autoload_register(function ($class) {
 
-    if (strncmp('LawFrance\\', $class, 10) === 0) {
-        $corraiClass = 'Corrai\\Subject\\' . $class;
-        class_exists($corraiClass, true);
-        return;
+    foreach (['LawFranceMistral\\', 'LawFranceGemini\\', 'LawFrance\\'] as $aliasPrefix) {
+        if (strncmp($aliasPrefix, $class, strlen($aliasPrefix)) === 0) {
+            $corraiClass = 'Corrai\\Subject\\' . $class;
+            class_exists($corraiClass, true);
+            return;
+        }
     }
 
     $prefix = 'Corrai\\';
