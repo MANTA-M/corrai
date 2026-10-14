@@ -4,6 +4,7 @@ namespace Corrai\Model;
 
 use Exception;
 use Corrai\Utils\Store\HashId;
+use Corrai\Utils\Store\MetadataCache;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 
@@ -258,6 +259,11 @@ class User
         $store = ObjectStore::getInstance();
         $store->deletePrefix(ObjectStore::teacherPrefix($this->school_id, $this->id));
         $store->deleteIdPointer($this->id);
+        try {
+            MetadataCache::getInstance()->invalidateTeacher($this->school_id, $this->id);
+        } catch (\Throwable $e) {
+            error_log('MetadataCache invalidateTeacher failed: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -271,6 +277,12 @@ class User
     {
         if ($this->id === null || $this->id === '' || $this->school_id === '') {
             return [];
+        }
+
+        try {
+            return MetadataCache::getInstance()->getOrRebuildAssessmentsForUser($this);
+        } catch (\Throwable $e) {
+            error_log('MetadataCache assessments fallback: ' . $e->getMessage());
         }
 
         $store = ObjectStore::getInstance();

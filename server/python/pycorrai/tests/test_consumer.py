@@ -18,12 +18,15 @@ from pycorrai.consumer import (
     file_id_from_path,
     file_prefix,
     format_ocr_json,
+    invalidate_metadata_cache,
     make_redis_client,
     make_s3_client,
+    metadata_cache_assessment_key,
     ocr_json_key,
     parse_ticket,
     php_task_ticket,
     publish_assessment_status,
+    school_teacher_assessment_from_path,
     treat,
 )
 
@@ -159,6 +162,24 @@ class KeyDerivationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             file_id_from_path("schools/s1/attributes.json")
 
+    def test_school_teacher_assessment_from_path(self) -> None:
+        self.assertEqual(
+            school_teacher_assessment_from_path(CONTENT_PATH),
+            ("s1", "t1", "e1"),
+        )
+
+    def test_metadata_cache_key(self) -> None:
+        self.assertEqual(
+            metadata_cache_assessment_key("s1", "t1", "e1"),
+            "corrai:meta:v1:s1:t1:a:e1",
+        )
+
+    def test_invalidate_metadata_cache(self) -> None:
+        redis = MagicMock()
+        invalidate_metadata_cache(redis, CONTENT_PATH)
+        redis.incr.assert_called_once_with("corrai:meta:v1:s1:t1:a:e1:gen")
+        redis.delete.assert_called_once_with("corrai:meta:v1:s1:t1:a:e1")
+
 
 class FormatAndEventTest(unittest.TestCase):
     def test_format_ocr_json_pretty(self) -> None:
@@ -250,6 +271,8 @@ class TreatTest(unittest.TestCase):
         self.assertEqual(updated_attrs["name"], "copy.png")
         self.assertEqual(updated_attrs["schema"], 1)
 
+        redis.incr.assert_called_once_with("corrai:meta:v1:s1:t1:a:e1:gen")
+        redis.delete.assert_called_once_with("corrai:meta:v1:s1:t1:a:e1")
         redis.lpush.assert_called_once_with(
             "corrai:files",
             php_task_ticket(

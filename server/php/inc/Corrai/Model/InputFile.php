@@ -5,6 +5,7 @@ namespace Corrai\Model;
 use Exception;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
+use Corrai\Utils\Store\MetadataCache;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Store\StoreConflictException;
 use Corrai\Utils\Http\WSException;
@@ -282,6 +283,17 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
     }
 
     /**
+     * Hydrate a file from cached attribute payload without resolving the _id pointer.
+     *
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $parsed
+     */
+    public static function fromCachedAttributes(array $data, array $parsed, ?string $etag): InputFile
+    {
+        return self::hydrate($data, $parsed, $etag);
+    }
+
+    /**
      * @param array<string, mixed> $data
      * @param array<string, mixed> $parsed
      */
@@ -480,6 +492,7 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
                     $store->deletePrefix($previous);
                     $previous = null;
                 }
+                $this->invalidateMetadataCache();
                 return;
             } catch (StoreConflictException $e) {
                 if ($i === $attempts - 1) {
@@ -489,6 +502,22 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
                 $this->etag = $loaded['etag'];
                 // Keep local field changes; only refresh etag for retry.
             }
+        }
+    }
+
+    private function invalidateMetadataCache(): void
+    {
+        if ($this->school_id === '' || $this->user_id === '' || $this->assessment_id === '') {
+            return;
+        }
+        try {
+            MetadataCache::getInstance()->invalidateAssessment(
+                $this->school_id,
+                $this->user_id,
+                $this->assessment_id
+            );
+        } catch (\Throwable $e) {
+            error_log('MetadataCache invalidate (InputFile) failed: ' . $e->getMessage());
         }
     }
 
@@ -611,6 +640,7 @@ abstract class InputFile implements HasStatusInterface, HasI18nInterface
         $store = ObjectStore::getInstance();
         $store->deletePrefix($this->prefix());
         $store->deleteIdPointer($this->id);
+        $this->invalidateMetadataCache();
     }
 
     /**

@@ -6,6 +6,7 @@ use Exception;
 use Corrai\Model\SubmissionFile;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
+use Corrai\Utils\Store\MetadataCache;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Store\StoreConflictException;
 use Corrai\Utils\Store\StudentList;
@@ -229,6 +230,7 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
                 if ($notifyMarkChange && ($this->mark !== null || self::markCreatedOrChanged($existed, $previousMark, $this->mark))) {
                     $this->notifyAssessmentOfMarkChange();
                 }
+                $this->invalidateMetadataCache();
                 return;
             } catch (StoreConflictException $e) {
                 if ($i === $attempts - 1) {
@@ -241,6 +243,22 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
                 $previousName = (string) ($existingData['name'] ?? $existingData['student'] ?? '');
                 $existed = true;
             }
+        }
+    }
+
+    private function invalidateMetadataCache(): void
+    {
+        if ($this->school_id === '' || $this->user_id === '' || $this->assessment_id === '') {
+            return;
+        }
+        try {
+            MetadataCache::getInstance()->invalidateAssessment(
+                $this->school_id,
+                $this->user_id,
+                $this->assessment_id
+            );
+        } catch (\Throwable $e) {
+            error_log('MetadataCache invalidate (Student) failed: ' . $e->getMessage());
         }
     }
 
@@ -348,6 +366,7 @@ abstract class BaseStudent implements HasStatusInterface, HasI18nInterface, HasM
         $store->deletePrefix($this->prefix());
         $store->deleteIdPointer($this->id);
         StudentList::remove($this);
+        $this->invalidateMetadataCache();
     }
 
     /**

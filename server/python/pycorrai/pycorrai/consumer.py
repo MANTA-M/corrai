@@ -134,6 +134,51 @@ def assessment_id_from_path(content_path: str) -> str:
     return parts[index + 1]
 
 
+def school_teacher_assessment_from_path(content_path: str) -> tuple[str, str, str]:
+    """Return ``(school_id, teacher_id, assessment_id)`` from a schools/... key."""
+    parts = [part for part in content_path.strip("/").split("/") if part != ""]
+    try:
+        school_idx = parts.index("schools")
+        teacher_idx = parts.index("teachers")
+        assessment_idx = parts.index("assessments")
+    except ValueError as exc:
+        raise ValueError(f"Path is not under schools/teachers/assessments: {content_path}") from exc
+    if (
+        school_idx + 1 >= len(parts)
+        or teacher_idx + 1 >= len(parts)
+        or assessment_idx + 1 >= len(parts)
+        or parts[school_idx + 1] == ""
+        or parts[teacher_idx + 1] == ""
+        or parts[assessment_idx + 1] == ""
+    ):
+        raise ValueError(f"Incomplete school/teacher/assessment path: {content_path}")
+    return parts[school_idx + 1], parts[teacher_idx + 1], parts[assessment_idx + 1]
+
+
+def metadata_cache_assessment_key(school_id: str, teacher_id: str, assessment_id: str) -> str:
+    return f"corrai:meta:v1:{school_id}:{teacher_id}:a:{assessment_id}"
+
+
+def metadata_cache_gen_key(school_id: str, teacher_id: str, assessment_id: str) -> str:
+    return metadata_cache_assessment_key(school_id, teacher_id, assessment_id) + ":gen"
+
+
+def invalidate_metadata_cache(redis: Redis, content_path: str) -> None:
+    """Drop the PHP metadata cache entry for the assessment owning ``content_path``."""
+    try:
+        school_id, teacher_id, assessment_id = school_teacher_assessment_from_path(content_path)
+    except ValueError:
+        logger.warning("Cannot invalidate metadata cache for path %s", content_path)
+        return
+    key = metadata_cache_assessment_key(school_id, teacher_id, assessment_id)
+    gen_key = metadata_cache_gen_key(school_id, teacher_id, assessment_id)
+    try:
+        redis.incr(gen_key)
+        redis.delete(key)
+    except Exception:
+        logger.exception("Failed to invalidate metadata cache key %s", key)
+
+
 def file_id_from_path(content_path: str) -> str:
     """Extract the file id, the directory that contains the ``content`` object."""
     parts = [part for part in content_path.strip("/").split("/") if part != ""]
@@ -370,6 +415,7 @@ def treat(
         attrs = store.get_json(attr_key)
         attrs["status"] = "ocr_done"
         store.put_json(attr_key, attrs)
+        invalidate_metadata_cache(redis, content_path)
         publish(content_path, "ocr_done")
 
         duration_ms = max(0, round((time.perf_counter() - start_time) * 1000))
@@ -395,6 +441,7 @@ def treat(
             attrs["status"] = "error"
             store.put_json(attr_key, attrs)
             store.put_json(event_key(content_path), event_body("OCR failed"))
+            invalidate_metadata_cache(redis, content_path)
             publish(content_path, "error")
         except Exception:
             logger.exception("Failed to record OCR failure for %s", content_path)

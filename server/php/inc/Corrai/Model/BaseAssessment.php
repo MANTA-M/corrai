@@ -8,6 +8,7 @@ use Corrai\Queue\RedisQueue;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
 use Corrai\Utils\Image\HeicToWebp;
+use Corrai\Utils\Store\MetadataCache;
 use Corrai\Utils\Store\ObjectStore;
 use Corrai\Utils\Http\WSException;
 use Corrai\Subject\Catalog;
@@ -131,6 +132,30 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
      * Statuses: draft → affecting → correcting → corrected
      */
     public string $status = 'draft';
+
+    /**
+     * Request-scoped memo of listFileModels() to avoid repeated S3 scans.
+     *
+     * @var array<int, InputFile|S3File>|null
+     */
+    private ?array $memoFileModels = null;
+
+    /**
+     * MetadataCache generation that produced $memoFileModels.
+     */
+    private ?int $memoFileModelsGen = null;
+
+    /**
+     * Request-scoped memo of listStudentModels().
+     *
+     * @var BaseStudent[]|null
+     */
+    private ?array $memoStudentModels = null;
+
+    /**
+     * MetadataCache generation that produced $memoStudentModels.
+     */
+    private ?int $memoStudentModelsGen = null;
 
     /**
      * Allowed file type tags. Empty / unknown is stored as an empty string.
@@ -478,12 +503,44 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
 
     private function hasSubmission(): bool
     {
+        // Uses memoized listFileModels when available (same request as get_menu + list_files).
         foreach ($this->listFileModels() as $file) {
             if ($file instanceof SubmissionFile) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Drop in-request list memos after a mutation.
+     */
+    public function clearListMemo(): void
+    {
+        $this->memoFileModels = null;
+        $this->memoFileModelsGen = null;
+        $this->memoStudentModels = null;
+        $this->memoStudentModelsGen = null;
+    }
+
+    /**
+     * Invalidate Redis metadata cache for this assessment (and optionally the teacher index).
+     */
+    protected function invalidateMetadataCache(bool $includingIndex = false): void
+    {
+        $this->clearListMemo();
+        if ($this->id === null || $this->id === '' || $this->school_id === '' || $this->user_id === '') {
+            return;
+        }
+        try {
+            $cache = MetadataCache::getInstance();
+            $cache->invalidateAssessment($this->school_id, $this->user_id, $this->id);
+            if ($includingIndex) {
+                $cache->invalidateAssessmentsIndex($this->school_id, $this->user_id);
+            }
+        } catch (\Throwable $e) {
+            error_log('MetadataCache invalidate (Assessment) failed: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -675,6 +732,8 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
         if ($isNew) {
             $this->createInstructionFileFromTemplate();
         }
+
+        $this->invalidateMetadataCache(true);
     }
 
     /**
@@ -717,6 +776,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
 
         $store->deletePrefix(ObjectStore::assessmentPrefix($this->school_id, $this->user_id, $this->id));
         $store->deleteIdPointer($this->id);
+        $this->invalidateMetadataCache(true);
     }
 
     /**
@@ -736,6 +796,42 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             return [];
         }
 
+        try {
+            $cache = MetadataCache::getInstance();
+            $gen = $cache->currentGen($this->school_id, $this->user_id, (string) $this->id);
+            if ($this->memoFileModels !== null && $this->memoFileModelsGen === $gen) {
+                return $this->memoFileModels;
+            }
+
+            $tree = $cache->getOrRebuildAssessment($this);
+            $this->memoFileModels = $cache->hydrateFileModels(
+                $tree,
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id
+            );
+            $this->memoFileModelsGen = $cache->currentGen(
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id
+            );
+            return $this->memoFileModels;
+        } catch (\Throwable $e) {
+            error_log('MetadataCache listFileModels fallback: ' . $e->getMessage());
+        }
+
+        $this->memoFileModels = $this->listFileModelsFromStore();
+        $this->memoFileModelsGen = null;
+        return $this->memoFileModels;
+    }
+
+    /**
+     * Direct S3 listing used when Redis cache is unavailable.
+     *
+     * @return array<int, InputFile|S3File>
+     */
+    private function listFileModelsFromStore(): array
+    {
         $files = [];
         $seen = [];
         foreach ($this->storedFileIds() as $fileId) {
@@ -797,6 +893,20 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             || $this->user_id === ''
         ) {
             return [];
+        }
+
+        try {
+            $cache = MetadataCache::getInstance();
+            $tree = $cache->getOrRebuildAssessment($this);
+            return $cache->hydrateStudentFileModels(
+                $tree,
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id,
+                $studentId
+            );
+        } catch (\Throwable $e) {
+            error_log('MetadataCache listStudentFileModels fallback: ' . $e->getMessage());
         }
 
         $store = ObjectStore::getInstance();
@@ -893,9 +1003,34 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             return [];
         }
 
+        $studentClass = $this->studentClass();
+        try {
+            $cache = MetadataCache::getInstance();
+            $gen = $cache->currentGen($this->school_id, $this->user_id, (string) $this->id);
+            if ($this->memoStudentModels !== null && $this->memoStudentModelsGen === $gen) {
+                return $this->memoStudentModels;
+            }
+
+            $tree = $cache->getOrRebuildAssessment($this);
+            $this->memoStudentModels = $cache->hydrateStudentModels(
+                $tree,
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id,
+                $studentClass
+            );
+            $this->memoStudentModelsGen = $cache->currentGen(
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id
+            );
+            return $this->memoStudentModels;
+        } catch (\Throwable $e) {
+            error_log('MetadataCache listStudentModels fallback: ' . $e->getMessage());
+        }
+
         $store = ObjectStore::getInstance();
         $students = [];
-        $studentClass = $this->studentClass();
         $prefix = ObjectStore::assessmentStudentsPrefix($this->school_id, $this->user_id, $this->id);
         foreach ($store->listChildPrefixes($prefix) as $studentId) {
             $attrKey = ObjectStore::assessmentStudentAttrKey($this->school_id, $this->user_id, $this->id, $studentId);
@@ -908,7 +1043,9 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
                 continue;
             }
         }
-        return $students;
+        $this->memoStudentModels = $students;
+        $this->memoStudentModelsGen = null;
+        return $this->memoStudentModels;
     }
 
     /**
@@ -960,6 +1097,23 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
         }
 
         $locale = MenuLabels::locale($locale);
+        try {
+            $cache = MetadataCache::getInstance();
+            $tree = $cache->getOrRebuildAssessment($this);
+            $out = [];
+            foreach ($cache->hydrateSubjectFileModels(
+                $tree,
+                $this->school_id,
+                $this->user_id,
+                (string) $this->id
+            ) as $file) {
+                $out[] = $file->to_output(null, $locale);
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            error_log('MetadataCache list_subject_files fallback: ' . $e->getMessage());
+        }
+
         $allowed = ['subject', 'solution', 'instructions'];
         $out = [];
         $seen = [];
@@ -2122,6 +2276,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             );
         }
         $store->setIdPointer($blob->id, $blob->key, false);
+        $this->invalidateMetadataCache();
         return $blob;
     }
 
@@ -2186,6 +2341,7 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
         $store->putContents($blob->key, $bytes, $blob->content_type, null, $blob->userMetadata());
         $store->setIdPointer((string) $blob->id, $blob->key, false);
         $store->deletePrefix($file->prefix());
+        $this->invalidateMetadataCache();
         return $blob;
     }
 }

@@ -5,6 +5,7 @@ namespace Corrai\Model;
 use Exception;
 use Corrai\Utils\Store\HashId;
 use Corrai\Utils\MenuLabels;
+use Corrai\Utils\Store\MetadataCache;
 use Corrai\Utils\Store\ObjectStore;
 
 /**
@@ -76,6 +77,7 @@ class S3File
             null,
             $metadata
         );
+        $this->invalidateMetadataCache();
         return $this->etag;
     }
 
@@ -180,6 +182,23 @@ class S3File
         }
         ObjectStore::getInstance()->replaceMetadata($this->key, $this->userMetadata(), $this->content_type);
         ObjectStore::getInstance()->setIdPointer($this->id, $this->key, false);
+        $this->invalidateMetadataCache();
+    }
+
+    private function invalidateMetadataCache(): void
+    {
+        if ($this->school_id === '' || $this->user_id === '' || $this->assessment_id === '') {
+            return;
+        }
+        try {
+            MetadataCache::getInstance()->invalidateAssessment(
+                $this->school_id,
+                $this->user_id,
+                $this->assessment_id
+            );
+        } catch (\Throwable $e) {
+            error_log('MetadataCache invalidate (S3File) failed: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -218,6 +237,7 @@ class S3File
             $store->delete($this->key);
         }
         $store->deleteIdPointer($this->id);
+        $this->invalidateMetadataCache();
     }
 
     public function localizedLabel(string $locale): string
@@ -295,6 +315,53 @@ class S3File
             'direct' => $this->isDirectStudentFile(),
             'menu' => $this->get_menu($locale),
         ];
+    }
+
+    /**
+     * Compact metadata for Redis metadata cache.
+     *
+     * @return array<string, mixed>
+     */
+    public function toCacheArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'key' => $this->key,
+            'type' => $this->type,
+            'student' => $this->student,
+            'status' => $this->status,
+            'content_type' => $this->content_type,
+            'size' => $this->size,
+            'created' => $this->created,
+            'school_id' => $this->school_id,
+            'user_id' => $this->user_id,
+            'assessment_id' => $this->assessment_id,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public static function fromCachedArray(array $data): self
+    {
+        $file = new self();
+        $file->id = isset($data['id']) && is_string($data['id']) && $data['id'] !== ''
+            ? $data['id']
+            : null;
+        $file->name = (string) ($data['name'] ?? '');
+        $file->key = (string) ($data['key'] ?? '');
+        $file->type = (string) ($data['type'] ?? '');
+        $student = $data['student'] ?? null;
+        $file->student = is_string($student) && $student !== '' ? $student : null;
+        $file->status = (string) ($data['status'] ?? '');
+        $file->content_type = (string) ($data['content_type'] ?? 'application/octet-stream');
+        $file->size = (int) ($data['size'] ?? 0);
+        $file->created = (int) ($data['created'] ?? 0);
+        $file->school_id = (string) ($data['school_id'] ?? '');
+        $file->user_id = (string) ($data['user_id'] ?? '');
+        $file->assessment_id = (string) ($data['assessment_id'] ?? '');
+        return $file;
     }
 
     /**
