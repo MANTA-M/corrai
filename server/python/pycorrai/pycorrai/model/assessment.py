@@ -25,7 +25,6 @@ from pycorrai.model.student import Student
 
 OcrRunner = Callable[..., None]
 ClientFactory = Callable[[], Any]
-ModelClientFactory = Callable[[str], Any]
 PublishAssessment = Callable[..., None]
 PublishStudent = Callable[..., None]
 
@@ -1074,16 +1073,16 @@ class Assessment:
     def correct_students(
         self,
         students: Sequence[Student],
-        model_id: str,
+        client_llm: Any,
         *,
-        client_factory: ModelClientFactory | None = None,
         publish: PublishStudent | None = None,
     ) -> dict[str, float | None]:
-        """Correct several students asynchronously with an OpenRouter model.
+        """Correct several students asynchronously with an LLM client.
 
-        Resolves the client class for ``model_id``, requires an existing
-        correction grid (and compiled subject), then corrects each student in
-        parallel. Waits until every student finishes or fails.
+        ``client_llm`` must be an LLM client instance (or a zero-arg factory
+        returning one). A fresh client is created for each student. Requires an
+        existing correction grid (and compiled subject), then corrects each
+        student in parallel. Waits until every student finishes or fails.
 
         Returns a mapping ``student_id -> mark`` (``None`` when correction failed).
         """
@@ -1091,20 +1090,7 @@ class Assessment:
             raise RuntimeError(
                 "Cannot correct students without id, school_id and user_id"
             )
-        if not isinstance(model_id, str) or model_id.strip() == "":
-            raise RuntimeError("OpenRouter model id is required")
-
-        factory = client_factory
-        if factory is None:
-            from pycorrai.clients.openrouter import LlmClientFactory
-
-            factory = LlmClientFactory.create
-        try:
-            factory(model_id)
-        except Exception as exc:
-            raise RuntimeError(
-                f"No OpenRouter client class for model {model_id!r}"
-            ) from exc
+        make_client = self._llm_client_factory(client_llm)
 
         store = ObjectStore.get_instance()
         grid_key = ObjectStore.assessment_subject_correction_grid_key(
@@ -1130,8 +1116,7 @@ class Assessment:
         return asyncio.run(
             self._correct_students_async(
                 list(students),
-                model_id,
-                factory,
+                make_client,
                 publish_fn,
                 instructions,
                 correction_grid,
@@ -1140,11 +1125,54 @@ class Assessment:
             )
         )
 
+    @staticmethod
+    def _llm_client_factory(client_llm: Any) -> ClientFactory:
+        """Return a zero-arg factory that yields a fresh LLM client each call."""
+        if callable(client_llm) and not hasattr(client_llm, "call_text_with_cost"):
+            def make_from_factory() -> Any:
+                client = client_llm()
+                if not hasattr(client, "call_text_with_cost"):
+                    raise RuntimeError(
+                        "client_llm factory must return an LLM client "
+                        "with call_text_with_cost"
+                    )
+                return client
+
+            try:
+                make_from_factory()
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                raise RuntimeError("Invalid client_llm factory") from exc
+            return make_from_factory
+
+        if not hasattr(client_llm, "call_text_with_cost"):
+            raise RuntimeError(
+                "client_llm must be an LLM client with call_text_with_cost"
+            )
+
+        client_cls = type(client_llm)
+        model: str | None = None
+        payload = getattr(client_llm, "payload", None)
+        if isinstance(payload, dict):
+            raw_model = payload.get("model")
+            if isinstance(raw_model, str) and raw_model.strip() != "":
+                model = raw_model
+
+        def make_from_instance() -> Any:
+            if model is not None:
+                try:
+                    return client_cls(model)
+                except TypeError:
+                    pass
+            return client_cls()
+
+        return make_from_instance
+
     async def _correct_students_async(
         self,
         students: list[Student],
-        model_id: str,
-        client_factory: ModelClientFactory,
+        make_client: ClientFactory,
         publish: PublishStudent,
         instructions: str,
         correction_grid: str,
@@ -1154,8 +1182,7 @@ class Assessment:
         tasks = [
             self._correct_one_student(
                 student,
-                model_id,
-                client_factory,
+                make_client,
                 publish,
                 instructions,
                 correction_grid,
@@ -1170,8 +1197,7 @@ class Assessment:
     async def _correct_one_student(
         self,
         student: Student,
-        model_id: str,
-        client_factory: ModelClientFactory,
+        make_client: ClientFactory,
         publish: PublishStudent,
         instructions: str,
         correction_grid: str,
@@ -1185,8 +1211,7 @@ class Assessment:
         return await asyncio.to_thread(
             self._correct_one_student_sync,
             student,
-            model_id,
-            client_factory,
+            make_client,
             publish,
             instructions,
             correction_grid,
@@ -1197,8 +1222,7 @@ class Assessment:
     def _correct_one_student_sync(
         self,
         student: Student,
-        model_id: str,
-        client_factory: ModelClientFactory,
+        make_client: ClientFactory,
         publish: PublishStudent,
         instructions: str,
         correction_grid: str,
@@ -1226,7 +1250,7 @@ class Assessment:
                 raise RuntimeError("Compiled submission pages are missing")
             page_texts = [str(page) if page is not None else "" for page in pages]
 
-            client = client_factory(model_id)
+            client = make_client()
             client.set_system_content(
                 law_correction_system_prompt(
                     instructions, correction_grid, language_name

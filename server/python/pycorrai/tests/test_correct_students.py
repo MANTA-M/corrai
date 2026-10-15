@@ -52,17 +52,14 @@ class CorrectStudentsTest(unittest.TestCase):
         self.student.assessment_id = "a"
         self.student.name = "Alice"
 
-    def test_rejects_unknown_model(self) -> None:
+    def test_rejects_invalid_client(self) -> None:
         with self.assertRaises(RuntimeError) as ctx:
             self.assessment.correct_students(
                 [self.student],
-                "unknown/model",
-                client_factory=lambda _m: (_ for _ in ()).throw(
-                    Exception("Model not supported: unknown/model")
-                ),
+                object(),
                 publish=self.publish,
             )
-        self.assertIn("No OpenRouter client class", str(ctx.exception))
+        self.assertIn("client_llm must be an LLM client", str(ctx.exception))
 
     def test_rejects_missing_correction_grid(self) -> None:
         store = MagicMock()
@@ -73,8 +70,7 @@ class CorrectStudentsTest(unittest.TestCase):
             with self.assertRaises(RuntimeError) as ctx:
                 self.assessment.correct_students(
                     [self.student],
-                    "anthropic/claude-sonnet",
-                    client_factory=lambda _m: self.client,
+                    lambda: self.client,
                     publish=self.publish,
                 )
         self.assertIn("Correction grid is missing", str(ctx.exception))
@@ -111,8 +107,7 @@ class CorrectStudentsTest(unittest.TestCase):
         ):
             result = self.assessment.correct_students(
                 [self.student],
-                "openai/gpt-4o-mini",
-                client_factory=lambda _m: self.client,
+                lambda: self.client,
                 publish=self.publish,
             )
 
@@ -179,8 +174,7 @@ class CorrectStudentsTest(unittest.TestCase):
         ):
             result = self.assessment.correct_students(
                 [self.student],
-                "openai/gpt-4o-mini",
-                client_factory=lambda _m: failing,
+                lambda: failing,
                 publish=self.publish,
             )
 

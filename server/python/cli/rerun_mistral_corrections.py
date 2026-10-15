@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Correct students 482–492 with mistralai/mistral-large and save correction_mistral.json.
+"""Correct students 482–492 with direct Mistral and save correction_mistral.json.
 
 Usage (from repo root or this directory):
   ../.venv/bin/python rerun_mistral_corrections.py
@@ -18,6 +18,7 @@ _PYCORRAI_ROOT = Path(__file__).resolve().parents[1] / "pycorrai"
 if str(_PYCORRAI_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYCORRAI_ROOT))
 
+from pycorrai.clients.mistral import MistralClient  # noqa: E402
 from pycorrai.config import ensure_env_loaded  # noqa: E402
 from pycorrai.model.assessment import Assessment  # noqa: E402
 from pycorrai.model.student import Student  # noqa: E402
@@ -35,7 +36,7 @@ STUDENTS: dict[str, str] = {
 ASSESSMENT_ID = "IdC3gkB"
 SCHOOL_ID = "IND"
 TEACHER_ID = "pQHeAXW"
-MODEL_ID = "mistralai/mistral-large"
+MODEL_ID = "mistral-large-latest"
 MAX_ATTEMPTS = 4
 RETRY_SLEEP_S = 45
 BETWEEN_STUDENTS_S = 8
@@ -82,7 +83,8 @@ def main() -> int:
                 f"{_ts()} correcting with {MODEL_ID} "
                 f"(attempt {attempt}/{MAX_ATTEMPTS})"
             )
-            result = assessment.correct_students([student], MODEL_ID)
+            client_llm = MistralClient(MODEL_ID)
+            result = assessment.correct_students([student], client_llm)
             mark = result.get(student_id)
             if mark is not None:
                 break

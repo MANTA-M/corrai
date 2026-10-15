@@ -17,6 +17,7 @@ _PYCORRAI_ROOT = Path(__file__).resolve().parents[1] / "pycorrai"
 if str(_PYCORRAI_ROOT) not in sys.path:
     sys.path.insert(0, str(_PYCORRAI_ROOT))
 
+from pycorrai.clients.openrouter import LlmClientFactory  # noqa: E402
 from pycorrai.config import ensure_env_loaded  # noqa: E402
 from pycorrai.model.assessment import Assessment  # noqa: E402
 from pycorrai.model.student import Student  # noqa: E402
@@ -72,7 +73,8 @@ def main() -> int:
         students.append(Student.from_hash(student_id))
 
     print(f"{_ts()} correcting {len(students)} students with {MODEL_ID}")
-    marks_by_id = assessment.correct_students(students, MODEL_ID)
+    client_llm = LlmClientFactory.create(MODEL_ID)
+    marks_by_id = assessment.correct_students(students, client_llm)
 
     marks_by_label: dict[str, float | None] = {}
     ok = 0

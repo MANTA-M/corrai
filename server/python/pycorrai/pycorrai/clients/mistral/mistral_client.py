@@ -105,6 +105,15 @@ class MistralClient(LlmClient):
         }
 
     def call_text(self) -> str:
+        text, _cost = self.call_text_with_cost()
+        return text
+
+    def call_text_with_cost(self) -> tuple[str, float]:
+        """Call Mistral and return assistant text plus usage cost in USD.
+
+        Direct Mistral responses expose token usage but not a USD cost field;
+        cost is therefore reported as ``0.0`` unless ``usage.cost`` is present.
+        """
         response = self._query_model()
         if response is None:
             raise Exception("Empty response from model")
@@ -114,7 +123,22 @@ class MistralClient(LlmClient):
         text = self._extract_message_text(message.get("content", ""))
         if text.strip() == "":
             raise Exception("Empty text response from model")
-        return text
+        return text, self._usage_cost(response)
+
+    @staticmethod
+    def _usage_cost(response: dict[str, Any]) -> float:
+        usage = response.get("usage")
+        if not isinstance(usage, dict):
+            return 0.0
+        raw_cost = usage.get("cost")
+        if isinstance(raw_cost, (int, float)) and not isinstance(raw_cost, bool):
+            return float(raw_cost)
+        if isinstance(raw_cost, str) and raw_cost.strip() != "":
+            try:
+                return float(raw_cost)
+            except ValueError:
+                return 0.0
+        return 0.0
 
     def call_annotation(self) -> dict[str, Any]:
         response = self._query_model()
