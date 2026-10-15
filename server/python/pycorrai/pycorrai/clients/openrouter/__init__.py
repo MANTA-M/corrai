@@ -8,6 +8,14 @@ from .gemini_flash_client import GeminiFlashClient
 from .gemini_flash_lite_client import GeminiFlashLiteClient
 from .gpt4o_mini_client import Gpt4oMiniClient
 from .gpt61_sol_client import Gpt61SolClient
+from .jev_client import (
+    ChoiceAnswer,
+    DecisionsResponse,
+    DecisionsUsage,
+    JevClient,
+    NoulAnswer,
+    ScoreAnswer,
+)
 from .mistral_large_client import MistralLargeClient
 from .openrouter_client import OpenrouterClient
 from .qwen25_vl72b_instruct_client import Qwen25Vl72bInstructClient
@@ -27,4 +35,10 @@ __all__ = [
     "Qwen25Vl72bInstructClient",
     "DeepSeekV32Client",
     "MistralLargeClient",
+    "JevClient",
+    "NoulAnswer",
+    "ChoiceAnswer",
+    "ScoreAnswer",
+    "DecisionsResponse",
+    "DecisionsUsage",
 ]

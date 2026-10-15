@@ -201,6 +201,8 @@ const de: I18nSchema = {
     correctionGridError: 'Korrekturraster konnte nicht erstellt werden',
     correctionGridMissing: 'Das Korrekturraster ist noch nicht verfügbar.',
     correctionGridUpdatedAt: 'Zuletzt aktualisiert: {date}',
+    googleVisionOcrSuccess: 'Google Vision OCR gestartet',
+    googleVisionOcrError: 'Google Vision OCR konnte nicht gestartet werden',
     studentCorrectionMissing: 'Die Korrektur ist noch nicht verfügbar.',
     compiledSubmission: 'Kompilierte Abgabe',
     compiledSubmissionMissing: 'Die kompilierte Abgabe ist noch nicht verfügbar.',

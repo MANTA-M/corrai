@@ -149,6 +149,14 @@ def treat_assessment_task(task: str, assessment_id: str) -> None:
         assessment = Assessment.from_hash(assessment_id)
         assessment.create_correction_grid()
         return
+    if task == "create_strict_correction_grid":
+        assessment = Assessment.from_hash(assessment_id)
+        assessment.create_strict_correction_grid()
+        return
+    if task == "google_vision_ocr_unclassified":
+        assessment = Assessment.from_hash(assessment_id)
+        assessment.google_vision_ocr_unclassified()
+        return
     raise ValueError(f"Unknown Python assessment task: {task}")
 
 

@@ -14,9 +14,30 @@ from pycorrai.model.assessment import (
     STATUS_STUDENT_ERROR,
     STATUS_UNDER_CORRECTION,
     Assessment,
+    apply_retained_criterion_points,
+    strip_points_from_correction_grid,
 )
 from pycorrai.model.student import Student
 from pycorrai.store.object_store import ObjectStore
+
+
+SAMPLE_GRID = {
+    "parties": [
+        {
+            "titre": "Partie A",
+            "questions": [
+                {
+                    "titre": "Question 1",
+                    "points": 3,
+                    "critères": [
+                        {"id": "A1-01", "description": "Critère 1", "point": 1},
+                        {"id": "A1-02", "description": "Critère 2", "point": 2},
+                    ],
+                }
+            ],
+        }
+    ]
+}
 
 
 class CorrectStudentsTest(unittest.TestCase):
@@ -26,7 +47,7 @@ class CorrectStudentsTest(unittest.TestCase):
         self.assessment.school_id = "s"
         self.assessment.user_id = "t"
         self.assessment.correction_language = "fr"
-        self.grid_key = ObjectStore.assessment_subject_correction_grid_key(
+        self.grid_key = ObjectStore.assessment_subject_strict_correction_grid_key(
             "s", "t", "a"
         )
         self.subject_key = ObjectStore.assessment_subject_compile_key("s", "t", "a")
@@ -35,11 +56,32 @@ class CorrectStudentsTest(unittest.TestCase):
         self.client.call_text_with_cost.return_value = (
             json.dumps(
                 {
-                    "modificateurs_généraux": [],
-                    "parties": [],
-                    "mark": 14.5,
-                    "appreciation": "Bonne copie",
-                    "remarks": [],
+                    "parties": [
+                        {
+                            "titre": "Partie A",
+                            "questions": [
+                                {
+                                    "titre": "Question 1",
+                                    "critères": [
+                                        {
+                                            "id": "A1-01",
+                                            "retenu": True,
+                                            "confiance": 0.9,
+                                            "page_debut": 1,
+                                            "index_debut": 0,
+                                            "page_fin": 1,
+                                            "index_fin": 12,
+                                        },
+                                        {
+                                            "id": "A1-02",
+                                            "retenu": False,
+                                            "confiance": 0.8,
+                                        },
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
                 }
             ),
             0.0042,
@@ -73,7 +115,40 @@ class CorrectStudentsTest(unittest.TestCase):
                     lambda: self.client,
                     publish=self.publish,
                 )
-        self.assertIn("Correction grid is missing", str(ctx.exception))
+        self.assertIn("Strict correction grid is missing", str(ctx.exception))
+
+    def test_strip_points_from_correction_grid(self) -> None:
+        cleaned = strip_points_from_correction_grid(SAMPLE_GRID)
+        criterion = cleaned["parties"][0]["questions"][0]["critères"][0]
+        self.assertEqual(criterion["id"], "A1-01")
+        self.assertNotIn("point", criterion)
+        self.assertEqual(
+            SAMPLE_GRID["parties"][0]["questions"][0]["critères"][0]["point"], 1
+        )
+
+    def test_apply_retained_criterion_points(self) -> None:
+        correction = {
+            "parties": [
+                {
+                    "titre": "Partie A",
+                    "questions": [
+                        {
+                            "titre": "Question 1",
+                            "critères": [
+                                {"id": "A1-01", "retenu": True, "confiance": 1.0},
+                                {"id": "A1-02", "retenu": True, "confiance": 0.5},
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+        mark = apply_retained_criterion_points(correction, SAMPLE_GRID)
+        self.assertEqual(mark, 3.0)
+        self.assertEqual(correction["mark"], 3.0)
+        self.assertEqual(
+            correction["parties"][0]["questions"][0]["points_obtenus"], 3.0
+        )
 
     def test_corrects_students_and_returns_marks(self) -> None:
         store = MagicMock()
@@ -82,7 +157,7 @@ class CorrectStudentsTest(unittest.TestCase):
             self.subject_key,
         }
         store.get_contents.side_effect = lambda key: {
-            self.grid_key: '{"parties":[]}',
+            self.grid_key: json.dumps(SAMPLE_GRID),
             self.subject_key: json.dumps({"pages": ["sujet page"]}),
         }[key]
         submission = MagicMock()
@@ -111,10 +186,9 @@ class CorrectStudentsTest(unittest.TestCase):
                 publish=self.publish,
             )
 
-        self.assertEqual(result, {"stu": 14.5})
+        self.assertEqual(result, {"stu": 1.0})
         self.assertEqual(self.student.status, STATUS_GRADED)
-        self.assertEqual(self.student.mark, 14.5)
-        self.assertEqual(self.student.appreciation, "Bonne copie")
+        self.assertEqual(self.student.mark, 1.0)
         self.assertEqual(save.call_count, 2)
         append_event.assert_called_once()
         self.assertIn("Correction (", append_event.call_args.args[0])
@@ -125,6 +199,15 @@ class CorrectStudentsTest(unittest.TestCase):
         self.assertTrue(
             store.put_contents.call_args.args[0].endswith("correction.json")
         )
+        saved = json.loads(store.put_contents.call_args.args[1])
+        self.assertEqual(saved["mark"], 1.0)
+        self.assertEqual(
+            saved["parties"][0]["questions"][0]["points_obtenus"], 1.0
+        )
+
+        system_prompt = self.client.set_system_content.call_args.args[0]
+        self.assertIn("A1-01", system_prompt)
+        self.assertNotIn('"point"', system_prompt)
 
         first = self.publish.call_args_list[0]
         self.assertEqual(first.args[0], "a")
@@ -137,7 +220,7 @@ class CorrectStudentsTest(unittest.TestCase):
         self.assertEqual(last.kwargs["status"], STATUS_GRADED)
         self.assertEqual(last.kwargs["status_label"], LABEL_CORRECTED)
         self.assertFalse(last.kwargs["loading"])
-        self.assertEqual(last.kwargs["mark"], 14.5)
+        self.assertEqual(last.kwargs["mark"], 1.0)
 
         texts = [call.args[0] for call in self.client.add_text.call_args_list]
         self.assertEqual(len(texts), 2)
@@ -151,7 +234,7 @@ class CorrectStudentsTest(unittest.TestCase):
             self.subject_key,
         }
         store.get_contents.side_effect = lambda key: {
-            self.grid_key: "{}",
+            self.grid_key: json.dumps(SAMPLE_GRID),
             self.subject_key: json.dumps({"pages": ["sujet"]}),
         }[key]
         failing = MagicMock()

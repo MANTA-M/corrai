@@ -10,7 +10,7 @@ import ssl
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 from urllib.parse import quote
 
@@ -46,6 +46,11 @@ STATUS_GRID_CREATED = "correction_grid_generated"
 LABEL_GRID_CREATION = "Grid creation"
 LABEL_GRID_CREATED = "Grid created"
 
+STATUS_STRICT_GRID_CREATION = "create_strict_correction_grid"
+STATUS_STRICT_GRID_CREATED = "strict_correction_grid_generated"
+LABEL_STRICT_GRID_CREATION = "Strict grid creation"
+LABEL_STRICT_GRID_CREATED = "Strict grid created"
+
 STATUS_UNDER_CORRECTION = "under_correction"
 STATUS_GRADED = "graded"
 STATUS_STUDENT_ERROR = "error"
@@ -73,6 +78,109 @@ CORRECTION_GRID_SYSTEM_PROMPT = (
     "(en identifiant/numérotant distinctement chaque alinéa).\n"
     "Tout doit être en Français.\n"
 )
+
+
+STRICT_CORRECTION_GRID_SYSTEM_PROMPT = (
+    "Tu es un correcteur dans une école d'avocat en France. "
+    "Extrait du sujet et des instructions une grille de lecture simplifiée "
+    "composée uniquement de critères binaires.\n"
+    "N'extrait du sujet que les informations utiles à la correction. "
+    "Ignore les informations purement organisationnelles.\n"
+    "Chaque critère est une question fermée (oui/non) : si la réponse est "
+    "oui, le correcteur attribue exactement le nombre de points indiqué ; "
+    "sinon 0. Aucun critère partiel, gradué ou subjectif.\n"
+    "La description de chaque critère doit être autosuffisante : elle "
+    "contient tout ce qui permet d'y répondre sans autre documentation "
+    "(énoncé, article, seuil, formule attendue, etc.).\n"
+    "Génère pour chaque critère un identifiant court et unique dans toute "
+    "la grille (ex. A1-01, B2-03).\n"
+    "Pour chaque question, renseigne le barème \"points\". La somme des "
+    "\"point\" des critères d'une question doit égaler exactement ce "
+    "barème (tous les points de la question sont ainsi couverts).\n"
+    "Chaque critère vaut au minimum 1/10 de point (0,1).\n"
+    "Organise la grille en parties, chacune contenant des questions, "
+    "chacune contenant des critères.\n"
+    "Tout doit être en Français.\n"
+)
+
+
+def strict_correction_grid_schema() -> dict[str, Any]:
+    """JSON schema for a binary, self-contained reading grid."""
+    criterion = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["id", "description", "point"],
+        "properties": {
+            "id": {
+                "type": "string",
+                "description": (
+                    "Identifiant court et unique du critère dans la grille."
+                ),
+            },
+            "description": {
+                "type": "string",
+                "description": (
+                    "Question fermée (oui/non), autosuffisante pour "
+                    "répondre sans autre documentation."
+                ),
+            },
+            "point": {
+                "type": "number",
+                "minimum": 0.1,
+                "description": (
+                    "Points attribués si la réponse au critère est oui "
+                    "(sinon 0). Minimum 1/10 (0,1)."
+                ),
+            },
+        },
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["parties"],
+        "properties": {
+            "parties": {
+                "type": "array",
+                "description": "Parties du sujet.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["titre", "questions"],
+                    "properties": {
+                        "titre": {"type": "string"},
+                        "questions": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["titre", "points", "critères"],
+                                "properties": {
+                                    "titre": {"type": "string"},
+                                    "points": {
+                                        "type": "number",
+                                        "description": (
+                                            "Barème de la question ; égal "
+                                            "à la somme des points des "
+                                            "critères."
+                                        ),
+                                    },
+                                    "critères": {
+                                        "type": "array",
+                                        "description": (
+                                            "Critères binaires de la "
+                                            "question ; leur somme de "
+                                            "points couvre tout le barème."
+                                        ),
+                                        "items": criterion,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
 
 
 def correction_grid_schema() -> dict[str, Any]:
@@ -303,89 +411,73 @@ def publish_student_loading(
 
 
 def law_correction_schema(language_name: str) -> dict[str, Any]:
-    """JSON schema for LawFrance student correction replies."""
-    modifier = {
+    """JSON schema for binary reading-grid student correction replies."""
+    del language_name  # kept for call-site compatibility
+    criterion = {
         "type": "object",
         "additionalProperties": False,
+        # OpenAI/Azure strict JSON schema requires every property key in
+        # ``required``; optional location fields are therefore nullable.
         "required": [
-            "critère",
-            "modificateur",
+            "id",
             "retenu",
-            "score_de_confiance",
-            "commentaire",
+            "confiance",
+            "page_debut",
+            "index_debut",
+            "page_fin",
+            "index_fin",
         ],
         "properties": {
-            "critère": {
+            "id": {
                 "type": "string",
                 "description": (
-                    "Libellé identique au modificateur général de la grille."
-                ),
-            },
-            "modificateur": {
-                "type": "integer",
-                "description": (
-                    "Points prévus par la grille : ajoutés si le nombre est "
-                    "positif, retirés s'il est négatif."
+                    "Identifiant du critère, identique à celui de la "
+                    "grille de lecture."
                 ),
             },
             "retenu": {
                 "type": "boolean",
-                "description": "Vrai si ce critère s'applique à la copie.",
+                "description": "Vrai si le critère est rempli sur la copie.",
             },
-            "score_de_confiance": {
+            "confiance": {
                 "type": "number",
+                "minimum": 0,
+                "maximum": 1,
                 "description": (
-                    "Score de confiance de 0 à 1 quant à l'évaluation "
-                    "de ce critère."
+                    "Coefficient de confiance entre 0 et 1 quant à "
+                    "l'évaluation de ce critère."
                 ),
             },
-            "commentaire": {
-                "type": "string",
-                "description": f"Justification courte, en {language_name}.",
-            },
-        },
-    }
-    criterion = {
-        "type": "object",
-        "additionalProperties": False,
-        "required": [
-            "description",
-            "max",
-            "note",
-            "score_de_confiance",
-            "justification",
-        ],
-        "properties": {
-            "description": {
-                "type": "string",
-                "description": "Description du critère évalué.",
-            },
-            "max": {
-                "type": "number",
+            "page_debut": {
+                "type": ["integer", "null"],
+                "minimum": 1,
                 "description": (
-                    "Points maximum du critère, identiques au champ "
-                    "« point » de la grille."
+                    "Page de début du passage justifiant un critère retenu ; "
+                    "null si le critère n'est pas retenu."
                 ),
             },
-            "note": {
-                "type": "number",
+            "index_debut": {
+                "type": ["integer", "null"],
+                "minimum": 0,
                 "description": (
-                    "Note attribuée à ce critère : nombre avec au "
-                    "maximum une décimale."
+                    "Index de début (dans la page) du passage justifiant "
+                    "un critère retenu ; null si le critère n'est pas retenu."
                 ),
             },
-            "score_de_confiance": {
-                "type": "number",
+            "page_fin": {
+                "type": ["integer", "null"],
+                "minimum": 1,
                 "description": (
-                    "Score de confiance de 0 à 1 quant à l'évaluation "
-                    "de ce critère."
+                    "Page de fin du passage justifiant un critère retenu ; "
+                    "null si le critère n'est pas retenu."
                 ),
             },
-            "justification": {
-                "type": "string",
+            "index_fin": {
+                "type": ["integer", "null"],
+                "minimum": 0,
                 "description": (
-                    "Justification de la note, "
-                    f"en {language_name}."
+                    "Index de fin (dans la page) du passage justifiant "
+                    "un critère retenu ; null si le critère n'est pas retenu."
                 ),
             },
         },
@@ -393,21 +485,8 @@ def law_correction_schema(language_name: str) -> dict[str, Any]:
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": [
-            "modificateurs_généraux",
-            "parties",
-            "mark",
-            "appreciation",
-            "remarks",
-        ],
+        "required": ["parties"],
         "properties": {
-            "modificateurs_généraux": {
-                "type": "array",
-                "description": (
-                    "Mêmes modificateurs que la grille, dans le même ordre."
-                ),
-                "items": modifier,
-            },
             "parties": {
                 "type": "array",
                 "description": (
@@ -430,12 +509,7 @@ def law_correction_schema(language_name: str) -> dict[str, Any]:
                             "items": {
                                 "type": "object",
                                 "additionalProperties": False,
-                                "required": [
-                                    "titre",
-                                    "points",
-                                    "points_obtenus",
-                                    "critères",
-                                ],
+                                "required": ["titre", "critères"],
                                 "properties": {
                                     "titre": {
                                         "type": "string",
@@ -444,58 +518,16 @@ def law_correction_schema(language_name: str) -> dict[str, Any]:
                                             "identique à la grille."
                                         ),
                                     },
-                                    "points": {
-                                        "type": "number",
-                                        "description": (
-                                            "Barème de la question, "
-                                            "identique à la grille."
-                                        ),
-                                    },
-                                    "points_obtenus": {
-                                        "type": "number",
-                                        "description": (
-                                            "Points retenus pour cette "
-                                            "question, entre 0 et le barème."
-                                        ),
-                                    },
                                     "critères": {
                                         "type": "array",
                                         "description": (
-                                            "Notes sur les différents "
-                                            "critères de la question."
+                                            "Évaluation binaire de chaque "
+                                            "critère de la question."
                                         ),
                                         "items": criterion,
                                     },
                                 },
                             },
-                        },
-                    },
-                },
-            },
-            "mark": {
-                "type": "number",
-                "description": "Note sur 20.",
-            },
-            "appreciation": {
-                "type": "string",
-                "description": (
-                    f"Appréciation en Markdown, en {language_name}."
-                ),
-            },
-            "remarks": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["page", "text"],
-                    "properties": {
-                        "page": {
-                            "type": "number",
-                            "description": "Numéro de page.",
-                        },
-                        "text": {
-                            "type": "string",
-                            "description": f"Remarque en {language_name}.",
                         },
                     },
                 },
@@ -509,31 +541,255 @@ def law_correction_system_prompt(
     correction_grid: str,
     language_name: str,
 ) -> str:
-    """System prompt aligned with PHP StudentTask1Correcting."""
+    """System prompt for binary reading-grid correction."""
     return (
         "Vous êtes un professeur chargé de corriger les copies "
         "d'une école d'avocat.\n"
-        "Appliquez strictement la grille de correction. Reproduisez les "
-        "mêmes modificateurs généraux, les mêmes parties et les mêmes "
-        "questions, dans le même ordre, avec les mêmes libellés.\n"
-        "Pour chaque modificateur général, indiquez s'il est retenu et "
-        "donnez un score de confiance de 0 à 1.\n"
-        "Pour chaque question, évaluez les critères de la grille : pour "
-        "chaque critère, indiquez sa description (identique au libellé "
-        "« critère » de la grille), son max (identique au champ « point » "
-        "de la grille), sa note (entre 0 et max), son score de confiance "
-        "(flottant de 0 à 1) et une justification. Les points obtenus "
-        "d'une question sont déterminés à partir de ces critères sans "
-        "dépasser le barème de la question. "
-        "La note sur 20 intègre les modificateurs généraux retenus.\n"
+        "Appliquez strictement la grille de lecture fournie. Reproduisez "
+        "les mêmes parties et les mêmes questions, dans le même ordre, "
+        "avec les mêmes titres.\n"
+        "Pour chaque critère de chaque question, indiquez :\n"
+        "- id : identifiant identique à celui de la grille ;\n"
+        "- retenu : vrai si le critère est rempli, faux sinon ;\n"
+        "- confiance : coefficient de confiance entre 0 et 1 ;\n"
+        "- si et seulement si le critère est retenu, localisez le passage "
+        "de la copie qui justifie la décision via page_debut, index_debut, "
+        "page_fin et index_fin.\n"
+        "N'attribuez aucun point : le barème sera calculé ensuite.\n"
         "Ne prenez pas en compte les fautes d'orthographe vraisemblablement "
         "dues à des erreurs d'OCR.\n"
-        f"L'appréciation et les remarques sont rédigées en {language_name}.\n"
+        f"Répondez en vous basant sur une grille rédigée en {language_name}.\n"
         "\n# Instructions\n"
         f"{instruction_text}"
-        "\n# Sujet & Grille de correction\n"
+        "\n# Grille de lecture\n"
         f"{correction_grid}"
     )
+
+
+def strip_points_from_correction_grid(grid: Any) -> Any:
+    """Return a deep copy of the reading grid without criterion ``point`` fields."""
+    if isinstance(grid, list):
+        return [strip_points_from_correction_grid(item) for item in grid]
+    if not isinstance(grid, dict):
+        return grid
+    cleaned: dict[str, Any] = {}
+    for key, value in grid.items():
+        if key == "point":
+            continue
+        cleaned[key] = strip_points_from_correction_grid(value)
+    return cleaned
+
+
+def apply_retained_criterion_points(
+    correction: dict[str, Any],
+    grid: dict[str, Any],
+) -> float:
+    """Add per-question and global marks from retained criteria; return total."""
+    points_by_id: dict[str, float] = {}
+    for party in grid.get("parties") or []:
+        if not isinstance(party, dict):
+            continue
+        for question in party.get("questions") or []:
+            if not isinstance(question, dict):
+                continue
+            for criterion in question.get("critères") or []:
+                if not isinstance(criterion, dict):
+                    continue
+                criterion_id = criterion.get("id")
+                point = criterion.get("point")
+                if (
+                    isinstance(criterion_id, str)
+                    and criterion_id != ""
+                    and isinstance(point, (int, float))
+                    and not isinstance(point, bool)
+                ):
+                    points_by_id[criterion_id] = float(point)
+
+    total_mark = 0.0
+    for party in correction.get("parties") or []:
+        if not isinstance(party, dict):
+            continue
+        for question in party.get("questions") or []:
+            if not isinstance(question, dict):
+                continue
+            question_mark = 0.0
+            for criterion in question.get("critères") or []:
+                if not isinstance(criterion, dict):
+                    continue
+                if criterion.get("retenu") is not True:
+                    continue
+                criterion_id = criterion.get("id")
+                if isinstance(criterion_id, str):
+                    question_mark += points_by_id.get(criterion_id, 0.0)
+            question["points_obtenus"] = question_mark
+            total_mark += question_mark
+
+    correction["mark"] = total_mark
+    return total_mark
+
+
+def iter_grid_criteria(
+    grid: dict[str, Any],
+) -> list[tuple[int, int, int, dict[str, Any], str, str, float]]:
+    """Walk correction-grid criteria; return indexed tuples with id/label/points.
+
+    Supports both classic ``critère`` entries (``critère`` / ``point``) and
+    strict ``critères`` entries (``id`` / ``description`` / ``point``).
+    """
+    rows: list[tuple[int, int, int, dict[str, Any], str, str, float]] = []
+    for party_idx, party in enumerate(grid.get("parties") or []):
+        if not isinstance(party, dict):
+            continue
+        for question_idx, question in enumerate(party.get("questions") or []):
+            if not isinstance(question, dict):
+                continue
+            criteria = question.get("critères")
+            if not isinstance(criteria, list):
+                criteria = question.get("critère")
+            if not isinstance(criteria, list):
+                continue
+            for criterion_idx, criterion in enumerate(criteria):
+                if not isinstance(criterion, dict):
+                    continue
+                criterion_id = criterion.get("id")
+                if not isinstance(criterion_id, str) or criterion_id.strip() == "":
+                    criterion_id = f"P{party_idx}-Q{question_idx}-C{criterion_idx}"
+                label = ""
+                for key in ("description", "critère"):
+                    value = criterion.get(key)
+                    if isinstance(value, str) and value.strip() != "":
+                        label = value.strip()
+                        break
+                if label == "":
+                    label = f"Critère {criterion_id}"
+                point_raw = criterion.get("point")
+                if criterion.get("modificateur") is not None and point_raw is None:
+                    point_raw = criterion.get("modificateur")
+                point = (
+                    float(point_raw)
+                    if isinstance(point_raw, (int, float))
+                    and not isinstance(point_raw, bool)
+                    else 0.0
+                )
+                rows.append(
+                    (
+                        party_idx,
+                        question_idx,
+                        criterion_idx,
+                        criterion,
+                        criterion_id,
+                        label,
+                        point,
+                    )
+                )
+    return rows
+
+
+def build_jev_noul_questions(
+    grid: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Map each grid criterion to a Jev yes/no (noul) question payload."""
+    questions: dict[str, dict[str, Any]] = {}
+    for *_rest, criterion_id, label, _point in iter_grid_criteria(grid):
+        questions[criterion_id] = {
+            "type": "noul",
+            "instructions": (
+                "Le critère suivant est-il rempli dans la copie de l'étudiant ? "
+                f"{label}"
+            ),
+            "criteria": {
+                "true": "Le critère est clairement rempli dans la copie.",
+                "false": "Le critère n'est pas rempli ou est insuffisamment présent.",
+            },
+        }
+    return questions
+
+
+def build_correction_from_jev_answers(
+    grid: dict[str, Any],
+    answers: Mapping[str, Any],
+    *,
+    retain_threshold: float = 0.5,
+) -> dict[str, Any]:
+    """Build an openrouter-like correction object from Jev noul answers.
+
+    Each criterion becomes ``{id, retenu, confiance}``. Question ``points`` and
+    the global ``mark`` / ``note`` are summed from retained criteria.
+    """
+    points_by_id = {
+        criterion_id: point
+        for *_rest, criterion_id, _label, point in iter_grid_criteria(grid)
+    }
+
+    parties_out: list[dict[str, Any]] = []
+    total_mark = 0.0
+    for party_idx, party in enumerate(grid.get("parties") or []):
+        if not isinstance(party, dict):
+            continue
+        questions_out: list[dict[str, Any]] = []
+        for question_idx, question in enumerate(party.get("questions") or []):
+            if not isinstance(question, dict):
+                continue
+            criteria = question.get("critères")
+            if not isinstance(criteria, list):
+                criteria = question.get("critère")
+            if not isinstance(criteria, list):
+                criteria = []
+            criteria_out: list[dict[str, Any]] = []
+            question_mark = 0.0
+            for criterion_idx, criterion in enumerate(criteria):
+                if not isinstance(criterion, dict):
+                    continue
+                criterion_id = criterion.get("id")
+                if not isinstance(criterion_id, str) or criterion_id.strip() == "":
+                    criterion_id = f"P{party_idx}-Q{question_idx}-C{criterion_idx}"
+                probability_yes = _jev_probability_yes(answers, criterion_id)
+                retained = probability_yes >= retain_threshold
+                if retained:
+                    question_mark += points_by_id.get(criterion_id, 0.0)
+                criteria_out.append(
+                    {
+                        "id": criterion_id,
+                        "retenu": retained,
+                        "confiance": probability_yes,
+                    }
+                )
+            questions_out.append(
+                {
+                    "titre": str(question.get("titre") or ""),
+                    "points": question_mark,
+                    "points_obtenus": question_mark,
+                    "critères": criteria_out,
+                }
+            )
+            total_mark += question_mark
+        parties_out.append(
+            {
+                "titre": str(party.get("titre") or ""),
+                "questions": questions_out,
+            }
+        )
+
+    return {
+        "parties": parties_out,
+        "mark": total_mark,
+        "note": total_mark,
+    }
+
+
+def _jev_probability_yes(answers: Mapping[str, Any], criterion_id: str) -> float:
+    """Extract P(yes) from a Jev answer or raw answer mapping."""
+    answer = answers.get(criterion_id)
+    if answer is None:
+        return 0.0
+    noul = getattr(answer, "noul", None)
+    if isinstance(noul, (int, float)) and not isinstance(noul, bool):
+        return max(0.0, min(1.0, float(noul)))
+    if isinstance(answer, Mapping):
+        raw = answer.get("noul")
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+            return max(0.0, min(1.0, float(raw)))
+    return 0.0
 
 
 class Assessment:
@@ -957,6 +1213,88 @@ class Assessment:
         files.sort(key=lambda file: file.name)
         return files
 
+    def unclassified_file_ids(self) -> list[str]:
+        """File ids under ``unclassified/`` that have ``attributes.json``."""
+        if not self.id or self.school_id == "" or self.user_id == "":
+            return []
+        store = ObjectStore.get_instance()
+        prefix = ObjectStore.assessment_unclassified_files_prefix(
+            self.school_id, self.user_id, self.id
+        )
+        ids: list[str] = []
+        for file_id in store.list_child_prefixes(prefix):
+            attr_key = prefix + file_id + "/" + ObjectStore.ATTR_FILE
+            if store.exists(attr_key):
+                ids.append(file_id)
+        return ids
+
+    def _unclassified_input_files(self) -> list[InputFile]:
+        """InputFile entries stored under the assessment ``unclassified/`` prefix."""
+        files: list[InputFile] = []
+        for file_id in self.unclassified_file_ids():
+            try:
+                file = self.get_file(file_id)
+            except Exception:
+                logger.exception(
+                    "Failed to load unclassified file %s for assessment %s",
+                    file_id,
+                    self.id,
+                )
+                continue
+            if isinstance(file, S3File) or not isinstance(file, InputFile):
+                continue
+            if file.id is None or file.id == "":
+                continue
+            files.append(file)
+        files.sort(key=lambda file: file.name)
+        return files
+
+    def google_vision_ocr_unclassified(
+        self,
+        force_re_ocr: bool = False,
+        *,
+        ocr_runner: OcrRunner | None = None,
+    ) -> None:
+        """Run Google Vision OCR on every unclassified copy of this assessment.
+
+        When ``force_re_ocr`` is false, files that already have ``ocr_result.json``
+        are skipped (handled by ``google_vision_ocr``). Intended to be launched
+        via a Redis Python-queue ticket.
+        """
+        if self.id is None or self.id == "" or self.school_id == "" or self.user_id == "":
+            raise RuntimeError(
+                "Cannot OCR unclassified files without id, school_id and user_id"
+            )
+
+        files = self._unclassified_input_files()
+        if not files:
+            logger.info(
+                "No unclassified files to OCR for assessment %s", self.id
+            )
+            return
+
+        if ocr_runner is not None:
+            ocr_runner(files, force_re_ocr=force_re_ocr)
+            return
+
+        from pycorrai.ocr.google_vision_ocr import google_vision_ocr
+
+        google_vision_ocr(files, force_re_ocr=force_re_ocr)
+
+    def enqueue_google_vision_ocr_unclassified(
+        self, redis: Any | None = None
+    ) -> None:
+        """Push a ``google_vision_ocr_unclassified`` ticket on the Python Redis queue."""
+        if self.id is None or self.id == "":
+            raise RuntimeError(
+                "Cannot enqueue unclassified OCR without assessment id"
+            )
+        from pycorrai.consumer import enqueue_assessment_task
+
+        enqueue_assessment_task(
+            self.id, "google_vision_ocr_unclassified", redis=redis
+        )
+
     def create_correction_grid(
         self,
         *,
@@ -1070,6 +1408,126 @@ class Assessment:
             self.id, "create_correction_grid", redis=redis
         )
 
+    def create_strict_correction_grid(
+        self,
+        *,
+        client_factory: ClientFactory | None = None,
+        publish: PublishAssessment | None = None,
+    ) -> dict[str, Any]:
+        """Build ``strict_correction_grid.json`` as a binary reading grid.
+
+        Same pipeline as ``create_correction_grid``, but the LLM returns only
+        self-contained yes/no criteria with short unique ids.
+        """
+        if self.id is None or self.id == "" or self.school_id == "" or self.user_id == "":
+            raise RuntimeError(
+                "Cannot create strict correction grid without id, "
+                "school_id and user_id"
+            )
+
+        publish_fn = publish or publish_assessment_loading
+        started_at = time.perf_counter()
+        self.status = STATUS_STRICT_GRID_CREATION
+        self.save()
+        publish_fn(
+            self.id,
+            status=STATUS_STRICT_GRID_CREATION,
+            status_label=LABEL_STRICT_GRID_CREATION,
+            loading=True,
+        )
+
+        try:
+            compiled = self.compile_subject(re_compile_subject=False)
+            pages = compiled.get("pages") if isinstance(compiled, dict) else None
+            if not isinstance(pages, list):
+                raise RuntimeError("Compiled subject pages are missing")
+            page_texts = [str(page) if page is not None else "" for page in pages]
+
+            instructions = self._instructions_md_text()
+            if client_factory is not None:
+                client = client_factory()
+            else:
+                from pycorrai.clients.openrouter.gemini3_client import Gemini3Client
+
+                client = Gemini3Client()
+            client.set_system_content(STRICT_CORRECTION_GRID_SYSTEM_PROMPT)
+            client.set_json_response(
+                "strict_correction_grid", strict_correction_grid_schema()
+            )
+            if instructions.strip() != "":
+                client.add_text(
+                    "Instructions de l'évaluation :\n" + instructions.strip()
+                )
+            sujet_parts = [
+                f"Page {index + 1}:\n{text}"
+                for index, text in enumerate(page_texts)
+            ]
+            client.add_text("Sujet :\n" + "\n\n".join(sujet_parts))
+            reply, cost = client.call_text_with_cost()
+            decoded = json.loads(reply)
+            if not isinstance(decoded, dict):
+                raise RuntimeError(
+                    "Strict correction grid reply is not a JSON object"
+                )
+
+            body = (
+                json.dumps(
+                    decoded,
+                    ensure_ascii=False,
+                    indent=2,
+                    separators=(",", ": "),
+                )
+                + "\n"
+            )
+            grid_key = ObjectStore.assessment_subject_strict_correction_grid_key(
+                self.school_id, self.user_id, self.id
+            )
+            ObjectStore.get_instance().put_contents(
+                grid_key, body, "application/json"
+            )
+
+            duration_ms = max(0, round((time.perf_counter() - started_at) * 1000))
+            self.status = STATUS_STRICT_GRID_CREATED
+            self.save()
+            self.append_event(
+                f"Strict grid creation ({duration_ms} ms, {cost:.4f} USD)"
+            )
+            publish_fn(
+                self.id,
+                status=STATUS_STRICT_GRID_CREATED,
+                status_label=LABEL_STRICT_GRID_CREATED,
+                loading=False,
+            )
+            return decoded
+        except Exception:
+            try:
+                publish_fn(
+                    self.id,
+                    status=self.status or STATUS_STRICT_GRID_CREATION,
+                    status_label=LABEL_STRICT_GRID_CREATION,
+                    loading=False,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to publish strict-grid-creation failure for %s",
+                    self.id,
+                )
+            raise
+
+    def enqueue_create_strict_correction_grid(
+        self, redis: Any | None = None
+    ) -> None:
+        """Push a ``create_strict_correction_grid`` ticket on the Python Redis queue."""
+        if self.id is None or self.id == "":
+            raise RuntimeError(
+                "Cannot enqueue strict correction grid without assessment id"
+            )
+        from pycorrai.consumer import enqueue_assessment_task
+
+        enqueue_assessment_task(
+            self.id, "create_strict_correction_grid", redis=redis
+        )
+
     def correct_students(
         self,
         students: Sequence[Student],
@@ -1081,8 +1539,12 @@ class Assessment:
 
         ``client_llm`` must be an LLM client instance (or a zero-arg factory
         returning one). A fresh client is created for each student. Requires an
-        existing correction grid (and compiled subject), then corrects each
+        existing strict reading grid (and compiled subject), then corrects each
         student in parallel. Waits until every student finishes or fails.
+
+        The LLM receives the reading grid without criterion ``point`` values and
+        returns binary retained/not-retained decisions. Points are summed in
+        Python from the full grid before saving.
 
         Returns a mapping ``student_id -> mark`` (``None`` when correction failed).
         """
@@ -1093,12 +1555,17 @@ class Assessment:
         make_client = self._llm_client_factory(client_llm)
 
         store = ObjectStore.get_instance()
-        grid_key = ObjectStore.assessment_subject_correction_grid_key(
+        grid_key = ObjectStore.assessment_subject_strict_correction_grid_key(
             self.school_id, self.user_id, self.id
         )
         if not store.exists(grid_key):
-            raise RuntimeError("Correction grid is missing")
-        correction_grid = store.get_contents(grid_key)
+            raise RuntimeError("Strict correction grid is missing")
+        try:
+            correction_grid = json.loads(store.get_contents(grid_key))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Strict correction grid is not valid JSON") from exc
+        if not isinstance(correction_grid, dict):
+            raise RuntimeError("Strict correction grid is not a JSON object")
 
         subject_key = ObjectStore.assessment_subject_compile_key(
             self.school_id, self.user_id, self.id
@@ -1175,7 +1642,7 @@ class Assessment:
         make_client: ClientFactory,
         publish: PublishStudent,
         instructions: str,
-        correction_grid: str,
+        correction_grid: dict[str, Any],
         compiled_subject: str,
         language_name: str,
     ) -> dict[str, float | None]:
@@ -1200,7 +1667,7 @@ class Assessment:
         make_client: ClientFactory,
         publish: PublishStudent,
         instructions: str,
-        correction_grid: str,
+        correction_grid: dict[str, Any],
         compiled_subject: str,
         language_name: str,
     ) -> tuple[str, float | None]:
@@ -1225,7 +1692,7 @@ class Assessment:
         make_client: ClientFactory,
         publish: PublishStudent,
         instructions: str,
-        correction_grid: str,
+        correction_grid: dict[str, Any],
         compiled_subject: str,
         language_name: str,
     ) -> tuple[str, float | None]:
@@ -1250,10 +1717,18 @@ class Assessment:
                 raise RuntimeError("Compiled submission pages are missing")
             page_texts = [str(page) if page is not None else "" for page in pages]
 
+            grid_for_llm = strip_points_from_correction_grid(correction_grid)
+            grid_payload = json.dumps(
+                grid_for_llm,
+                ensure_ascii=False,
+                indent=2,
+                separators=(",", ": "),
+            )
+
             client = make_client()
             client.set_system_content(
                 law_correction_system_prompt(
-                    instructions, correction_grid, language_name
+                    instructions, grid_payload, language_name
                 )
             )
             client.set_json_response(
@@ -1276,6 +1751,9 @@ class Assessment:
             if not isinstance(decoded, dict):
                 raise RuntimeError("Correction reply is not a JSON object")
 
+            mark = apply_retained_criterion_points(decoded, correction_grid)
+            student.mark = mark
+
             body = (
                 json.dumps(
                     decoded,
@@ -1294,16 +1772,6 @@ class Assessment:
             ObjectStore.get_instance().put_contents(
                 correction_key, body, "application/json"
             )
-
-            mark: float | None = None
-            if isinstance(decoded.get("mark"), (int, float)) and not isinstance(
-                decoded.get("mark"), bool
-            ):
-                mark = float(decoded["mark"])
-                student.mark = mark
-            appreciation = decoded.get("appreciation")
-            if isinstance(appreciation, str) and appreciation.strip() != "":
-                student.appreciation = appreciation
 
             duration_ms = max(0, round((time.perf_counter() - started_at) * 1000))
             student.status = STATUS_GRADED
@@ -1350,6 +1818,243 @@ class Assessment:
             except Exception:
                 logger.exception(
                     "Failed to publish correction failure for student %s",
+                    student_id,
+                )
+            return student_id, None
+
+    def jev_correct_students(
+        self,
+        students: Sequence[Student],
+        *,
+        client_factory: ClientFactory | None = None,
+        publish: PublishStudent | None = None,
+    ) -> dict[str, float | None]:
+        """Correct several students asynchronously with the Jev Decisions API.
+
+        Requires an existing ``correction_grid.json``. Each student is processed
+        in parallel: Nchan ``En correction``, compile submission if needed, ask
+        Jev one yes/no (noul) question per criterion, persist a correction JSON
+        similar to openrouter/mistral, then Nchan ``Corrigé``.
+
+        Returns a mapping ``student_id -> note`` (``None`` when correction failed).
+        """
+        if self.id is None or self.id == "" or self.school_id == "" or self.user_id == "":
+            raise RuntimeError(
+                "Cannot Jev-correct students without id, school_id and user_id"
+            )
+
+        store = ObjectStore.get_instance()
+        grid_key = ObjectStore.assessment_subject_correction_grid_key(
+            self.school_id, self.user_id, self.id
+        )
+        if not store.exists(grid_key):
+            raise RuntimeError("Correction grid is missing")
+        try:
+            correction_grid = json.loads(store.get_contents(grid_key))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Correction grid is not valid JSON") from exc
+        if not isinstance(correction_grid, dict):
+            raise RuntimeError("Correction grid is not a JSON object")
+
+        if client_factory is not None:
+            make_client = client_factory
+        else:
+
+            def make_client() -> Any:
+                from pycorrai.clients.openrouter.jev_client import JevClient
+
+                return JevClient()
+
+        publish_fn = publish or publish_student_loading
+        return asyncio.run(
+            self._jev_correct_students_async(
+                list(students),
+                make_client,
+                publish_fn,
+                correction_grid,
+            )
+        )
+
+    async def _jev_correct_students_async(
+        self,
+        students: list[Student],
+        make_client: ClientFactory,
+        publish: PublishStudent,
+        correction_grid: dict[str, Any],
+    ) -> dict[str, float | None]:
+        tasks = [
+            self._jev_correct_one_student(
+                student,
+                make_client,
+                publish,
+                correction_grid,
+            )
+            for student in students
+        ]
+        results = await asyncio.gather(*tasks)
+        return {student_id: mark for student_id, mark in results}
+
+    async def _jev_correct_one_student(
+        self,
+        student: Student,
+        make_client: ClientFactory,
+        publish: PublishStudent,
+        correction_grid: dict[str, Any],
+    ) -> tuple[str, float | None]:
+        student_id = str(student.id or "")
+        if student_id == "":
+            raise RuntimeError("Student has no id")
+
+        return await asyncio.to_thread(
+            self._jev_correct_one_student_sync,
+            student,
+            make_client,
+            publish,
+            correction_grid,
+        )
+
+    def _jev_correct_one_student_sync(
+        self,
+        student: Student,
+        make_client: ClientFactory,
+        publish: PublishStudent,
+        correction_grid: dict[str, Any],
+    ) -> tuple[str, float | None]:
+        student_id = str(student.id or "")
+        assessment_id = str(self.id or "")
+        started_at = time.perf_counter()
+
+        student.status = STATUS_UNDER_CORRECTION
+        student.save()
+        publish(
+            assessment_id,
+            student_id,
+            status=STATUS_UNDER_CORRECTION,
+            status_label=LABEL_UNDER_CORRECTION,
+            loading=True,
+        )
+
+        try:
+            compiled = student.compile_submission(re_compile_submission=False)
+            if not isinstance(compiled, dict):
+                raise RuntimeError("Compiled submission is missing")
+
+            compiled_body = (
+                json.dumps(
+                    compiled,
+                    ensure_ascii=False,
+                    indent=2,
+                    separators=(",", ": "),
+                )
+                + "\n"
+            )
+            state = "Correction examen de droit.\n" + compiled_body
+
+            client = make_client()
+            if not hasattr(client, "decide_with_cost") or not hasattr(
+                client, "add_noul"
+            ):
+                raise RuntimeError(
+                    "client_factory must return a Jev client with "
+                    "add_noul and decide_with_cost"
+                )
+            client.set_state(state)
+            if hasattr(client, "clear_questions"):
+                client.clear_questions()
+            for *_rest, criterion_id, label, _point in iter_grid_criteria(
+                correction_grid
+            ):
+                client.add_noul(
+                    criterion_id,
+                    (
+                        "Le critère suivant est-il rempli dans la copie "
+                        f"de l'étudiant ? {label}"
+                    ),
+                    criteria_true=(
+                        "Le critère est clairement rempli dans la copie."
+                    ),
+                    criteria_false=(
+                        "Le critère n'est pas rempli ou est "
+                        "insuffisamment présent."
+                    ),
+                )
+            if not getattr(client, "questions", None):
+                raise RuntimeError("Correction grid has no criteria")
+            response, cost = client.decide_with_cost()
+            answers = getattr(response, "answers", None)
+            if not isinstance(answers, Mapping):
+                raise RuntimeError("Jev response has no answers")
+
+            correction = build_correction_from_jev_answers(
+                correction_grid, answers
+            )
+            mark = float(correction.get("mark") or 0.0)
+            student.mark = mark
+
+            body = (
+                json.dumps(
+                    correction,
+                    ensure_ascii=False,
+                    indent=2,
+                    separators=(",", ": "),
+                )
+                + "\n"
+            )
+            correction_key = ObjectStore.assessment_student_correction_json_key(
+                student.school_id,
+                student.user_id,
+                student.assessment_id,
+                student_id,
+            )
+            ObjectStore.get_instance().put_contents(
+                correction_key, body, "application/json"
+            )
+
+            duration_ms = max(0, round((time.perf_counter() - started_at) * 1000))
+            student.status = STATUS_GRADED
+            student.save()
+            student.append_event(
+                f"Correction ({duration_ms} ms, {cost:.4f} USD)"
+            )
+            for file in student.get_submissions():
+                file.status = "corrected"
+                file.save_attributes()
+                file.append_event("Correction written")
+
+            publish(
+                assessment_id,
+                student_id,
+                status=STATUS_GRADED,
+                status_label=LABEL_CORRECTED,
+                loading=False,
+                mark=mark,
+            )
+            return student_id, mark
+        except Exception as exc:
+            logger.exception(
+                "Failed to Jev-correct student %s for assessment %s",
+                student_id,
+                assessment_id,
+            )
+            try:
+                student.status = STATUS_STUDENT_ERROR
+                student.save()
+                student.append_event(f"Correction failed: {exc}")
+            except Exception:
+                logger.exception(
+                    "Failed to persist error status for student %s", student_id
+                )
+            try:
+                publish(
+                    assessment_id,
+                    student_id,
+                    status=STATUS_STUDENT_ERROR,
+                    status_label=LABEL_STUDENT_ERROR,
+                    loading=False,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to publish Jev correction failure for student %s",
                     student_id,
                 )
             return student_id, None

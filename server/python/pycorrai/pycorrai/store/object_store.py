@@ -354,6 +354,17 @@ class ObjectStore:
         )
 
     @staticmethod
+    def assessment_subject_strict_correction_grid_key(
+        school_id: str, teacher_id: str, assessment_id: str
+    ) -> str:
+        return (
+            ObjectStore.assessment_subject_files_prefix(
+                school_id, teacher_id, assessment_id
+            )
+            + "strict_correction_grid.json"
+        )
+
+    @staticmethod
     def assessment_unclassified_files_prefix(
         school_id: str, teacher_id: str, assessment_id: str
     ) -> str:

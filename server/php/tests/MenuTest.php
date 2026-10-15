@@ -29,9 +29,17 @@ class MenuTest extends TestCase
         $this->assertSame('Dictée CM2 France', $french['label']);
         $frenchMenu = $assessment->get_menu('fr');
         $this->assertSame(
-            ['edit', 'delete', 'edit_subject', 'edit_attributes', 'add_copies'],
+            [
+                'edit',
+                'delete',
+                'edit_subject',
+                'edit_attributes',
+                'add_copies',
+                'google_vision_ocr_unclassified',
+            ],
             array_column($frenchMenu, 'key')
         );
+        $this->assertSame('OCR Google Vision', $frenchMenu[5]['label']);
         $this->assertSame('', $frenchMenu[0]['icon']);
         $this->assertSame('Modifier', $frenchMenu[0]['label']);
         $this->assertSame('Supprimer l\'évaluation', $frenchMenu[1]['label']);

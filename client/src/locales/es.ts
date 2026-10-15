@@ -200,6 +200,8 @@ const es: I18nSchema = {
     correctionGridError: 'No se pudo crear la rúbrica de corrección',
     correctionGridMissing: 'La rúbrica de corrección aún no está disponible.',
     correctionGridUpdatedAt: 'Última actualización: {date}',
+    googleVisionOcrSuccess: 'OCR Google Vision iniciado',
+    googleVisionOcrError: 'Error al iniciar el OCR Google Vision',
     studentCorrectionMissing: 'La corrección aún no está disponible.',
     compiledSubmission: 'Entrega compilada',
     compiledSubmissionMissing: 'La entrega compilada aún no está disponible.',

@@ -201,6 +201,8 @@ const fr: I18nSchema = {
     correctionGridError: 'Échec de la création de la grille de correction',
     correctionGridMissing: "La grille de correction n'est pas encore disponible.",
     correctionGridUpdatedAt: 'Dernière mise à jour : {date}',
+    googleVisionOcrSuccess: 'OCR Google Vision lancé',
+    googleVisionOcrError: "Échec du lancement de l'OCR Google Vision",
     studentCorrectionMissing: "La correction n'est pas encore disponible.",
     compiledSubmission: 'Copie compilée',
     compiledSubmissionMissing: "La copie compilée n'est pas encore disponible.",

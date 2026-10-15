@@ -200,6 +200,8 @@ const uk: I18nSchema = {
     correctionGridError: 'Не вдалося створити сітку оцінювання',
     correctionGridMissing: 'Сітка оцінювання ще недоступна.',
     correctionGridUpdatedAt: 'Останнє оновлення: {date}',
+    googleVisionOcrSuccess: 'OCR Google Vision запущено',
+    googleVisionOcrError: 'Не вдалося запустити OCR Google Vision',
     studentCorrectionMissing: 'Перевірка ще недоступна.',
     compiledSubmission: 'Скомпільована робота',
     compiledSubmissionMissing: 'Скомпільована робота ще недоступна.',

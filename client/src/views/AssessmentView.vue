@@ -140,7 +140,8 @@
             :disabled="
               ((item.key === 'test_correction' || item.key === 'start_correction') &&
                 isStartingCorrection) ||
-              (item.key === 'create_correction_grid' && isCreatingCorrectionGrid)
+              (item.key === 'create_correction_grid' && isCreatingCorrectionGrid) ||
+              (item.key === 'google_vision_ocr_unclassified' && isRunningGoogleVisionOcr)
             "
             @click="onAssessmentAction(item.key)"
           >
@@ -468,6 +469,7 @@ const showAddCopies = ref(false)
 const showStartCorrection = ref(false)
 const isStartingCorrection = ref(false)
 const isCreatingCorrectionGrid = ref(false)
+const isRunningGoogleVisionOcr = ref(false)
 const startCorrectionError = ref('')
 const studentActionError = ref('')
 const renameStudent = ref<AssessmentStudent | null>(null)
@@ -547,6 +549,7 @@ const pageMenuOrder = [
   'edit_attributes',
   'add_copies',
   'create_correction_grid',
+  'google_vision_ocr_unclassified',
   'start_correction',
   'test_correction',
 ]
@@ -601,6 +604,7 @@ const onAssessmentAction = (key: string) => {
   else if (key === 'start_correction') openStartCorrection()
   else if (key === 'test_correction') void launchTestCorrection()
   else if (key === 'create_correction_grid') void createCorrectionGrid()
+  else if (key === 'google_vision_ocr_unclassified') void runGoogleVisionOcr()
 }
 
 const onStudentAction = (student: AssessmentStudent, key: string) => {
@@ -738,6 +742,26 @@ const createCorrectionGrid = async () => {
     error.value = t('assessment.correctionGridError')
   } finally {
     isCreatingCorrectionGrid.value = false
+  }
+}
+
+const runGoogleVisionOcr = async () => {
+  if (!assessment.value?.id || isRunningGoogleVisionOcr.value) return
+  isRunningGoogleVisionOcr.value = true
+  error.value = ''
+  try {
+    await sessionStore.getWsClient().queryWs('POST', '/assessment_google_vision_ocr', {
+      id: assessment.value.id,
+      locale: String(locale.value),
+    })
+    toast.success(t('assessment.googleVisionOcrSuccess'), {
+      position: toast.POSITION.TOP_CENTER,
+    })
+  } catch (err) {
+    console.error('Error starting Google Vision OCR:', err)
+    error.value = t('assessment.googleVisionOcrError')
+  } finally {
+    isRunningGoogleVisionOcr.value = false
   }
 }
 

@@ -493,12 +493,27 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
             MenuLabels::item('edit_subject', $locale, '', MenuLabels::MUTED),
             MenuLabels::item('edit_attributes', $locale, '', MenuLabels::MUTED),
             MenuLabels::item('add_copies', $locale, '', MenuLabels::BLUE),
+            MenuLabels::item('google_vision_ocr_unclassified', $locale, '', MenuLabels::BLUE),
         ];
         if ($this->hasSubmission()) {
             $items[] = MenuLabels::item('start_correction', $locale, '', MenuLabels::BLUE);
             $items[] = MenuLabels::item('test_correction', $locale, '', MenuLabels::MUTED);
         }
         return $items;
+    }
+
+    /**
+     * Queue Google Vision OCR for unclassified copies on the Python consumer.
+     */
+    public function google_vision_ocr_unclassified(): void
+    {
+        if ($this->id === null || $this->id === '') {
+            throw new WSException('Assessment is incomplete', 400);
+        }
+        RedisQueue::getInstance()->enqueuePythonAssessmentTask(
+            $this->id,
+            'google_vision_ocr_unclassified'
+        );
     }
 
     private function hasSubmission(): bool

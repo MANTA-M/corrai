@@ -200,6 +200,8 @@ const ru: I18nSchema = {
     correctionGridError: 'Не удалось создать сетку оценивания',
     correctionGridMissing: 'Сетка оценивания ещё недоступна.',
     correctionGridUpdatedAt: 'Последнее обновление: {date}',
+    googleVisionOcrSuccess: 'OCR Google Vision запущен',
+    googleVisionOcrError: 'Не удалось запустить OCR Google Vision',
     studentCorrectionMissing: 'Проверка ещё недоступна.',
     compiledSubmission: 'Скомпилированная работа',
     compiledSubmissionMissing: 'Скомпилированная работа пока недоступна.',

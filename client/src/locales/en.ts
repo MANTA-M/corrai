@@ -200,6 +200,8 @@ const en: I18nSchema = {
     correctionGridError: 'Failed to create the correction grid',
     correctionGridMissing: 'The correction grid is not available yet.',
     correctionGridUpdatedAt: 'Last updated: {date}',
+    googleVisionOcrSuccess: 'Google Vision OCR started',
+    googleVisionOcrError: 'Failed to start Google Vision OCR',
     studentCorrectionMissing: 'The correction is not available yet.',
     compiledSubmission: 'Compiled submission',
     compiledSubmissionMissing: 'The compiled submission is not available yet.',

@@ -101,6 +101,16 @@ class MenuLabels
             'ro' => 'Grilă de corectare',
             'de' => 'Korrekturraster',
         ],
+        'google_vision_ocr_unclassified' => [
+            'en' => 'Google Vision OCR',
+            'fr' => 'OCR Google Vision',
+            'ru' => 'OCR Google Vision',
+            'uk' => 'OCR Google Vision',
+            'es' => 'OCR Google Vision',
+            'pt' => 'OCR Google Vision',
+            'ro' => 'OCR Google Vision',
+            'de' => 'Google Vision OCR',
+        ],
         'view' => [
             'en' => 'View',
             'fr' => 'Voir',

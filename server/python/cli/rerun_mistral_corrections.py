@@ -26,7 +26,12 @@ from pycorrai.store.object_store import ObjectStore  # noqa: E402
 
 STUDENTS: dict[str, str] = {
     "482": "BdyohQN",
+    "483": "4vvAZt3",
+    "484": "Zgganah",
+    "485": "9NlnMPr",
     "486": "Op5WN2y",
+    "487": "87oQCA5",
+    "488": "HXoOZwW",
     "489": "oJ7Bq4h",
     "490": "SgyvVq6",
     "491": "EeAP30C",

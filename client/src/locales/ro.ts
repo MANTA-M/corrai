@@ -200,6 +200,8 @@ const ro: I18nSchema = {
     correctionGridError: 'Crearea grilei de corectare a eșuat',
     correctionGridMissing: 'Grila de corectare nu este încă disponibilă.',
     correctionGridUpdatedAt: 'Ultima actualizare: {date}',
+    googleVisionOcrSuccess: 'OCR Google Vision a fost lansat',
+    googleVisionOcrError: 'Lansarea OCR Google Vision a eșuat',
     studentCorrectionMissing: 'Corectarea nu este încă disponibilă.',
     compiledSubmission: 'Lucrare compilată',
     compiledSubmissionMissing: 'Lucrarea compilată nu este încă disponibilă.',

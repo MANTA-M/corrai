@@ -154,6 +154,26 @@ class ParseQueueMessageTest(unittest.TestCase):
             treat_assessment_task("create_correction_grid", "a1")
         assessment.create_correction_grid.assert_called_once_with()
 
+    def test_treat_assessment_task_dispatches_strict_grid(self) -> None:
+        assessment = MagicMock()
+        with patch(
+            "pycorrai.model.assessment.Assessment.from_hash",
+            return_value=assessment,
+        ):
+            treat_assessment_task("create_strict_correction_grid", "a1")
+        assessment.create_strict_correction_grid.assert_called_once_with()
+
+    def test_treat_assessment_task_dispatches_google_vision_ocr_unclassified(
+        self,
+    ) -> None:
+        assessment = MagicMock()
+        with patch(
+            "pycorrai.model.assessment.Assessment.from_hash",
+            return_value=assessment,
+        ):
+            treat_assessment_task("google_vision_ocr_unclassified", "a1")
+        assessment.google_vision_ocr_unclassified.assert_called_once_with()
+
 
 class KeyDerivationTest(unittest.TestCase):
     def test_file_prefix(self) -> None:

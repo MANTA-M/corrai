@@ -200,6 +200,8 @@ const pt: I18nSchema = {
     correctionGridError: 'Falha ao criar a grelha de correção',
     correctionGridMissing: 'A grelha de correção ainda não está disponível.',
     correctionGridUpdatedAt: 'Última atualização: {date}',
+    googleVisionOcrSuccess: 'OCR Google Vision iniciado',
+    googleVisionOcrError: 'Falha ao iniciar o OCR Google Vision',
     studentCorrectionMissing: 'A correção ainda não está disponível.',
     compiledSubmission: 'Submissão compilada',
     compiledSubmissionMissing: 'A submissão compilada ainda não está disponível.',
