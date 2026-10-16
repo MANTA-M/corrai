@@ -6,10 +6,12 @@ import unittest
 
 from pycorrai.model.assessment import (
     CORRECTION_GRID_SYSTEM_PROMPT,
+    MATH_CORRECTION_GRID_SYSTEM_PROMPT,
     STRICT_CORRECTION_GRID_SYSTEM_PROMPT,
     correction_grid_schema,
     law_correction_schema,
     law_correction_system_prompt,
+    math_correction_grid_schema,
     strict_correction_grid_schema,
 )
 
@@ -26,6 +28,36 @@ class LawSchemasTest(unittest.TestCase):
         self.assertEqual(criterion_items["properties"]["critère"]["type"], "string")
         self.assertEqual(criterion_items["properties"]["point"]["type"], "number")
         self.assertIn('tableau "critère"', CORRECTION_GRID_SYSTEM_PROMPT)
+
+    def test_math_correction_grid_schema_structure(self) -> None:
+        schema = math_correction_grid_schema()
+        self.assertEqual(schema["required"], ["parties"])
+        question = schema["properties"]["parties"]["items"]["properties"][
+            "questions"
+        ]["items"]
+        self.assertEqual(
+            question["required"],
+            [
+                "titre",
+                "points",
+                "barème",
+                "détails_à_vérifier",
+                "résultat_attendu",
+            ],
+        )
+        bareme = question["properties"]["barème"]["items"]
+        self.assertEqual(bareme["required"], ["description", "points"])
+        self.assertEqual(bareme["properties"]["points"]["minimum"], 0.1)
+        self.assertEqual(
+            question["properties"]["détails_à_vérifier"]["items"]["type"],
+            "string",
+        )
+        self.assertEqual(
+            question["properties"]["résultat_attendu"]["type"], "string"
+        )
+        self.assertIn("problèmes de mathématiques", MATH_CORRECTION_GRID_SYSTEM_PROMPT)
+        self.assertIn("détails_à_vérifier", MATH_CORRECTION_GRID_SYSTEM_PROMPT)
+        self.assertIn("résultat_attendu", MATH_CORRECTION_GRID_SYSTEM_PROMPT)
 
     def test_strict_correction_grid_schema_is_binary(self) -> None:
         schema = strict_correction_grid_schema()

@@ -84,7 +84,7 @@ class OpenrouterPayloadTest(unittest.TestCase):
             with self.assertRaises(AIError):
                 client.call_text()
 
-    def test_mistral_large_file_uses_raw_base64(self) -> None:
+    def test_mistral_large_pdf_uses_raw_base64_file(self) -> None:
         client = MistralLargeClient()
         with tempfile_named(b"%PDF-1.4", suffix=".pdf") as path:
             client.add_file(path, "doc.pdf")
@@ -94,6 +94,20 @@ class OpenrouterPayloadTest(unittest.TestCase):
         self.assertTrue(
             any(p.get("id") == "file-parser" for p in client.payload.get("plugins", []))
         )
+
+    def test_mistral_large_image_uses_image_url(self) -> None:
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (2, 2), (255, 0, 0)).save(buf, format="JPEG")
+        client = MistralLargeClient()
+        with tempfile_named(buf.getvalue(), suffix=".jpg") as path:
+            client.add_file(path, "page.jpg")
+        part = client.payload["messages"][0]["content"][0]
+        self.assertEqual(part["type"], "image_url")
+        self.assertTrue(part["image_url"]["url"].startswith("data:image/jpeg;base64,"))
 
 
 class _TempFile:

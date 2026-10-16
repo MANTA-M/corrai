@@ -98,18 +98,25 @@ class RedisQueue
      * Enqueue an assessment task for the Python consumer (``corrai:ocr``).
      *
      * Ticket shape: ``{"assessment_id": "...", "task": "create_correction_grid"}``.
+     * Optional ``$extra`` keys (e.g. ``student_ids``, ``model``) are merged into the ticket.
+     *
+     * @param array<string, mixed> $extra
      */
-    public function enqueuePythonAssessmentTask(string $assessmentId, string $task): void
-    {
+    public function enqueuePythonAssessmentTask(
+        string $assessmentId,
+        string $task,
+        array $extra = []
+    ): void {
         $assessmentId = trim($assessmentId);
         $task = trim($task);
         if ($assessmentId === '' || $task === '') {
             throw new InvalidArgumentException('assessment_id and task are required');
         }
-        $payload = json_encode(
-            ['assessment_id' => $assessmentId, 'task' => $task],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        $ticket = array_merge($extra, [
+            'assessment_id' => $assessmentId,
+            'task' => $task,
+        ]);
+        $payload = json_encode($ticket, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($payload === false) {
             throw new RedisException('Failed to encode Python assessment queue ticket');
         }

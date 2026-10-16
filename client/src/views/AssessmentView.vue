@@ -54,6 +54,9 @@
                         :label="name"
                         :href="rootObjectUrl(name)"
                         :test-id="`assessment-s3-${name}`"
+                        deletable
+                        :deleting="deletingObject === name"
+                        @delete="deleteRootObject(name)"
                       />
                     </li>
                     <li class="debug-menu-heading">{{ t('assessment.fileEventsTitle') }}</li>
@@ -156,7 +159,39 @@
           <p v-if="!studentRows.length" class="zone-empty" data-testid="students-empty">
             {{ t('assessment.studentsEmpty') }}
           </p>
-          <ul v-else class="entity-list" data-testid="student-list">
+          <div v-else class="student-bulk-bar" data-testid="student-bulk-bar">
+            <label class="student-bulk-select-all">
+              <input
+                type="checkbox"
+                data-testid="student-select-all"
+                :checked="allStudentsSelected"
+                :indeterminate.prop="someStudentsSelected && !allStudentsSelected"
+                @change="toggleSelectAll"
+              />
+              <span>{{ t('assessment.bulkSelectAll') }}</span>
+            </label>
+            <select
+              v-model="bulkAction"
+              class="student-bulk-action"
+              data-testid="student-bulk-action"
+            >
+              <option value="transcribe">{{ t('assessment.bulkActionTranscribe') }}</option>
+              <option value="correct">{{ t('assessment.bulkActionCorrect') }}</option>
+            </select>
+            <button
+              type="button"
+              class="button primary"
+              data-testid="student-bulk-launch"
+              :disabled="selectedStudentIds.length === 0 || isBulkLaunching"
+              @click="onBulkLaunch"
+            >
+              {{ t('assessment.bulkLaunch') }}
+            </button>
+          </div>
+          <p v-if="bulkActionError" class="error-message" data-testid="student-bulk-error">
+            {{ bulkActionError }}
+          </p>
+          <ul v-if="studentRows.length" class="entity-list" data-testid="student-list">
             <li
               v-for="student in studentRows"
               :key="student.id"
@@ -169,6 +204,14 @@
               @keydown.enter="goStudent(student.id)"
               @keydown.space.prevent="goStudent(student.id)"
             >
+              <label class="student-select" @click.stop @keydown.stop>
+                <input
+                  type="checkbox"
+                  data-testid="student-select"
+                  :checked="selectedStudentIdSet.has(student.id)"
+                  @change="toggleStudentSelection(student.id)"
+                />
+              </label>
               <span class="entity-name">{{ student.name }}</span>
               <span
                 v-if="student.loading"
@@ -231,6 +274,65 @@
         <h1>{{ t('assessment.notFound') }}</h1>
         <p>{{ t('assessment.notFoundMessage', { hash: assessmentId }) }}</p>
         <button class="back-button" @click="goBack">{{ t('assessment.back') }}</button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="showModelPopup"
+    class="popup-overlay"
+    data-testid="bulk-model-popup"
+    @click.self="closeModelPopup"
+  >
+    <div class="popup-content file-action-popup">
+      <div class="popup-header">
+        <h2>{{ t('assessment.bulkModelTitle') }}</h2>
+        <button
+          type="button"
+          class="close-button"
+          data-testid="bulk-model-close"
+          :aria-label="t('common.cancel')"
+          @click="closeModelPopup"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="popup-body">
+        <label class="file-action-label" for="bulk-model-select">{{
+          t('assessment.bulkModelLabel')
+        }}</label>
+        <select
+          id="bulk-model-select"
+          v-model="selectedModel"
+          class="student-bulk-action"
+          data-testid="bulk-model-select"
+        >
+          <option value="claude">Claude</option>
+          <option value="mistral">Mistral</option>
+          <option value="gemini">Gemini</option>
+          <option value="gpt">GPT</option>
+          <option value="jev">Jev</option>
+        </select>
+        <p v-if="bulkActionError" class="error-message">{{ bulkActionError }}</p>
+      </div>
+      <div class="popup-footer">
+        <button
+          type="button"
+          class="button secondary"
+          :disabled="isBulkLaunching"
+          @click="closeModelPopup"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="button primary"
+          data-testid="bulk-model-confirm"
+          :disabled="isBulkLaunching"
+          @click="confirmBulkCorrect"
+        >
+          {{ t('assessment.bulkLaunch') }}
+        </button>
       </div>
     </div>
   </div>
@@ -466,6 +568,12 @@ const { subjects, load: loadSubjects, levelName } = useSubjectCatalog()
 const isDeleting = ref(false)
 const isUpdatingStudent = ref(false)
 const showAddCopies = ref(false)
+const selectedStudentIds = ref<string[]>([])
+const bulkAction = ref<'transcribe' | 'correct'>('transcribe')
+const showModelPopup = ref(false)
+const selectedModel = ref<'claude' | 'mistral' | 'gemini' | 'gpt' | 'jev'>('claude')
+const isBulkLaunching = ref(false)
+const bulkActionError = ref('')
 const showStartCorrection = ref(false)
 const isStartingCorrection = ref(false)
 const isCreatingCorrectionGrid = ref(false)
@@ -480,6 +588,7 @@ const debugMenuRoot = ref<HTMLElement | null>(null)
 const debugMenuOpen = ref(false)
 const debugLoading = ref(false)
 const rootObjects = ref<string[]>([])
+const deletingObject = ref<string | null>(null)
 const assessmentEvents = ref<AssessmentEvent[]>([])
 
 interface AssessmentEvent {
@@ -670,6 +779,105 @@ const studentRows = computed(() => {
   return [...byId.values()].sort((a, b) =>
     a.name.localeCompare(b.name, String(locale.value || 'fr')),
   )
+})
+
+const selectedStudentIdSet = computed(() => new Set(selectedStudentIds.value))
+
+const allStudentsSelected = computed(
+  () =>
+    studentRows.value.length > 0 &&
+    studentRows.value.every((student) => selectedStudentIdSet.value.has(student.id)),
+)
+
+const someStudentsSelected = computed(() => selectedStudentIds.value.length > 0)
+
+const toggleStudentSelection = (studentId: string) => {
+  if (selectedStudentIdSet.value.has(studentId)) {
+    selectedStudentIds.value = selectedStudentIds.value.filter((id) => id !== studentId)
+  } else {
+    selectedStudentIds.value = [...selectedStudentIds.value, studentId]
+  }
+}
+
+const toggleSelectAll = () => {
+  if (allStudentsSelected.value) {
+    selectedStudentIds.value = []
+  } else {
+    selectedStudentIds.value = studentRows.value.map((student) => student.id)
+  }
+}
+
+const closeModelPopup = () => {
+  if (isBulkLaunching.value) return
+  showModelPopup.value = false
+}
+
+const onBulkLaunch = () => {
+  bulkActionError.value = ''
+  if (selectedStudentIds.value.length === 0) return
+  if (bulkAction.value === 'correct') {
+    showModelPopup.value = true
+    return
+  }
+  void launchBulkAction('transcribe')
+}
+
+const confirmBulkCorrect = () => {
+  void launchBulkAction('correct', selectedModel.value)
+}
+
+const launchBulkAction = async (
+  action: 'transcribe' | 'correct',
+  model?: 'claude' | 'mistral' | 'gemini' | 'gpt' | 'jev',
+) => {
+  if (!assessment.value?.id || selectedStudentIds.value.length === 0) return
+  isBulkLaunching.value = true
+  bulkActionError.value = ''
+  try {
+    const body: {
+      id: string
+      students: string[]
+      action: string
+      locale: string
+      model?: string
+    } = {
+      id: assessment.value.id,
+      students: [...selectedStudentIds.value],
+      action,
+      locale: String(locale.value),
+    }
+    if (action === 'correct' && model) {
+      body.model = model
+    }
+    const response = await sessionStore.getWsClient().queryWs<
+      {
+        files?: AssessmentFile[]
+        students?: AssessmentStudent[]
+      } & StateLocales &
+        AssessmentStats
+    >('POST', '/students_bulk_action', { locale: String(locale.value) }, body)
+    sessionStore.applyStateLocales(response)
+    if (response?.files) {
+      applyUpdate(response.files, response.students, {
+        assessed_students_number: response.assessed_students_number,
+        mark_average: response.mark_average,
+        mark_min: response.mark_min,
+        mark_max: response.mark_max,
+      })
+    }
+    showModelPopup.value = false
+    selectedStudentIds.value = []
+  } catch (err) {
+    console.error('Error launching bulk student action:', err)
+    bulkActionError.value = t('assessment.bulkActionError')
+  } finally {
+    isBulkLaunching.value = false
+  }
+}
+
+watch(studentRows, (rows) => {
+  const validIds = new Set(rows.map((student) => student.id))
+  selectedStudentIds.value = selectedStudentIds.value.filter((id) => validIds.has(id))
 })
 
 const goBack = () => {
@@ -1088,6 +1296,29 @@ const rootObjectUrl = (name: string) =>
     object: name,
   })
 
+const deleteRootObject = async (name: string) => {
+  if (!assessment.value?.id || deletingObject.value) return
+  if (!window.confirm(t('assessment.fileDeleteConfirm', { name }))) return
+  deletingObject.value = name
+  try {
+    const data = await sessionStore.getWsClient().queryWs<{ objects?: string[] }>(
+      'DELETE',
+      '/assessment_object',
+      {
+        hash: assessment.value.id,
+        object: name,
+        locale: String(locale.value),
+      },
+    )
+    rootObjects.value = (data.objects ?? []).filter((objectName) => isDebugObjectName(objectName))
+  } catch (err) {
+    console.error('Error deleting assessment object:', err)
+    window.alert(t('assessment.fileDeleteError'))
+  } finally {
+    deletingObject.value = null
+  }
+}
+
 const eventUrl = (eventId: string) =>
   sessionStore.getWsClient().getWsUrl('/assessment_object', {
     hash: assessment.value?.id ?? '',
@@ -1283,6 +1514,41 @@ loadSubjects()
 .student-row:last-child {
   border-bottom-left-radius: 14px;
   border-bottom-right-radius: 14px;
+}
+
+.student-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.student-bulk-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.student-bulk-action {
+  min-width: 10rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.student-select {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 0.35rem;
+  cursor: pointer;
 }
 
 .entity-name {

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pycorrai.clients.exceptions import UnsupportedModelError
+
 from .claude_sonnet_client import ClaudeSonnetClient
 from .deepseek_v32_client import DeepSeekV32Client
 from .gemini3_client import Gemini3Client
@@ -36,4 +38,4 @@ class LlmClientFactory:
             return Gemini3Client(model)
         if "mistral" in lower:
             return MistralLargeClient()
-        raise Exception("Model not supported: " + model)
+        raise UnsupportedModelError(model)

@@ -9,6 +9,7 @@ from pycorrai.store.metadata_cache import (
     invalidate_assessment,
     invalidate_for_path,
 )
+from pycorrai.store.keys import ObjectStoreKeys
 from pycorrai.store.object_store import (
     ATTR_FILE,
     CONTENT_FILE,
@@ -30,6 +31,7 @@ __all__ = [
     "MARKUP_ANNOTATIONS_FILE",
     "OCR_RESULT_FILE",
     "ObjectStore",
+    "ObjectStoreKeys",
     "SCHEMA",
     "StoreConflictException",
     "THUMBNAIL_FILE",

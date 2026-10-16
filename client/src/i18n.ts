@@ -182,6 +182,13 @@ export interface I18nSchema {
     addCopies: string
     studentsHeading: string
     studentsEmpty: string
+    bulkSelectAll: string
+    bulkActionTranscribe: string
+    bulkActionCorrect: string
+    bulkLaunch: string
+    bulkModelTitle: string
+    bulkModelLabel: string
+    bulkActionError: string
     assessedStudentsNumber: string
     markAverage: string
     markMin: string

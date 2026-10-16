@@ -163,6 +163,15 @@ class ParseQueueMessageTest(unittest.TestCase):
             treat_assessment_task("create_strict_correction_grid", "a1")
         assessment.create_strict_correction_grid.assert_called_once_with()
 
+    def test_treat_assessment_task_dispatches_math_grid(self) -> None:
+        assessment = MagicMock()
+        with patch(
+            "pycorrai.model.assessment.Assessment.from_hash",
+            return_value=assessment,
+        ):
+            treat_assessment_task("create_math_correction_grid", "a1")
+        assessment.create_math_correction_grid.assert_called_once_with()
+
     def test_treat_assessment_task_dispatches_google_vision_ocr_unclassified(
         self,
     ) -> None:
@@ -173,6 +182,123 @@ class ParseQueueMessageTest(unittest.TestCase):
         ):
             treat_assessment_task("google_vision_ocr_unclassified", "a1")
         assessment.google_vision_ocr_unclassified.assert_called_once_with()
+
+    def test_assessment_task_ticket_with_student_ids_and_model(self) -> None:
+        self.assertEqual(
+            parse_queue_message(
+                json.dumps(
+                    {
+                        "assessment_id": "a1",
+                        "task": "correct_students",
+                        "student_ids": ["s1", "s2"],
+                        "model": "openai/gpt-6.1-sol",
+                    }
+                )
+            ),
+            {
+                "kind": "task",
+                "task": "correct_students",
+                "assessment_id": "a1",
+                "student_ids": ["s1", "s2"],
+                "model": "openai/gpt-6.1-sol",
+            },
+        )
+
+    def test_enqueue_assessment_task_with_extras(self) -> None:
+        redis = MagicMock()
+        enqueue_assessment_task(
+            "a1",
+            "correct_students",
+            redis=redis,
+            student_ids=["s1"],
+            model="openai/gpt-6.1-sol",
+        )
+        _key, payload = redis.lpush.call_args.args
+        self.assertEqual(
+            json.loads(payload),
+            {
+                "assessment_id": "a1",
+                "task": "correct_students",
+                "student_ids": ["s1"],
+                "model": "openai/gpt-6.1-sol",
+            },
+        )
+
+    def test_treat_assessment_task_dispatches_correct_students(self) -> None:
+        assessment = MagicMock()
+        student = MagicMock()
+        client = MagicMock()
+        with (
+            patch(
+                "pycorrai.model.assessment.Assessment.from_hash",
+                return_value=assessment,
+            ),
+            patch(
+                "pycorrai.model.student.Student.from_hash",
+                return_value=student,
+            ),
+            patch(
+                "pycorrai.clients.openrouter.LlmClientFactory.create",
+                return_value=client,
+            ) as create_client,
+        ):
+            treat_assessment_task(
+                "correct_students",
+                "a1",
+                student_ids=["s1"],
+                model="openai/gpt-6.1-sol",
+            )
+        create_client.assert_called_once_with("openai/gpt-6.1-sol")
+        assessment.correct_students.assert_called_once_with([student], client)
+
+    def test_treat_assessment_task_dispatches_jev_correct_students(self) -> None:
+        assessment = MagicMock()
+        student = MagicMock()
+        with (
+            patch(
+                "pycorrai.model.assessment.Assessment.from_hash",
+                return_value=assessment,
+            ),
+            patch(
+                "pycorrai.model.student.Student.from_hash",
+                return_value=student,
+            ),
+        ):
+            treat_assessment_task(
+                "jev_correct_students",
+                "a1",
+                student_ids=["s1", "s2"],
+            )
+        assessment.jev_correct_students.assert_called_once_with([student, student])
+
+    def test_treat_assessment_task_dispatches_math_correct_students(self) -> None:
+        assessment = MagicMock()
+        student = MagicMock()
+        client = MagicMock()
+        with (
+            patch(
+                "pycorrai.model.assessment.Assessment.from_hash",
+                return_value=assessment,
+            ),
+            patch(
+                "pycorrai.model.student.Student.from_hash",
+                return_value=student,
+            ),
+            patch(
+                "pycorrai.clients.openrouter.LlmClientFactory.create",
+                return_value=client,
+            ) as create_client,
+        ):
+            treat_assessment_task(
+                "math_correct_students",
+                "a1",
+                student_ids=["s1"],
+                model="anthropic/claude-sonnet-5.5",
+            )
+        create_client.assert_called_once_with("anthropic/claude-sonnet-5.5")
+        assessment.math_correct_students.assert_called_once_with(
+            [student], client, "anthropic/claude-sonnet-5.5"
+        )
 
 
 class KeyDerivationTest(unittest.TestCase):
@@ -282,8 +408,8 @@ class TreatTest(unittest.TestCase):
         redis = MagicMock()
         words = [{"text": "hi", "page": 0, "box": [0, 0, 1, 1]}]
 
-        with patch("pycorrai.consumer.event_key") as mock_event_key, self.assertLogs(
-            "pycorrai.consumer", level="INFO"
+        with patch("pycorrai.worker.ocr_job.event_key") as mock_event_key, self.assertLogs(
+            "pycorrai.worker.ocr_job", level="INFO"
         ) as log_capture:
             mock_event_key.side_effect = [
                 "schools/s1/teachers/t1/assessments/e1/files/f1/events/1-aaaaaaaa.json",
@@ -364,7 +490,7 @@ class TreatTest(unittest.TestCase):
         store = ObjectStore(client=client, bucket="corrai")
         redis = MagicMock()
 
-        with self.assertLogs("pycorrai.consumer", level="INFO") as log_capture:
+        with self.assertLogs("pycorrai.worker.ocr_job", level="INFO") as log_capture:
             treat(
                 CONTENT_PATH,
                 "fr",
@@ -398,8 +524,9 @@ class TreatTest(unittest.TestCase):
         store = ObjectStore(client=client, bucket="corrai")
         redis = MagicMock()
 
-        with patch("pycorrai.consumer.time.perf_counter", side_effect=[100.0, 100.350]), \
-             self.assertLogs("pycorrai.consumer", level="INFO") as log_capture:
+        with patch(
+            "pycorrai.worker.ocr_job.time.perf_counter", side_effect=[100.0, 100.350]
+        ), self.assertLogs("pycorrai.worker.ocr_job", level="INFO") as log_capture:
             treat(
                 CONTENT_PATH,
                 "fr",
@@ -463,7 +590,7 @@ class PublishStatusTest(unittest.TestCase):
             "os.environ",
             {"NCHAN_PUBLISH_URL": "https://127.0.0.1/corrai_test/internal/pub"},
             clear=False,
-        ), patch("pycorrai.consumer.urllib.request.urlopen", urlopen):
+        ), patch("pycorrai.worker.ocr_job.urllib.request.urlopen", urlopen):
             publish_assessment_status(CONTENT_PATH, "ocr_done")
 
         self.assertEqual(

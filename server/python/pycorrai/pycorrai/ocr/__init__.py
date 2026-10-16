@@ -3,14 +3,26 @@
 from pycorrai.ocr.dispatch import DEFAULT_ENGINE, ENGINES, recognize, recognize_bytes
 from pycorrai.ocr.gemini_flash_ocr import GeminiFlashOcr, gemini_flash_ocr
 from pycorrai.ocr.google_vision_ocr import GoogleVisionOcr, google_vision_ocr
+from pycorrai.ocr.providers import (
+    GoogleOCRClient,
+    MindeeOCR,
+    MissingCredentialsException,
+    MistralOcrClient,
+    Vision,
+)
 
 __all__ = [
     "DEFAULT_ENGINE",
     "ENGINES",
     "GeminiFlashOcr",
     "gemini_flash_ocr",
+    "GoogleOCRClient",
     "GoogleVisionOcr",
     "google_vision_ocr",
+    "MindeeOCR",
+    "MissingCredentialsException",
+    "MistralOcrClient",
+    "Vision",
     "recognize",
     "recognize_bytes",
 ]

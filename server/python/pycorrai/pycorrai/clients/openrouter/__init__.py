@@ -17,13 +17,14 @@ from .jev_client import (
     ScoreAnswer,
 )
 from .mistral_large_client import MistralLargeClient
-from .openrouter_client import OpenrouterClient
+from .openrouter_client import ConfigurableOpenrouterClient, OpenrouterClient
 from .qwen25_vl72b_instruct_client import Qwen25Vl72bInstructClient
 
 create = LlmClientFactory.create
 
 __all__ = [
     "OpenrouterClient",
+    "ConfigurableOpenrouterClient",
     "LlmClientFactory",
     "create",
     "ClaudeSonnetClient",

@@ -69,7 +69,14 @@
               {{ t('assessment.fileAnnexesEmpty') }}
             </li>
             <li v-for="name in storedFiles" :key="name">
-              <S3File :label="name" :href="objectUrl(file, name)" :test-id="s3TestId(name)" />
+              <S3File
+                :label="name"
+                :href="objectUrl(file, name)"
+                :test-id="s3TestId(name)"
+                deletable
+                :deleting="deletingObject === name"
+                @delete="deleteStoredObject(file, name)"
+              />
             </li>
           </ul>
         </div>
@@ -409,6 +416,7 @@ const deleteTarget = ref<AssessmentFile | null>(null)
 const directoryFileId = ref<string | null>(null)
 const directoryLoading = ref(false)
 const storedFiles = ref<string[]>([])
+const deletingObject = ref<string | null>(null)
 
 interface FileEvent {
   id: string
@@ -524,6 +532,33 @@ const loadDirectory = async (file: AssessmentFile) => {
     if (directoryFileId.value === file.id) {
       directoryLoading.value = false
     }
+  }
+}
+
+const deleteStoredObject = async (file: AssessmentFile, name: string) => {
+  if (deletingObject.value) return
+  if (!window.confirm(t('assessment.fileDeleteConfirm', { name }))) return
+  deletingObject.value = name
+  try {
+    const data = await sessionStore.getWsClient().queryWs<{ objects?: string[] }>(
+      'DELETE',
+      '/file',
+      {
+        assessment: props.assessmentId,
+        file: file.id,
+        object: name,
+        locale: String(locale.value),
+      },
+    )
+    if (directoryFileId.value !== file.id) return
+    storedFiles.value = (data.objects ?? []).filter(
+      (objectName) => objectName !== 'content' && objectName !== '',
+    )
+  } catch (err) {
+    console.error('Error deleting file object:', err)
+    window.alert(t('assessment.fileDeleteError'))
+  } finally {
+    deletingObject.value = null
   }
 }
 

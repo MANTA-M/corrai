@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 import httpx
 
-from pycorrai.clients.google.vision import Vision
+from pycorrai.ocr.providers.google_vision import Vision
 from pycorrai.config import env
 from pycorrai.model.input_file import InputFile
 from pycorrai.model.ocr_result import OCRResult

@@ -53,6 +53,11 @@
       <path d="M5 12h14" />
       <path d="M5 18h9" />
     </template>
+    <template v-else-if="name === 'trash'">
+      <path d="M5 7h14" />
+      <path d="M9 7V5h6v2" />
+      <path d="M8 7l.8 12h6.4L16 7" />
+    </template>
     <template v-else>
       <path d="M5 7h14" />
       <path d="M9 7V5h6v2" />

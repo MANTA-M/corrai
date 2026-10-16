@@ -1,7 +1,7 @@
 [project]
 name = "pycorrai"
 version = "0.1.0"
-description = "OCR a document and print each word with its coordinates as JSON."
+description = "Corrai Python workers: OCR, LLM correction, and Redis assessment tasks."
 requires-python = ">=3.10"
 dependencies = [
     "paddleocr>=3.7.0,<3.8.0",

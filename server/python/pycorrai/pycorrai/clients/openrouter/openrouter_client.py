@@ -6,12 +6,15 @@ import base64
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 from pycorrai.config import ensure_env_loaded, env
 from pycorrai.http.rest import AIError, LlmClient, raise_ai_on_402
 
 _DATA_URL_RE = re.compile(r"^data:([^;]+);base64,(.+)$", re.DOTALL)
+
+AddFileStrategy = Callable[["OpenrouterClient", str, str], None]
 
 
 class OpenrouterClient(LlmClient, ABC):
@@ -212,3 +215,14 @@ class OpenrouterClient(LlmClient, ABC):
         except Exception as th:
             raise_ai_on_402(th)
             raise  # pragma: no cover — raise_ai_on_402 always raises
+
+
+class ConfigurableOpenrouterClient(OpenrouterClient):
+    """OpenRouter client configured with a model name and an add_file strategy."""
+
+    def __init__(self, model: str, add_file_strategy: AddFileStrategy) -> None:
+        super().__init__(model)
+        self._add_file_strategy = add_file_strategy
+
+    def add_file(self, file_path: str, file_name: str) -> None:
+        self._add_file_strategy(self, file_path, file_name)

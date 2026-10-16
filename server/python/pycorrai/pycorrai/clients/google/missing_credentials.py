@@ -1,5 +1,6 @@
-"""Raised when Google Vision credentials are missing or unreadable."""
+"""Backward-compatible re-export; implementation lives in ocr.providers."""
 
+from pycorrai.ocr.providers.missing_credentials import *  # noqa: F403
+from pycorrai.ocr.providers.missing_credentials import MissingCredentialsException
 
-class MissingCredentialsException(RuntimeError):
-    """Google Vision was used without a readable service-account key file."""
+__all__ = ["MissingCredentialsException"]

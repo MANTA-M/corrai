@@ -132,7 +132,7 @@ class DetectPageTest(unittest.TestCase):
 
 class OrientationModelTest(unittest.TestCase):
     def test_classify_reads_the_model_label(self) -> None:
-        import pycorrai.page as page
+        import pycorrai.image.page as page
 
         fake = MagicMock()
         fake.predict.return_value = [{"label_names": [["270"]], "scores": [[0.99]]}]
