@@ -42,9 +42,18 @@
               type="button"
               :class="textButtonClass(item)"
               :data-testid="`student-action-${item.key}`"
-              :disabled="isUpdatingStudent && (item.key === 'rename' || item.key === 'delete')"
+              :disabled="
+                (isUpdatingStudent && (item.key === 'rename' || item.key === 'delete')) ||
+                isStudentActionPending(item.key)
+              "
+              :aria-busy="isStudentActionPending(item.key) || undefined"
               @click="onStudentAction(item.key)"
             >
+              <span
+                v-if="isStudentActionPending(item.key)"
+                class="loading-spinner"
+                aria-hidden="true"
+              ></span>
               {{ item.label }}
             </button>
             <router-link
@@ -240,6 +249,7 @@
 import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { toast } from 'vue3-toastify'
 import { useSessionStore } from '@/stores/session'
 import AssessmentFileList from '@/components/AssessmentFileList.vue'
 import AttributesEditorPopup from '@/components/AttributesEditorPopup.vue'
@@ -304,6 +314,17 @@ const renameOpen = ref(false)
 const renameStudentDraft = ref('')
 const renameStudentInput = ref<HTMLInputElement | null>(null)
 const deleteOpen = ref(false)
+const pendingStudentActions = ref<Set<string>>(new Set())
+const toastOpts = { position: toast.POSITION.TOP_CENTER }
+
+const isStudentActionPending = (action: string) => pendingStudentActions.value.has(action)
+
+const setStudentActionPending = (action: string, pending: boolean) => {
+  const next = new Set(pendingStudentActions.value)
+  if (pending) next.add(action)
+  else next.delete(action)
+  pendingStudentActions.value = next
+}
 
 const textButtonClass = (item: MenuItem) => {
   if (item.key === 'delete' || item.color === '#c93b45') return 'button delete'
@@ -312,8 +333,9 @@ const textButtonClass = (item: MenuItem) => {
 }
 
 const transcribeStudent = async () => {
-  if (!assessment.value?.id || !studentId.value) return
+  if (!assessment.value?.id || !studentId.value || isStudentActionPending('transcribe')) return
   studentActionError.value = ''
+  setStudentActionPending('transcribe', true)
   try {
     const response = await sessionStore.getWsClient().queryWs<
       {
@@ -329,14 +351,19 @@ const transcribeStudent = async () => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
+    toast.success(t('assessment.studentTranscribeSuccess'), toastOpts)
   } catch (err) {
     console.error('Error transcribing student:', err)
+    toast.error(t('assessment.studentTranscribeError'), toastOpts)
+  } finally {
+    setStudentActionPending('transcribe', false)
   }
 }
 
 const geminiOcrStudent = async () => {
-  if (!assessment.value?.id || !studentId.value) return
+  if (!assessment.value?.id || !studentId.value || isStudentActionPending('gemini_ocr')) return
   studentActionError.value = ''
+  setStudentActionPending('gemini_ocr', true)
   try {
     const response = await sessionStore.getWsClient().queryWs<
       {
@@ -352,14 +379,19 @@ const geminiOcrStudent = async () => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
+    toast.success(t('assessment.googleVisionOcrSuccess'), toastOpts)
   } catch (err) {
     console.error('Error running Gemini OCR for student:', err)
+    toast.error(t('assessment.googleVisionOcrError'), toastOpts)
+  } finally {
+    setStudentActionPending('gemini_ocr', false)
   }
 }
 
 const correctStudent = async () => {
-  if (!assessment.value?.id || !studentId.value) return
+  if (!assessment.value?.id || !studentId.value || isStudentActionPending('correct')) return
   studentActionError.value = ''
+  setStudentActionPending('correct', true)
   try {
     const response = await sessionStore.getWsClient().queryWs<
       {
@@ -375,8 +407,12 @@ const correctStudent = async () => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
+    toast.success(t('assessment.studentCorrectSuccess'), toastOpts)
   } catch (err) {
     console.error('Error correcting student:', err)
+    toast.error(t('assessment.studentCorrectError'), toastOpts)
+  } finally {
+    setStudentActionPending('correct', false)
   }
 }
 

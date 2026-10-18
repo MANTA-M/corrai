@@ -332,8 +332,10 @@
             class="button secondary"
             data-testid="assessment-test-correction"
             :disabled="isTestingCorrection"
+            :aria-busy="isTestingCorrection || undefined"
             @click="launchTestCorrection"
           >
+            <span v-if="isTestingCorrection" class="loading-spinner" aria-hidden="true"></span>
             {{ t('assessment.testCorrection') }}
           </button>
           <p v-if="testCorrectionError" class="error-message">{{ testCorrectionError }}</p>
@@ -671,9 +673,15 @@ const launchTestCorrection = async () => {
       return
     }
     testCorrectionError.value = t('assessment.startCorrectionError')
+    toast.error(t('assessment.startCorrectionError'), {
+      position: toast.POSITION.TOP_CENTER,
+    })
   } catch (err) {
     console.error('Error starting test correction:', err)
     testCorrectionError.value = t('assessment.startCorrectionError')
+    toast.error(t('assessment.startCorrectionError'), {
+      position: toast.POSITION.TOP_CENTER,
+    })
   } finally {
     isTestingCorrection.value = false
   }

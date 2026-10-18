@@ -5,9 +5,11 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
+from pycorrai.clients.mistral import MistralClient
 from pycorrai.clients.openrouter import LlmClientFactory
 from pycorrai.clients.openrouter.claude_sonnet_client import ClaudeSonnetClient
 from pycorrai.clients.openrouter.deepseek_v32_client import DeepSeekV32Client
+from pycorrai.clients.openrouter.factory import native_mistral_model_id
 from pycorrai.clients.openrouter.gemini3_client import Gemini3Client
 from pycorrai.clients.openrouter.gemini_flash_client import GeminiFlashClient
 from pycorrai.clients.openrouter.gemini_flash_lite_client import GeminiFlashLiteClient
@@ -31,12 +33,21 @@ class FactoryRoutingTest(unittest.TestCase):
             ("google/gemini-3.1-flash-lite", GeminiFlashLiteClient),
             ("google/gemini-3.8-flash", GeminiFlashClient),
             ("google/gemini-3.1-pro-preview", Gemini3Client),
-            ("mistralai/mistral-large", MistralLargeClient),
+            ("mistral-large-latest", MistralClient),
+            ("mistralai/mistral-large-2512", MistralClient),
         ]
         for model, cls in cases:
             with self.subTest(model=model):
                 client = LlmClientFactory.create(model)
                 self.assertIsInstance(client, cls)
+
+    def test_mistral_uses_direct_api_model_id(self) -> None:
+        client = LlmClientFactory.create("mistralai/mistral-large")
+        self.assertIsInstance(client, MistralClient)
+        self.assertEqual(client.payload["model"], "mistral-large-latest")
+        self.assertEqual(
+            native_mistral_model_id("mistral-large-latest"), "mistral-large-latest"
+        )
 
     def test_unsupported(self) -> None:
         with self.assertRaises(Exception) as ctx:

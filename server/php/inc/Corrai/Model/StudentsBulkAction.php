@@ -26,7 +26,8 @@ class StudentsBulkAction
 
     public const GPT_MODEL_ID = 'openai/gpt-6.1-sol';
     public const CLAUDE_MODEL_ID = 'anthropic/claude-sonnet-5.5';
-    public const MISTRAL_MODEL_ID = 'mistralai/mistral-large';
+    /** Native Mistral API model (direct client, not OpenRouter). */
+    public const MISTRAL_MODEL_ID = 'mistral-large-latest';
     public const GEMINI_MODEL_ID = 'google/gemini-3.1-pro-preview';
 
     /** @var list<string> */

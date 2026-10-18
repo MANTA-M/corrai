@@ -1336,8 +1336,41 @@ abstract class BaseAssessment implements HasStatusInterface, HasI18nInterface, H
 
     public function getStudent(string $studentId): BaseStudent
     {
+        $studentId = trim($studentId);
+        if ($studentId === '') {
+            throw new WSException('Student id is required', 400);
+        }
+
         $studentClass = $this->studentClass();
-        $student = $studentClass::from_hash($studentId);
+        $store = ObjectStore::getInstance();
+
+        // Prefer assessment-scoped attrs: works even when the global _id/ pointer is missing.
+        $attrKey = ObjectStore::assessmentStudentAttrKey(
+            $this->school_id,
+            $this->user_id,
+            (string) $this->id,
+            $studentId
+        );
+        if ($store->exists($attrKey)) {
+            $loaded = $store->getJson($attrKey);
+            /** @var BaseStudent $student */
+            $student = $studentClass::from_array($loaded['data'] ?? []);
+            $student->id = $studentId;
+            $student->school_id = $this->school_id;
+            $student->user_id = $this->user_id;
+            $student->assessment_id = (string) $this->id;
+            $student->etag = $loaded['etag'] ?? null;
+            if (!$store->exists(ObjectStore::idIndexKey($studentId))) {
+                $store->setIdPointer($studentId, $student->prefix());
+            }
+            return $student;
+        }
+
+        try {
+            $student = $studentClass::from_hash($studentId);
+        } catch (\Throwable $e) {
+            throw new WSException("Student '$studentId' not found", 404, $e);
+        }
         if (
             $student->school_id !== $this->school_id
             || $student->user_id !== $this->user_id

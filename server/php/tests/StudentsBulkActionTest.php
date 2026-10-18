@@ -11,6 +11,7 @@ use Corrai\Subject\LawFrance\Assessment as LawAssessment;
 use Corrai\Subject\Math\Assessment as MathAssessment;
 use Corrai\Model\School;
 use Corrai\Utils\Http\WSException;
+use Corrai\Utils\Store\ObjectStore;
 use PHPUnit\Framework\TestCase;
 use Redis;
 
@@ -185,6 +186,42 @@ class StudentsBulkActionTest extends TestCase
             [(string) $student->id],
             StudentsBulkAction::ACTION_CORRECT,
             StudentsBulkAction::MODEL_JEV
+        );
+    }
+
+    public function testBulkCorrectRepairsMissingStudentIdPointer(): void
+    {
+        [$assessment, $student] = $this->createMathAssessmentWithOneStudent('ptr');
+        $studentId = (string) $student->id;
+        ObjectStore::getInstance()->deleteIdPointer($studentId);
+
+        $this->queuedOcr = [];
+        StudentsBulkAction::run(
+            $assessment,
+            [$studentId],
+            StudentsBulkAction::ACTION_CORRECT,
+            StudentsBulkAction::MODEL_CLAUDE
+        );
+
+        $this->assertCount(1, $this->queuedOcr);
+        $this->assertTrue(ObjectStore::getInstance()->exists(ObjectStore::idIndexKey($studentId)));
+        $this->assertSame(
+            'under_correction',
+            $assessment->getStudent($studentId)->status
+        );
+    }
+
+    public function testBulkCorrectUnknownStudentReturnsNotFound(): void
+    {
+        [$assessment] = $this->createMathAssessmentWithOneStudent('missing');
+
+        $this->expectException(WSException::class);
+        $this->expectExceptionCode(404);
+        StudentsBulkAction::run(
+            $assessment,
+            ['NOTAREAL'],
+            StudentsBulkAction::ACTION_CORRECT,
+            StudentsBulkAction::MODEL_CLAUDE
         );
     }
 

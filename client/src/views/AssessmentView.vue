@@ -140,14 +140,15 @@
             type="button"
             :class="textButtonClass(item)"
             :data-testid="assessmentTestId(item.key)"
-            :disabled="
-              ((item.key === 'test_correction' || item.key === 'start_correction') &&
-                isStartingCorrection) ||
-              (item.key === 'create_correction_grid' && isCreatingCorrectionGrid) ||
-              (item.key === 'google_vision_ocr_unclassified' && isRunningGoogleVisionOcr)
-            "
+            :disabled="isPageActionBusy(item.key)"
+            :aria-busy="isPageActionBusy(item.key) || undefined"
             @click="onAssessmentAction(item.key)"
           >
+            <span
+              v-if="isPageActionBusy(item.key)"
+              class="loading-spinner"
+              aria-hidden="true"
+            ></span>
             {{ item.label }}
           </button>
         </div>
@@ -183,8 +184,10 @@
               class="button primary"
               data-testid="student-bulk-launch"
               :disabled="selectedStudentIds.length === 0 || isBulkLaunching"
+              :aria-busy="isBulkLaunching || undefined"
               @click="onBulkLaunch"
             >
+              <span v-if="isBulkLaunching" class="loading-spinner" aria-hidden="true"></span>
               {{ t('assessment.bulkLaunch') }}
             </button>
           </div>
@@ -237,6 +240,8 @@
                   :key="item.key"
                   :item="item"
                   :test-id="`student-${item.key}`"
+                  :loading="isStudentActionPending(student.id, item.key)"
+                  :disabled="isStudentActionPending(student.id, item.key)"
                   @click="onStudentAction(student, item.key)"
                 />
               </div>
@@ -329,8 +334,10 @@
           class="button primary"
           data-testid="bulk-model-confirm"
           :disabled="isBulkLaunching"
+          :aria-busy="isBulkLaunching || undefined"
           @click="confirmBulkCorrect"
         >
+          <span v-if="isBulkLaunching" class="loading-spinner" aria-hidden="true"></span>
           {{ t('assessment.bulkLaunch') }}
         </button>
       </div>
@@ -378,8 +385,10 @@
           class="button primary"
           data-testid="start-correction-launch"
           :disabled="isStartingCorrection"
+          :aria-busy="isStartingCorrection || undefined"
           @click="launchCorrection"
         >
+          <span v-if="isStartingCorrection" class="loading-spinner" aria-hidden="true"></span>
           {{ t('assessment.startCorrectionLaunch') }}
         </button>
       </div>
@@ -537,7 +546,7 @@ import {
   type MenuItem,
   type StateLocales,
 } from '@/types/types'
-import { isDebugFile, isUnassignedFile } from '@/utils/assessmentFiles'
+import { isUnassignedFile } from '@/utils/assessmentFiles'
 
 const route = useRoute()
 const router = useRouter()
@@ -580,6 +589,27 @@ const isCreatingCorrectionGrid = ref(false)
 const isRunningGoogleVisionOcr = ref(false)
 const startCorrectionError = ref('')
 const studentActionError = ref('')
+const pendingStudentActions = ref<Set<string>>(new Set())
+
+const toastOpts = { position: toast.POSITION.TOP_CENTER }
+
+const studentActionKey = (studentId: string, action: string) => `${studentId}:${action}`
+
+const isStudentActionPending = (studentId: string, action: string) =>
+  pendingStudentActions.value.has(studentActionKey(studentId, action))
+
+const setStudentActionPending = (studentId: string, action: string, pending: boolean) => {
+  const next = new Set(pendingStudentActions.value)
+  const key = studentActionKey(studentId, action)
+  if (pending) next.add(key)
+  else next.delete(key)
+  pendingStudentActions.value = next
+}
+
+const isPageActionBusy = (key: string) =>
+  ((key === 'test_correction' || key === 'start_correction') && isStartingCorrection.value) ||
+  (key === 'create_correction_grid' && isCreatingCorrectionGrid.value) ||
+  (key === 'google_vision_ocr_unclassified' && isRunningGoogleVisionOcr.value)
 const renameStudent = ref<AssessmentStudent | null>(null)
 const renameStudentDraft = ref('')
 const renameStudentInput = ref<HTMLInputElement | null>(null)
@@ -766,17 +796,9 @@ const showAssessmentStats = computed(
 )
 
 const studentRows = computed(() => {
-  const byId = new Map<string, AssessmentStudent>()
-  for (const student of students.value) {
-    byId.set(student.id, student)
-  }
-  for (const file of files.value) {
-    if (isDebugFile(file) && !sessionStore.debugMode) continue
-    const id = (file.student ?? '').trim()
-    if (!id || byId.has(id)) continue
-    byId.set(id, { id, name: (file.student_name ?? '').trim() || id })
-  }
-  return [...byId.values()].sort((a, b) =>
+  // Only real student entities — synthetic rows from file.student refs can point
+  // at hashes without an _id/ pointer and break bulk correct/transcribe.
+  return [...students.value].sort((a, b) =>
     a.name.localeCompare(b.name, String(locale.value || 'fr')),
   )
 })
@@ -830,7 +852,7 @@ const launchBulkAction = async (
   action: 'transcribe' | 'correct',
   model?: 'claude' | 'mistral' | 'gemini' | 'gpt' | 'jev',
 ) => {
-  if (!assessment.value?.id || selectedStudentIds.value.length === 0) return
+  if (!assessment.value?.id || selectedStudentIds.value.length === 0 || isBulkLaunching.value) return
   isBulkLaunching.value = true
   bulkActionError.value = ''
   try {
@@ -867,9 +889,16 @@ const launchBulkAction = async (
     }
     showModelPopup.value = false
     selectedStudentIds.value = []
+    toast.success(
+      action === 'transcribe'
+        ? t('assessment.studentTranscribeSuccess')
+        : t('assessment.studentCorrectSuccess'),
+      toastOpts,
+    )
   } catch (err) {
     console.error('Error launching bulk student action:', err)
     bulkActionError.value = t('assessment.bulkActionError')
+    toast.error(t('assessment.bulkActionError'), toastOpts)
   } finally {
     isBulkLaunching.value = false
   }
@@ -942,12 +971,11 @@ const createCorrectionGrid = async () => {
       id: assessment.value.id,
       locale: String(locale.value),
     })
-    toast.success(t('assessment.correctionGridSuccess'), {
-      position: toast.POSITION.TOP_CENTER,
-    })
+    toast.success(t('assessment.correctionGridSuccess'), toastOpts)
   } catch (err) {
     console.error('Error creating correction grid:', err)
     error.value = t('assessment.correctionGridError')
+    toast.error(t('assessment.correctionGridError'), toastOpts)
   } finally {
     isCreatingCorrectionGrid.value = false
   }
@@ -962,12 +990,11 @@ const runGoogleVisionOcr = async () => {
       id: assessment.value.id,
       locale: String(locale.value),
     })
-    toast.success(t('assessment.googleVisionOcrSuccess'), {
-      position: toast.POSITION.TOP_CENTER,
-    })
+    toast.success(t('assessment.googleVisionOcrSuccess'), toastOpts)
   } catch (err) {
     console.error('Error starting Google Vision OCR:', err)
     error.value = t('assessment.googleVisionOcrError')
+    toast.error(t('assessment.googleVisionOcrError'), toastOpts)
   } finally {
     isRunningGoogleVisionOcr.value = false
   }
@@ -987,23 +1014,23 @@ const launchTestCorrection = async () => {
     })
     if (response?.files) {
       applyUpdate(response.files, response.students)
-      toast.success(t('assessment.startCorrectionSuccess'), {
-        position: toast.POSITION.TOP_CENTER,
-      })
+      toast.success(t('assessment.startCorrectionSuccess'), toastOpts)
       return
     }
     startCorrectionError.value = t('assessment.startCorrectionError')
+    toast.error(t('assessment.startCorrectionError'), toastOpts)
   } catch (err) {
     console.error('Error starting test correction:', err)
     startCorrectionError.value = t('assessment.startCorrectionError')
     error.value = t('assessment.startCorrectionError')
+    toast.error(t('assessment.startCorrectionError'), toastOpts)
   } finally {
     isStartingCorrection.value = false
   }
 }
 
 const launchCorrection = async () => {
-  if (!assessment.value?.id) return
+  if (!assessment.value?.id || isStartingCorrection.value) return
   startCorrectionError.value = ''
   isStartingCorrection.value = true
   try {
@@ -1023,17 +1050,17 @@ const launchCorrection = async () => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
       showStartCorrection.value = false
-      toast.success(t('assessment.startCorrectionSuccess'), {
-        position: toast.POSITION.TOP_CENTER,
-      })
+      toast.success(t('assessment.startCorrectionSuccess'), toastOpts)
       isStartingCorrection.value = false
       return
     }
     startCorrectionError.value = t('assessment.startCorrectionError')
+    toast.error(t('assessment.startCorrectionError'), toastOpts)
     isStartingCorrection.value = false
   } catch (err) {
     console.error('Error starting correction:', err)
     startCorrectionError.value = t('assessment.startCorrectionError')
+    toast.error(t('assessment.startCorrectionError'), toastOpts)
     isStartingCorrection.value = false
   }
 }
@@ -1063,12 +1090,11 @@ const handleCheckoutReturn = async () => {
       locale: String(locale.value),
     })
     if (response?.files) applyUpdate(response.files, response.students)
-    toast.success(t('assessment.startCorrectionSuccess'), {
-      position: toast.POSITION.TOP_CENTER,
-    })
+    toast.success(t('assessment.startCorrectionSuccess'), toastOpts)
   } catch (err) {
     console.error('Error confirming correction payment:', err)
     startCorrectionError.value = t('assessment.startCorrectionPaymentError')
+    toast.error(t('assessment.startCorrectionPaymentError'), toastOpts)
     showStartCorrection.value = true
   } finally {
     isStartingCorrection.value = false
@@ -1163,8 +1189,9 @@ const submitDeleteStudent = async () => {
 }
 
 const transcribeStudent = async (student: AssessmentStudent) => {
-  if (!assessment.value?.id || !student.id) return
+  if (!assessment.value?.id || !student.id || isStudentActionPending(student.id, 'transcribe')) return
   studentActionError.value = ''
+  setStudentActionPending(student.id, 'transcribe', true)
   try {
     const response = await sessionStore.getWsClient().queryWs<
       {
@@ -1180,14 +1207,19 @@ const transcribeStudent = async (student: AssessmentStudent) => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
+    toast.success(t('assessment.studentTranscribeSuccess'), toastOpts)
   } catch (err) {
     console.error('Error transcribing student:', err)
+    toast.error(t('assessment.studentTranscribeError'), toastOpts)
+  } finally {
+    setStudentActionPending(student.id, 'transcribe', false)
   }
 }
 
 const geminiOcrStudent = async (student: AssessmentStudent) => {
-  if (!assessment.value?.id || !student.id) return
+  if (!assessment.value?.id || !student.id || isStudentActionPending(student.id, 'gemini_ocr')) return
   studentActionError.value = ''
+  setStudentActionPending(student.id, 'gemini_ocr', true)
   try {
     const response = await sessionStore.getWsClient().queryWs<
       {
@@ -1203,14 +1235,19 @@ const geminiOcrStudent = async (student: AssessmentStudent) => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
+    toast.success(t('assessment.googleVisionOcrSuccess'), toastOpts)
   } catch (err) {
     console.error('Error running Gemini OCR for student:', err)
+    toast.error(t('assessment.googleVisionOcrError'), toastOpts)
+  } finally {
+    setStudentActionPending(student.id, 'gemini_ocr', false)
   }
 }
 
 const correctStudent = async (student: AssessmentStudent) => {
-  if (!assessment.value?.id || !student.id) return
+  if (!assessment.value?.id || !student.id || isStudentActionPending(student.id, 'correct')) return
   studentActionError.value = ''
+  setStudentActionPending(student.id, 'correct', true)
   try {
     const response = await sessionStore.getWsClient().queryWs<
       {
@@ -1226,8 +1263,12 @@ const correctStudent = async (student: AssessmentStudent) => {
     if (response?.files) {
       applyUpdate(response.files, response.students)
     }
+    toast.success(t('assessment.studentCorrectSuccess'), toastOpts)
   } catch (err) {
     console.error('Error correcting student:', err)
+    toast.error(t('assessment.studentCorrectError'), toastOpts)
+  } finally {
+    setStudentActionPending(student.id, 'correct', false)
   }
 }
 

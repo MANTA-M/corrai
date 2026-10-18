@@ -2,11 +2,13 @@
 
 namespace Corrai\Clients\Openrouter;
 
+use Corrai\Clients\LlmClient;
+use Corrai\Clients\Mistral\MistralClient;
 use Exception;
 
 class LlmClientFactory
 {
-    public static function create(string $model): OpenrouterClient
+    public static function create(string $model): LlmClient
     {
         if (stripos($model, 'qwen') !== false) {
             return new Qwen25Vl72bInstructClient($model);
@@ -30,8 +32,23 @@ class LlmClientFactory
             return new Gemini3Client($model);
         }
         if (stripos($model, 'mistral') !== false) {
-            return new MistralLargeClient();
+            return new MistralClient(self::nativeMistralModelId($model));
         }
         throw new Exception("Model not supported: " . $model);
+    }
+
+    /**
+     * Map OpenRouter-style slugs (``mistralai/...``) to native Mistral API ids.
+     */
+    public static function nativeMistralModelId(string $model): string
+    {
+        $name = str_contains($model, '/')
+            ? substr($model, (int) strrpos($model, '/') + 1)
+            : $model;
+        $name = trim($name);
+        if ($name === '' || $name === 'mistral-large' || $name === 'mistral-large-2512') {
+            return 'mistral-large-latest';
+        }
+        return $name;
     }
 }

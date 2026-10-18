@@ -2,30 +2,35 @@
   <a
     v-if="href"
     class="icon-button"
-    :class="{ danger: isDanger }"
+    :class="{ danger: isDanger, loading }"
     :href="href"
     target="_blank"
     rel="noopener noreferrer"
     :data-testid="testId"
     :aria-label="item.label"
     :aria-expanded="ariaExpanded"
+    :aria-busy="loading || undefined"
     :title="item.label"
   >
-    <ActionIcon :name="item.icon" />
+    <span v-if="loading" class="loading-spinner" aria-hidden="true"></span>
+    <ActionIcon v-else :name="item.icon" />
     <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ item.label }}</span>
   </a>
   <button
     v-else
     type="button"
     class="icon-button"
-    :class="{ danger: isDanger }"
+    :class="{ danger: isDanger, loading }"
     :data-testid="testId"
     :aria-label="item.label"
     :aria-expanded="ariaExpanded"
+    :aria-busy="loading || undefined"
     :title="item.label"
+    :disabled="disabled || loading"
     @click="emit('click')"
   >
-    <ActionIcon :name="item.icon" />
+    <span v-if="loading" class="loading-spinner" aria-hidden="true"></span>
+    <ActionIcon v-else :name="item.icon" />
     <span class="icon-tooltip" role="tooltip" aria-hidden="true">{{ item.label }}</span>
   </button>
 </template>
@@ -35,12 +40,20 @@ import { computed } from 'vue'
 import ActionIcon from '@/components/ActionIcon.vue'
 import type { MenuItem } from '@/types/types'
 
-const props = defineProps<{
-  item: MenuItem
-  testId: string
-  href?: string
-  ariaExpanded?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    item: MenuItem
+    testId: string
+    href?: string
+    ariaExpanded?: boolean
+    disabled?: boolean
+    loading?: boolean
+  }>(),
+  {
+    disabled: false,
+    loading: false,
+  },
+)
 
 const emit = defineEmits<{
   click: []
@@ -77,6 +90,18 @@ const isDanger = computed(() => props.item.color === '#c93b45')
   color: var(--danger);
 }
 
+.icon-button:disabled,
+.icon-button.loading {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.icon-button:disabled:hover,
+.icon-button.loading:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
 .icon-button :deep(svg) {
   width: 1.15rem;
   height: 1.15rem;
@@ -102,5 +127,10 @@ const isDanger = computed(() => props.item.color === '#c93b45')
 .icon-button:hover .icon-tooltip,
 .icon-button:focus-visible .icon-tooltip {
   opacity: 1;
+}
+
+.icon-button.loading:hover .icon-tooltip,
+.icon-button:disabled:hover .icon-tooltip {
+  opacity: 0;
 }
 </style>

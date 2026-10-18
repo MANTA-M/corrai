@@ -7,7 +7,7 @@ class MistralLargeClient extends OpenrouterClient
 
     public function __construct()
     {
-        parent::__construct("mistralai/mistral-large");
+        parent::__construct("mistralai/mistral-large-2512");
     }
 
     public function add_plugin(string $plugin)
