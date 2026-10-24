@@ -358,7 +358,7 @@ class Request
         if ($allowCors) {
             self::addHeader("Access-Control-Allow-Origin", $origin);
             self::addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            self::addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+            self::addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Api-Key");
             self::addHeader("Access-Control-Expose-Headers", "Last-Modified");
             self::addHeader("Access-Control-Allow-Credentials", "true");
             self::addHeader("Access-Control-Max-Age", "86400"); // 24 hours
